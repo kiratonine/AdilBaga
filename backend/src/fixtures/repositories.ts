@@ -6,6 +6,7 @@ import type {
   ProductCardDto,
   ProductQuery,
 } from '../contracts/catalog';
+import { normalizeProduct } from '../catalog/product-card';
 import type {
   CategoryRepository,
   DashboardRepository,
@@ -47,7 +48,7 @@ const products: ProductCardDto[] = [
     name: 'Молоко Адал 2.5% 500 мл',
     brand: 'Адал',
     category: { slug: 'milk', name: 'Молоко' },
-    imageUrl: 'https://example.com/fixtures/milk-adal.jpg',
+    imageUrl: null,
     attributes: { volumeMl: 500, fatPercent: 2.5 },
     minPrice: 390,
     offers: [
@@ -58,11 +59,49 @@ const products: ProductCardDto[] = [
   },
 ];
 
+// Illustrative points near Aktau, not verified store addresses.
+const locations: DashboardDto['locations'] = [
+  {
+    storeCode: 'DINA',
+    storeName: 'Dina',
+    name: 'Dina — демо-точка',
+    address: 'Актау, демонстрационный адрес (не проверен)',
+    latitude: 43.635,
+    longitude: 51.169,
+  },
+  {
+    storeCode: 'DANA',
+    storeName: 'Dana',
+    name: 'Dana — демо-точка',
+    address: 'Актау, демонстрационный адрес (не проверен)',
+    latitude: 43.645,
+    longitude: 51.181,
+  },
+];
+
 @Injectable()
 export class FixtureProductRepository implements ProductRepository {
-  async findProducts(_query: ProductQuery): Promise<ProductCardDto[]> {
-    // Search, filters and sorting belong to Part 02.
-    return products;
+  async findProducts(query: ProductQuery): Promise<ProductCardDto[]> {
+    const search = query.search?.toLocaleLowerCase();
+    const filtered = products
+      .filter((product) => !query.category || product.category.slug === query.category)
+      .filter((product) => !search || product.name.toLocaleLowerCase().includes(search))
+      .filter((product) => Object.entries(query.filters ?? {}).every(([key, values]) =>
+        values.includes(product.attributes[key] as string | number | boolean),
+      ))
+      .map(normalizeProduct);
+
+    if (query.sort === 'name_asc') {
+      filtered.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    } else if (query.sort === 'price_desc') {
+      filtered.sort((a, b) => b.minPrice - a.minPrice);
+    } else {
+      filtered.sort((a, b) => a.minPrice - b.minPrice);
+    }
+    const offset = query.offset ?? 0;
+    return query.limit === undefined
+      ? filtered.slice(offset)
+      : filtered.slice(offset, offset + query.limit);
   }
 
   async findById(id: string): Promise<ProductCardDto | null> {
@@ -84,15 +123,32 @@ export class FixtureCategoryRepository implements CategoryRepository {
 @Injectable()
 export class FixtureDashboardRepository implements DashboardRepository {
   async getDashboard(): Promise<DashboardDto> {
+    const matched = products.filter((product) =>
+      new Set(product.offers.map((offer) => offer.storeCode)).size >= 2,
+    );
+    const priceSpreads = matched.map((product) => {
+      const prices = product.offers.map((offer) => offer.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      return {
+        productId: product.id,
+        name: product.name,
+        minPrice,
+        maxPrice,
+        differencePercent: Math.round(((maxPrice - minPrice) / minPrice) * 10_000) / 100,
+      };
+    }).sort((a, b) => b.differencePercent - a.differencePercent);
+
     return {
       summary: {
-        canonicalProducts: 2,
-        stores: 2,
-        matchedAcrossStores: 2,
-        snapshotAt,
+        canonicalProducts: products.length,
+        stores: new Set(locations.map((location) => location.storeCode)).size,
+        matchedAcrossStores: matched.length,
+        snapshotAt: products.reduce((latest, product) =>
+          product.snapshotAt > latest ? product.snapshotAt : latest, products[0]?.snapshotAt ?? snapshotAt),
       },
-      priceSpreads: [],
-      locations: [],
+      priceSpreads,
+      locations,
     };
   }
 }

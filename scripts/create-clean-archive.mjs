@@ -5,7 +5,7 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-const output = join(outputDir, 'backend-1-part-01-review.tar.gz');
+const output = join(outputDir, 'backend-1-part-02-review.tar.gz');
 const excludedDirs = new Set([
   '.git', 'TODO', 'artifacts', 'node_modules', 'dist', 'build', '.next',
   'coverage', 'tmp', 'temp', 'logs', 'playwright-report', 'test-results',
