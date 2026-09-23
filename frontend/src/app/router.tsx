@@ -5,7 +5,7 @@ import { HomePage } from '../pages/HomePage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProductPage } from '../pages/ProductPage'
 import { SearchPage } from '../pages/SearchPage'
-import { StubPage } from '../pages/StubPage'
+import { DashboardPage } from '../pages/DashboardPage'
 
 export const routes: RouteObject[] = [
   {
@@ -15,7 +15,7 @@ export const routes: RouteObject[] = [
       { path: 'collections/:slug', element: <CategoryPage /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'products/:id', element: <ProductPage /> },
-      { path: 'dashboard', element: <StubPage title="Dashboard" /> },
+      { path: 'dashboard', element: <DashboardPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -71,3 +71,31 @@ test('search while typing, then open a product', async ({ page }) => {
 
   expect(errors).toEqual([])
 })
+
+test('dashboard: summary, price spreads and store map', async ({ page }) => {
+  const errors = trackConsoleErrors(page)
+
+  await page.goto('/')
+  await page.getByTestId('nav-dashboard').click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+
+  await expect(page.getByTestId('summary-card')).toHaveCount(4)
+  await expect(page.getByTestId('price-spread')).toHaveCount(10)
+  await expect(page.getByTestId('store-map').locator('path.store-marker')).toHaveCount(8)
+  await expect(page.getByTestId('store-group')).toHaveCount(3)
+
+  // Маркер открывает подпись с сетью и адресом
+  await page.getByTestId('store-map').locator('path.store-marker').first().click({ force: true })
+  await expect(page.locator('.leaflet-popup-content')).toContainText('Dina Market')
+
+  // Карта не перекрывает sticky-шапку при прокрутке
+  await page.getByTestId('store-map').scrollIntoViewIfNeeded()
+  await page.mouse.wheel(0, 200)
+  await page.getByTestId('nav-dashboard').click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+
+  await page.getByTestId('price-spread').first().getByRole('link').click()
+  await expect(page).toHaveURL(/\/products\//)
+
+  expect(errors).toEqual([])
+})

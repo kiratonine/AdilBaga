@@ -17,3 +17,10 @@ export function formatDate(iso: string): string {
     timeZone: TIME_ZONE,
   }).format(new Date(iso))
 }
+
+const percentFormatter = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 })
+
+/** 34.1 → «34,1%» */
+export function formatPercent(value: number): string {
+  return `${percentFormatter.format(value)}%`
+}

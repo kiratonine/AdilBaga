@@ -30,3 +30,6 @@ dist-ssr
 /playwright/.cache/
 
 .env
+
+# Vitest cache
+/.vitest/

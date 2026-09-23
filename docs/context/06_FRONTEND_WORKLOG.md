@@ -24,7 +24,7 @@
 | Дата | **Плашки «Цены актуальны на…» в шапке нет** (убрана по просьбе пользователя в сессии 2). Дата snapshot — на каждой карточке: «Цена на DD.MM.YYYY» из `product.snapshotAt` (testid `snapshot-date`). Никогда не писать «в реальном времени» |
 | Необязательные поля | `offer.inStock`, `location.id`, `priceSpread.imageUrl/category/minStoreName/maxStoreName` — optional в типах, в моках отсутствуют, UI от них не зависит. Ключ маркера карты — `storeCode + address` |
 | Прочее из контракта | `brand` может быть `null`; категории только из `GET /api/categories` (слаги не хардкодить); `nameKk` нет; неизвестный sort → 400 |
-| Testid | `category-card`, `product-card`, `min-price`, `filter-<key>`, `offer-list` (мин. предложение — `li[data-best]`), `search-input`, `sort-select`, `load-more`, `snapshot-date`, `nav-dashboard`, `loading-state`, `error-state`, `empty-state`, `image-placeholder`, `product-attributes` |
+| Testid | `category-card`, `product-card`, `min-price`, `filter-<key>`, `offer-list` (мин. предложение — `li[data-best]`), `search-input`, `sort-select`, `load-more`, `snapshot-date`, `nav-dashboard`, `loading-state`, `error-state`, `empty-state`, `image-placeholder`, `product-attributes`, `summary-card`, `price-spread`, `store-map` (маркеры — `path.store-marker`), `store-list`, `store-group` |
 | Футер | Только логотип + одна фраза о снимке цен, **без списка магазинов** |
 | Главная | Чипы категорий + «Самая большая разница в цене»: топ-8 `dashboard.priceSpreads` → карточки через `useProductsByIds` (по `getProduct` на id) |
 | Категория | Фильтры: multi-select — чипы (`aria-pressed`), boolean — один чип (вкл = `?key=true`). URL: `lib/filterParams.ts` (невалидные ключи/значения/sort из URL игнорируются, `price_asc` в URL не пишется), `replace: true`. Мобильный: панель фильтров по кнопке «Фильтры (n)». Запрос товаров ждёт schema. `useProductPages` = `useInfiniteQuery`, при смене фильтров держит прежний список (opacity 50%) |
@@ -32,6 +32,8 @@
 | Товар | `/products/:id`: крошки Каталог / категория, картинка (sticky на desktop), бренд, h1, «Самая низкая цена» + old price + строка выгоды, offers по возрастанию: минимум — `accent-soft` «Дешевле всего», остальные «дороже на X ₸». Характеристики (`dl`) — только ключи, у которых есть `filter.label` в schema категории, в порядке schema. 404 → NotFound |
 | Версии | React 19, React Router **8** (импорт из `react-router`), Vite 8, Tailwind 4, Vitest 5, TS 6 |
 | E2E | Playwright: проекты `desktop` + `iphone` (chromium). CDN браузеров недоступен → `PW_CHANNEL=chrome pnpm test:e2e` |
+| Dashboard | `/dashboard`: 4 summary-плитки (`dl`, testid `summary-card`; у «Сопоставлено» подпись «N% каталога»), список `priceSpreads` в порядке бэка (`price-spread`: название → `/products/:id`, min (`accent`) – max, нейтральная полоса `ink/70` в масштабе максимального %), карта + текстовый список точек по сетям (`store-list`/`store-group`, это же легенда). Карта — `components/dashboard/StoreMap.tsx`, `lazy` (Leaflet в отдельном чанке), `CircleMarker` с классом `store-marker` (**`className` прямым пропом** — через `pathOptions` не применяется), popup: сеть + адрес, `fitBounds` по точкам, `scrollWheelZoom` выкл., обёртка `isolate` (иначе панели Leaflet перекрывают sticky-шапку) |
+| Цвета сетей | `lib/stores.ts`: DINA `#2a78d6`, DANA `#eb6834`, FIX_PRICE `#4a3aa7` (прошли валидатор dataviz: CVD/контраст), неизвестная сеть — `#697178`. Зелёный для сетей не используем |
 
 Моки и типы приведены к **подтверждённому** контракту Backend 1 (см. `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`).
 
@@ -45,7 +47,7 @@
 | 1 | **Каркас + дизайн-система.** Vite/TS/Tailwind/Router/Query/i18n/Vitest/Playwright; DTO-типы; моки (categories, filters, products, dashboard, meta); `catalogApi` mock+http; дизайн-направление (skill frontend-design) → токены, шрифты, логотип; Layout: header (лого, поиск, язык, dashboard), footer, плашка даты | ✅ |
 | 2 | **Каталог и категория.** ProductCard, главная, `/collections/:slug`, DynamicFilters, сортировка, «Показать ещё», loading/empty/error, image fallback; unit-тесты (ProductCard, filters, empty) | ✅ |
 | 3 | **Поиск + страница товара.** `/search?q=` с debounce, `/products/:id` (картинка, бренд, атрибуты, offers, min price) | ✅ |
-| 4 | **Dashboard.** Summary cards, price spread list, карта Leaflet с маркерами по сетям | ⏳ |
+| 4 | **Dashboard.** Summary cards, price spread list, карта Leaflet с маркерами по сетям | ✅ |
 | 5 | **Полировка.** Responsive (desktop + iPhone), kk-переводы, Playwright E2E основного flow, `pnpm build`, консоль без ошибок | ⏳ |
 | 6 | **Интеграция с реальным API** (после ответов бэка / merge): http-адаптер, правки DTO, прогон E2E | ⏳ |
 | 7 | Деплой | отложено |
@@ -61,6 +63,14 @@
 ---
 
 ## Журнал
+
+### Сессия 4 — 2026-09-23
+- **`/dashboard`** (`pages/DashboardPage.tsx`; `StubPage` и ключ `stub.soon` удалены): summary, разброс цен, карта + список магазинов (детали — «Dashboard» в таблице решений). Зависимости: `leaflet`, `react-leaflet` 5, `@types/leaflet`.
+- `lib/stores.ts` (цвет сети, `locationKey`, `groupByStore`), `formatPercent` в `lib/format.ts`. i18n ru+kk: `dashboard.*` (плюралы `points_one/few/many/other`).
+- Мобильный: значения плиток 22px (иначе «24.09.2026» упирается в край на 390px).
+- Нестабильный тест `SearchPage › searches while typing` (дефолтный таймаут `expect.poll` 1 с под нагрузкой не хватало) — таймаут 3 с. `.vitest/` (кэш) добавлен в `.gitignore`.
+- Проверено: typecheck, oxlint, 60 unit-тестов (+ DashboardPage 4 с заглушкой карты, stores 3, formatPercent), build (StoreMap-чанк 155 КБ / 45 КБ gzip, главный не вырос), E2E desktop+iPhone (8: + «шапка → dashboard → маркеры, popup, список → товар»), скриншоты 1280/390, консоль без ошибок.
+- Не закоммичено.
 
 ### Сессия 3 — 2026-09-23
 - **`/search`** (`pages/SearchPage.tsx`, `SearchStub` удалён): `useProductPages({ search, sort })`, общий `ProductGrid` (wide), `SortSelect`, «Показать ещё», loading/error/empty («По запросу «…» ничего не нашлось» + ссылка в каталог), пустой запрос — подсказка.
@@ -101,7 +111,7 @@
 
 ## Следующий шаг
 
-**Сессия 4 — Dashboard.** `/dashboard` (заменить `StubPage`, после этого удалить его и ключ `stub.soon`): summary-карточки из `useDashboard().summary` (товаров, магазинов, совпало между сетями, дата снимка), список `priceSpreads` (название → ссылка на `/products/:id`, min/max, `differencePercent`), карта Leaflet + OSM (react-leaflet) с маркерами `locations`, цвет/легенда по сети (`storeCode`), ключ маркера `storeCode + address`, центр — Актау. Карту грузить лениво (`lazy`), чтобы не раздувать бандл главной. Unit-тесты + E2E (`nav-dashboard` → страница, маркеры видны).
+**Сессия 5 — Полировка.** Пройти все страницы на 1280/390 (и ~768): переносы, отступы, фокус-стейты, клавиатурная навигация (фильтры, поиск, popup карты). Вычитать kk-переводы целиком (переключить язык на каждой странице, найти непереведённые/длинные строки). `<title>` на каждой странице (категория, товар, поиск, аналитика). Расширить E2E основного flow (смена языка → kk-тексты; 404 товара; пустой поиск). `pnpm build`, консоль без ошибок, Lighthouse-проход по доступности. Если сессия 4 ещё не закоммичена — предложить закоммитить перед началом.
 
 ## Открытые вопросы / заметки
 
