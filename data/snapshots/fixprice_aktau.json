@@ -1,0 +1,350 @@
+{
+  "store": "FIX_PRICE",
+  "city": "Aktau",
+  "capturedAt": "2026-09-23T17:35:00Z",
+  "totalCount": 20,
+  "products": [
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50201",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/napitki/napitok-nemoloko-ovsyanyy-klassicheskiy-3-2-1-l",
+      "name": "Напиток овсяный Nemoloko классический 3.2% 1 л",
+      "brand": "Nemoloko",
+      "category": "milk",
+      "price": 650,
+      "oldPrice": 720,
+      "imageUrl": "https://fix-price.kz/upload/iblock/nemoloko_oat_3_2.jpg",
+      "rawPayload": {
+        "sku": "50201",
+        "barcode": "4607109840134",
+        "weightGrams": null,
+        "volumeMl": 1000,
+        "fatPercent": 3.2,
+        "inStock": true,
+        "store": "Fix Price ТРК Актау, 16 мкр"
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50202",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/napitki/napitok-nemoloko-risovyy-klassicheskiy-layt-1-l",
+      "name": "Напиток рисовый Nemoloko классический лайт 1.5% 1 л",
+      "brand": "Nemoloko",
+      "category": "milk",
+      "price": 650,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/nemoloko_rice_1_5.jpg",
+      "rawPayload": {
+        "sku": "50202",
+        "barcode": "4607109840158",
+        "volumeMl": 1000,
+        "fatPercent": 1.5,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50203",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/molochnaya-produktsiya/moloko-sgushchennoe-rogachev-8-5-380-g",
+      "name": "Молоко сгущенное Рогачевъ цельное с сахаром 8.5% 380 г",
+      "brand": "Рогачевъ",
+      "category": "milk",
+      "price": 750,
+      "oldPrice": 820,
+      "imageUrl": "https://fix-price.kz/upload/iblock/rogachev_sgushenka_380.jpg",
+      "rawPayload": {
+        "sku": "50203",
+        "barcode": "4810168010014",
+        "weightGrams": 380,
+        "fatPercent": 8.5,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50204",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/molochnaya-produktsiya/moloko-kontsentrirovannoe-bez-sakhara-7-8-300-g",
+      "name": "Молоко концентрированное стерилизованное без сахара 7.8% 300 г",
+      "brand": "Шалун",
+      "category": "milk",
+      "price": 550,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/moloko_koncentrirovannoe.jpg",
+      "rawPayload": {
+        "sku": "50204",
+        "weightGrams": 300,
+        "fatPercent": 7.8,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50301",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/maslo-podsolnechnoe-zolotaya-semechka-1-l",
+      "name": "Масло подсолнечное рафинированное Золотая Семечка 1 л",
+      "brand": "Золотая Семечка",
+      "category": "oil",
+      "price": 820,
+      "oldPrice": 890,
+      "imageUrl": "https://fix-price.kz/upload/iblock/semechka_oil_1l.jpg",
+      "rawPayload": {
+        "sku": "50301",
+        "barcode": "4600699500018",
+        "volumeMl": 1000,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50302",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/maslo-podsolnechnoe-sloboda-1-l",
+      "name": "Масло подсолнечное рафинированное Слобода с добавлением оливкового 1 л",
+      "brand": "Слобода",
+      "category": "oil",
+      "price": 890,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/sloboda_oil_1l.jpg",
+      "rawPayload": {
+        "sku": "50302",
+        "barcode": "4605496001234",
+        "volumeMl": 1000,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50303",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/maslo-podsolnechnoe-zateya-1-l",
+      "name": "Масло подсолнечное рафинированное Затея 1 л",
+      "brand": "Затея",
+      "category": "oil",
+      "price": 850,
+      "oldPrice": 920,
+      "imageUrl": "https://fix-price.kz/upload/iblock/zateya_oil_1l.jpg",
+      "rawPayload": {
+        "sku": "50303",
+        "barcode": "4600699500124",
+        "volumeMl": 1000,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50401",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/sakhar-belyy-pressovannyy-1-kg",
+      "name": "Сахар белый кристаллический прессованный кусковой 1 кг",
+      "brand": "Русский Сахар",
+      "category": "sugar",
+      "price": 620,
+      "oldPrice": 670,
+      "imageUrl": "https://fix-price.kz/upload/iblock/sugar_kusk_1kg.jpg",
+      "rawPayload": {
+        "sku": "50401",
+        "barcode": "4601245001015",
+        "weightGrams": 1000,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50402",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/sakhar-pesok-fasovannyy-1-kg",
+      "name": "Сахарный песок белый фасованный 1 кг",
+      "brand": "Цесна",
+      "category": "sugar",
+      "price": 580,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/sugar_pesok_1kg.jpg",
+      "rawPayload": {
+        "sku": "50402",
+        "barcode": "4870001230192",
+        "weightGrams": 1000,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50403",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/sakhar-rafinad-500-g",
+      "name": "Сахар-рафинад прессованный быстрорастворимый 500 г",
+      "brand": "Русский Сахар",
+      "category": "sugar",
+      "price": 420,
+      "oldPrice": 460,
+      "imageUrl": "https://fix-price.kz/upload/iblock/sugar_rafinad_500g.jpg",
+      "rawPayload": {
+        "sku": "50403",
+        "barcode": "4601245001022",
+        "weightGrams": 500,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50501",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/khlebtsy/khlebtsy-khrustyashchie-dr-korner-grechnevye-100-g",
+      "name": "Хлебцы хрустящие Dr.Korner гречневые с витаминами 100 г",
+      "brand": "Dr.Korner",
+      "category": "bread",
+      "price": 450,
+      "oldPrice": 490,
+      "imageUrl": "https://fix-price.kz/upload/iblock/korner_grechnevie_100g.jpg",
+      "rawPayload": {
+        "sku": "50501",
+        "barcode": "4607062450012",
+        "weightGrams": 100,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50502",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/khlebtsy/khlebtsy-rzhanye-borodinskie-100-g",
+      "name": "Хлебцы хрустящие ржаные бородинские 100 г",
+      "brand": "Dr.Korner",
+      "category": "bread",
+      "price": 380,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/korner_borodinskie_100g.jpg",
+      "rawPayload": {
+        "sku": "50502",
+        "barcode": "4607062450029",
+        "weightGrams": 100,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50503",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/khlebtsy/khlebtsy-zernovye-risovye-90-g",
+      "name": "Хлебцы зерновые рисовые с морской солью 90 г",
+      "brand": "Dr.Korner",
+      "category": "bread",
+      "price": 410,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/korner_rice_90g.jpg",
+      "rawPayload": {
+        "sku": "50503",
+        "barcode": "4607062450036",
+        "weightGrams": 90,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50504",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/khlebobulochnye-izdeliya/sukhari-s-izyumom-300-g",
+      "name": "Сухари с изюмом классические сдобные 300 г",
+      "brand": "Пекарь",
+      "category": "bread",
+      "price": 450,
+      "oldPrice": 510,
+      "imageUrl": "https://fix-price.kz/upload/iblock/suhari_izyum_300g.jpg",
+      "rawPayload": {
+        "sku": "50504",
+        "weightGrams": 300,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50505",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/khlebobulochnye-izdeliya/sushki-chelnochek-vanilnye-300-g",
+      "name": "Сушки челночек ванильные простые 300 г",
+      "brand": "Пекарь",
+      "category": "bread",
+      "price": 390,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/sushki_vanilnye_300g.jpg",
+      "rawPayload": {
+        "sku": "50505",
+        "weightGrams": 300,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50601",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/chay-kofe-kakao/chay-greenfield-golden-ceylon-25-pak",
+      "name": "Чай черный байховый Greenfield Golden Ceylon 25 пакетиков",
+      "brand": "Greenfield",
+      "category": "tea",
+      "price": 650,
+      "oldPrice": 720,
+      "imageUrl": "https://fix-price.kz/upload/iblock/greenfield_ceylon_25.jpg",
+      "rawPayload": {
+        "sku": "50601",
+        "barcode": "4605246004928",
+        "weightGrams": 50,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50602",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/chay-kofe-kakao/chay-tess-sunrise-25-pak",
+      "name": "Чай черный Tess Sunrise высокогорный цейлонский 25 пакетиков",
+      "brand": "Tess",
+      "category": "tea",
+      "price": 550,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/tess_sunrise_25.jpg",
+      "rawPayload": {
+        "sku": "50602",
+        "barcode": "4605246005123",
+        "weightGrams": 50,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50603",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/chay-kofe-kakao/chay-piala-gold-keniyskiy-250-g",
+      "name": "Чай черный Пиала Gold кенийский гранулированный 250 г",
+      "brand": "Пиала",
+      "category": "tea",
+      "price": 750,
+      "oldPrice": 830,
+      "imageUrl": "https://fix-price.kz/upload/iblock/piala_gold_250g.jpg",
+      "rawPayload": {
+        "sku": "50603",
+        "barcode": "4870001010114",
+        "weightGrams": 250,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50701",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/krupa-mannaya-promo-700-g",
+      "name": "Крупа манная марка М 700 г",
+      "brand": "Цесна",
+      "category": "groceries",
+      "price": 350,
+      "oldPrice": null,
+      "imageUrl": "https://fix-price.kz/upload/iblock/krupa_mannaya_700g.jpg",
+      "rawPayload": {
+        "sku": "50701",
+        "weightGrams": 700,
+        "inStock": true
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_50702",
+      "sourceUrl": "https://fix-price.kz/ru/catalog/produkty-i-napitki/bakaleya/khlopya-ovsyanye-gerkules-400-g",
+      "name": "Хлопья овсяные Геркулес традиционный 400 г",
+      "brand": "Русский Продукт",
+      "category": "groceries",
+      "price": 390,
+      "oldPrice": 450,
+      "imageUrl": "https://fix-price.kz/upload/iblock/gerkules_400g.jpg",
+      "rawPayload": {
+        "sku": "50702",
+        "barcode": "4600605001235",
+        "weightGrams": 400,
+        "inStock": true
+      }
+    }
+  ]
+}
