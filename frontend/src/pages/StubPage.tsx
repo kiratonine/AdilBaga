@@ -12,12 +12,7 @@ export function StubPage({ title }: { title: string }) {
   )
 }
 
-// Заглушки заменяются реальными страницами в сессиях 2–4
-export function CategoryStub() {
-  const { slug } = useParams()
-  return <StubPage title={`/collections/${slug}`} />
-}
-
+// Заглушки заменяются реальными страницами в сессиях 3–4
 export function SearchStub() {
   const [params] = useSearchParams()
   return <StubPage title={`«${params.get('q') ?? ''}»`} />

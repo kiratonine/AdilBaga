@@ -7,9 +7,12 @@ import { renderApp } from '../../test/render'
 describe('Layout', () => {
   afterEach(() => setLanguage('ru'))
 
-  it('shows the snapshot date and never claims real-time prices', async () => {
+  it('shows top price spreads on the home page with the snapshot date', async () => {
     renderApp('/')
-    expect(await screen.findByText('Цены актуальны на 24.09.2026')).toBeInTheDocument()
+    const cards = await screen.findAllByTestId('product-card', {}, { timeout: 3000 })
+    expect(cards).toHaveLength(8)
+    expect(within(cards[0]).getByRole('link')).toHaveTextContent('Молоко Lactel безлактозное 1% 900 мл')
+    expect(within(cards[0]).getByTestId('snapshot-date')).toHaveTextContent('Цена на 24.09.2026')
     expect(document.body.textContent).not.toMatch(/реальном времени/i)
   })
 

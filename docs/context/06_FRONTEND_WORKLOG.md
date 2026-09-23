@@ -21,10 +21,13 @@
 | API-слой | `catalogApi` с двумя адаптерами: mock (JSON из `src/mocks/`) и http. Переключение через `VITE_API_MODE=mock\|http` + `VITE_API_BASE_URL` |
 | Пагинация | «Показать ещё» (limit/offset, `PAGE_SIZE = 24`). Бэк отдаёт **массив без total**: следующей страницы нет, если пришло < limit. Счётчик «Найдено N» не показываем (максимум — число загруженных) |
 | Фильтры | Только из schema бэка. Типы: `multi-select`, `boolean` (`?key=true|false`). Мульти-значения — повтор параметра, OR внутри ключа, AND между ключами. `options` — **голые значения**; подписи через `lib/attributes.ts` (единицы по суффиксу ключа: `*Ml`, `*Grams`, `*Percent`, `count`). Подписи атрибутов на странице товара — `filter.label` из schema категории. Состояние фильтров в URL query |
-| Дата | «Цены актуальны на DD.MM.YYYY» в шапке, из `dashboard.summary.snapshotAt` (`useSnapshotDate`, `/api/meta` нет). Никогда не писать «в реальном времени» |
+| Дата | **Плашки «Цены актуальны на…» в шапке нет** (убрана по просьбе пользователя в сессии 2). Дата snapshot — на каждой карточке: «Цена на DD.MM.YYYY» из `product.snapshotAt` (testid `snapshot-date`). Никогда не писать «в реальном времени» |
 | Необязательные поля | `offer.inStock`, `location.id`, `priceSpread.imageUrl/category/minStoreName/maxStoreName` — optional в типах, в моках отсутствуют, UI от них не зависит. Ключ маркера карты — `storeCode + address` |
 | Прочее из контракта | `brand` может быть `null`; категории только из `GET /api/categories` (слаги не хардкодить); `nameKk` нет; неизвестный sort → 400 |
-| Testid | `category-card`, `product-card`, `filter-<key>`, `offer-list`, `search-input`, `snapshot-date`, `nav-dashboard`, `loading-state`, `error-state` |
+| Testid | `category-card`, `product-card`, `min-price`, `filter-<key>`, `offer-list` (мин. предложение — `li[data-best]`), `search-input`, `sort-select`, `load-more`, `snapshot-date`, `nav-dashboard`, `loading-state`, `error-state`, `empty-state`, `image-placeholder` |
+| Футер | Только логотип + одна фраза о снимке цен, **без списка магазинов** |
+| Главная | Чипы категорий + «Самая большая разница в цене»: топ-8 `dashboard.priceSpreads` → карточки через `useProductsByIds` (по `getProduct` на id) |
+| Категория | Фильтры: multi-select — чипы (`aria-pressed`), boolean — один чип (вкл = `?key=true`). URL: `lib/filterParams.ts` (невалидные ключи/значения/sort из URL игнорируются, `price_asc` в URL не пишется), `replace: true`. Мобильный: панель фильтров по кнопке «Фильтры (n)». Запрос товаров ждёт schema. `useProductPages` = `useInfiniteQuery`, при смене фильтров держит прежний список (opacity 50%) |
 | Версии | React 19, React Router **8** (импорт из `react-router`), Vite 8, Tailwind 4, Vitest 5, TS 6 |
 | E2E | Playwright: проекты `desktop` + `iphone` (chromium). CDN браузеров недоступен → `PW_CHANNEL=chrome pnpm test:e2e` |
 
@@ -38,7 +41,7 @@
 |---|---|---|
 | 0 | Изучение docs, вопросы бэку, этот файл, git-ветка | ✅ |
 | 1 | **Каркас + дизайн-система.** Vite/TS/Tailwind/Router/Query/i18n/Vitest/Playwright; DTO-типы; моки (categories, filters, products, dashboard, meta); `catalogApi` mock+http; дизайн-направление (skill frontend-design) → токены, шрифты, логотип; Layout: header (лого, поиск, язык, dashboard), footer, плашка даты | ✅ |
-| 2 | **Каталог и категория.** ProductCard, главная, `/collections/:slug`, DynamicFilters, сортировка, «Показать ещё», loading/empty/error, image fallback; unit-тесты (ProductCard, filters, empty) | ⏳ |
+| 2 | **Каталог и категория.** ProductCard, главная, `/collections/:slug`, DynamicFilters, сортировка, «Показать ещё», loading/empty/error, image fallback; unit-тесты (ProductCard, filters, empty) | ✅ |
 | 3 | **Поиск + страница товара.** `/search?q=` с debounce, `/products/:id` (картинка, бренд, атрибуты, offers, min price) | ⏳ |
 | 4 | **Dashboard.** Summary cards, price spread list, карта Leaflet с маркерами по сетям | ⏳ |
 | 5 | **Полировка.** Responsive (desktop + iPhone), kk-переводы, Playwright E2E основного flow, `pnpm build`, консоль без ошибок | ⏳ |
@@ -56,6 +59,17 @@
 ---
 
 ## Журнал
+
+### Сессия 2 — 2026-09-23
+- **ProductCard** (`components/product/`): на мобильном горизонтальная (картинка 96px слева), с `sm` — вертикальная в сетке. Бренд, название (2 строки, растянутая ссылка на `/products/:id`), min price (Unbounded), old price лучшего предложения зачёркнута, строка выгоды «На X ₸ дешевле, чем в <самый дорогой>» (`accent`), список offers по возрастанию (карточка сама сортирует), мин. предложение — `accent-soft` + sr-only «самая низкая цена», дата снимка. `ProductImage` — плейсхолдер-ценник при `null` и `onError`. `ProductGrid` — 1/2/3 колонки (4 без панели фильтров).
+- **Главная**: категории + топ-8 товаров с наибольшим разбросом цен.
+- **`/collections/:slug`** (`pages/CategoryPage.tsx`): хлебная крошка, `DynamicFilters`, `SortSelect`, «Показать ещё», loading/error/empty (с кнопкой «Сбросить фильтры»), 404 → NotFound. `CategoryStub` удалён.
+- `States.tsx`: добавлены `EmptyState` и `Button`. i18n (ru+kk): `card.*`, `category.*`, `sort.*`, `home.deals*`.
+- **По просьбе пользователя** убраны полоса «Цены актуальны на… / Актау» (`SnapshotBar`, `useSnapshotDate`, ключи `snapshot.*`) и список магазинов в футере (`footer.sources`). У шапки теперь `border-b`.
+- Мелочи: логотип не переносится на мобильном (`whitespace-nowrap`); подпись «Сортировка» на мобильном sr-only.
+- Проверено: typecheck, lint, 42 unit-теста (ProductCard, DynamicFilters, CategoryPage, filterParams, getNextOffset), build, E2E desktop+iPhone (главная; категория → фильтр → min price → переход на товар), скриншоты 1280/390.
+- Заметка: `pnpm test:e2e` переиспользует уже запущенный сервер на :4173 — если там висит старый preview, тесты видят старую сборку. Bash-heredoc с кириллицей/кавычками в этой среде ломается — файлы писать через Write.
+- Не закоммичено.
 
 ### Сессия 1 — 2026-09-23
 - Scaffold `frontend/` (create-vite react-ts, pnpm). Подключены Tailwind 4, React Router 8, TanStack Query 5, i18next, Vitest + Testing Library, Playwright.
@@ -76,7 +90,7 @@
 
 ## Следующий шаг
 
-**Сессия 2 — каталог и категория.** ProductCard (цена — Unbounded, минимальное предложение — `accent`/`accent-soft`, image fallback), главная (категории + товары с наибольшей экономией), `/collections/:slug` с DynamicFilters из schema (состояние в URL, подписи через `formatAttributeValue`), сортировка, «Показать ещё» (`useInfiniteQuery`, `getNextPageParam`: страница < `PAGE_SIZE` → конец), loading/empty/error. Заменить `CategoryStub` в `src/app/router.tsx`. Unit-тесты: ProductCard, фильтры, empty.
+**Сессия 3 — поиск + страница товара.** `/search?q=` (заменить `SearchStub`): `useProductPages({ search })`, переиспользовать `ProductGrid`, сортировку и «Показать ещё»; debounce при вводе в `SearchBox` (сейчас только по Enter), пустой результат/пустой запрос. `/products/:id` (заменить `ProductStub`): крупная `ProductImage`, бренд, название, атрибуты (подписи — `filter.label` из schema категории товара + `formatAttributeValue`), offers с выделением минимума, old price, дата снимка, 404. Unit-тесты + дополнить E2E.
 
 ## Открытые вопросы / заметки
 

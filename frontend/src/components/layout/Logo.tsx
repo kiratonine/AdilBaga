@@ -18,7 +18,7 @@ export function Logo() {
   return (
     <Link to="/" className="flex shrink-0 items-center gap-2 rounded-md" aria-label="Adil Bağa">
       <LogoMark />
-      <span className="font-display text-[1.0625rem] font-semibold tracking-[-0.02em]">Adil Bağa</span>
+      <span className="font-display text-[1.0625rem] whitespace-nowrap font-semibold tracking-[-0.02em]">Adil Bağa</span>
     </Link>
   )
 }

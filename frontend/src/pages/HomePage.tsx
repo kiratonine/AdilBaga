@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { useCategories } from '../api/queries'
+import { useCategories, useDashboard, useProductsByIds } from '../api/queries'
+import { ProductGrid } from '../components/product/ProductGrid'
 import { ErrorState, LoadingState } from '../components/ui/States'
 
-// Каркас главной. Карточки товаров и «самая большая экономия» — сессия 2.
+/** Сколько товаров с наибольшим разбросом цен показывать на главной */
+const TOP_DEALS = 8
+
 export function HomePage() {
   const { t } = useTranslation()
   const categories = useCategories()
@@ -11,6 +14,7 @@ export function HomePage() {
   return (
     <>
       <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em] md:text-[34px]">{t('home.title')}</h1>
+
       <section aria-labelledby="categories-title" className="mt-8">
         <h2 id="categories-title" className="text-lg font-semibold">
           {t('home.categories')}
@@ -33,6 +37,32 @@ export function HomePage() {
           </ul>
         )}
       </section>
+
+      <TopDeals />
     </>
+  )
+}
+
+/** Товары с самой большой разницей цен между сетями — выбор и порядок делает бэк (dashboard.priceSpreads) */
+function TopDeals() {
+  const { t } = useTranslation()
+  const dashboard = useDashboard()
+  const ids = dashboard.data?.priceSpreads.slice(0, TOP_DEALS).map((s) => s.productId) ?? []
+  const products = useProductsByIds(ids)
+  const loading = dashboard.isPending || (ids.length > 0 && products.isPending)
+
+  return (
+    <section aria-labelledby="deals-title" className="mt-12">
+      <h2 id="deals-title" className="text-lg font-semibold">
+        {t('home.deals')}
+      </h2>
+      <p className="mt-1 text-sm text-muted">{t('home.dealsHint')}</p>
+      <div className="mt-4">
+        {loading && <LoadingState />}
+        {dashboard.isError && <ErrorState onRetry={() => dashboard.refetch()} />}
+        {products.isError && <ErrorState onRetry={products.refetch} />}
+        {!loading && products.data.length > 0 && <ProductGrid products={products.data} wide />}
+      </div>
+    </section>
   )
 }
