@@ -4,6 +4,7 @@ import type { ProductCardDto } from '../../api/types'
 import { formatDate, formatPrice } from '../../lib/format'
 import { savingOf, sortOffers } from '../../lib/offers'
 import { ProductImage } from './ProductImage'
+import { SavingLine } from './SavingLine'
 
 export function ProductCard({ product }: { product: ProductCardDto }) {
   const { t } = useTranslation()
@@ -35,9 +36,7 @@ export function ProductCard({ product }: { product: ProductCardDto }) {
           {oldPrice !== null && <s className="text-sm text-muted tabular">{formatPrice(oldPrice)}</s>}
         </p>
         {saving && (
-          <p className="mt-1.5 text-[13px] font-medium text-accent">
-            {t('card.saving', { amount: formatPrice(saving.amount), store: saving.store })}
-          </p>
+          <SavingLine amount={saving.amount} store={saving.store} className="mt-1.5 text-[13px]" />
         )}
 
         <ul data-testid="offer-list" aria-label={t('card.offers')} className="mt-3 flex flex-col text-sm">

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { useCategories, useDashboard, useProductsByIds } from '../api/queries'
 import { ProductGrid } from '../components/product/ProductGrid'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 /** Сколько товаров с наибольшим разбросом цен показывать на главной */
 const TOP_DEALS = 8
@@ -10,6 +11,7 @@ const TOP_DEALS = 8
 export function HomePage() {
   const { t } = useTranslation()
   const categories = useCategories()
+  useDocumentTitle()
 
   return (
     <>

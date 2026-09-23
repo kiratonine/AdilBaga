@@ -5,6 +5,7 @@ import { SortSelect } from '../components/catalog/SortSelect'
 import { ProductGrid } from '../components/product/ProductGrid'
 import { Button, EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { readSort, withSort } from '../lib/filterParams'
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 /** /search?q= — поиск по всем категориям. Запрос в URL пишет SearchBox в шапке */
 export function SearchPage() {
@@ -14,11 +15,13 @@ export function SearchPage() {
   const sort = readSort(params)
   const products = useProductPages({ search: q, sort }, { enabled: q !== '' })
   const items = products.data?.pages.flat() ?? []
+  const title = q ? t('search.titleFor', { query: q }) : t('search.title')
+  useDocumentTitle(title)
 
   return (
     <>
       <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em] break-words md:text-[34px]">
-        {q ? t('search.titleFor', { query: q }) : t('search.title')}
+        {title}
       </h1>
 
       {!q && (

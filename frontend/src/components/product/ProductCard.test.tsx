@@ -44,7 +44,11 @@ describe('ProductCard', () => {
 
   it('shows saving against the most expensive store and snapshot date', () => {
     renderCard(product)
-    expect(screen.getByText(/дешевле, чем в Fix Price/)).toHaveTextContent(/^На 80\s₸ дешевле, чем в Fix Price$/)
+    const saving = screen.getByText(/дешевле, чем в Fix Price/)
+    expect(saving).toHaveTextContent(/^На 80\s₸ дешевле, чем в Fix Price$/)
+    // Выделена только сумма, фраза — обычным цветом
+    expect(saving).not.toHaveClass('text-accent')
+    expect(within(saving).getByText(/^80\s₸$/)).toHaveClass('text-accent')
     expect(screen.getByTestId('snapshot-date')).toHaveTextContent('Цена на 24.09.2026')
   })
 

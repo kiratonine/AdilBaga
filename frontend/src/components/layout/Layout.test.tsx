@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 import { setLanguage } from '../../i18n'
@@ -34,5 +34,23 @@ describe('Layout', () => {
     await userEvent.click(within(group).getByRole('button', { name: 'Қаз' }))
     expect(await screen.findByText('Талдау')).toBeInTheDocument()
     expect(document.documentElement.lang).toBe('kk')
+    expect(document.title).toBe('Adil Bağa — Ақтаудағы бағаларды салыстыру')
+  })
+
+  it('sets the tab title per page', async () => {
+    renderApp('/dashboard')
+    await waitFor(() => expect(document.title).toBe('Аналитика цен — Adil Bağa'))
+  })
+
+  it('titles an unknown category as not found', async () => {
+    renderApp('/collections/nope')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Такой страницы нет' })).toBeInTheDocument()
+    await waitFor(() => expect(document.title).toBe('Такой страницы нет — Adil Bağa'))
+  })
+
+  it('has a skip link to the main content', () => {
+    renderApp('/')
+    expect(screen.getByRole('link', { name: 'Перейти к содержимому' })).toHaveAttribute('href', '#main')
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main')
   })
 })

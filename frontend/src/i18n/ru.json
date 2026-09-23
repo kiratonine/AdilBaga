@@ -1,9 +1,11 @@
 {
   "brand": {
     "name": "Adil Bağa",
+    "title": "Adil Bağa — сравнение цен в Актау",
     "tagline": "Сравнение цен на продукты в магазинах Актау"
   },
   "nav": {
+    "skip": "Перейти к содержимому",
     "home": "Каталог",
     "dashboard": "Аналитика",
     "language": "Язык интерфейса"
@@ -55,7 +57,7 @@
   "card": {
     "offers": "Цены в магазинах",
     "lowest": "самая низкая цена",
-    "saving": "На {{amount}} дешевле, чем в {{store}}",
+    "saving": "На <price>{{amount}}</price> дешевле, чем в {{store}}",
     "priceOn": "Цена на {{date}}"
   },
   "category": {

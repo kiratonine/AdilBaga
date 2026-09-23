@@ -9,7 +9,7 @@ describe('ProductPage', () => {
     renderApp(`/products/${MILK_ID}`)
     expect(await screen.findByRole('heading', { level: 1, name: 'Молоко FoodMaster 3,2% 1 л' })).toBeInTheDocument()
     expect(screen.getByTestId('min-price')).toHaveTextContent('570')
-    expect(screen.getByText(/^На 150\s₸ дешевле, чем в Fix Price$/)).toBeInTheDocument()
+    expect(screen.getByText(/дешевле, чем в Fix Price/)).toHaveTextContent(/^На 150\s₸ дешевле, чем в Fix Price$/)
 
     const offers = within(screen.getByTestId('offer-list')).getAllByRole('listitem')
     expect(offers.map((li) => li.textContent)).toEqual([

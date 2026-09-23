@@ -33,6 +33,10 @@
 | Версии | React 19, React Router **8** (импорт из `react-router`), Vite 8, Tailwind 4, Vitest 5, TS 6 |
 | E2E | Playwright: проекты `desktop` + `iphone` (chromium). CDN браузеров недоступен → `PW_CHANNEL=chrome pnpm test:e2e` |
 | Dashboard | `/dashboard`: 4 summary-плитки (`dl`, testid `summary-card`; у «Сопоставлено» подпись «N% каталога»), список `priceSpreads` в порядке бэка (`price-spread`: название → `/products/:id`, min (`accent`) – max, нейтральная полоса `ink/70` в масштабе максимального %), карта + текстовый список точек по сетям (`store-list`/`store-group`, это же легенда). Карта — `components/dashboard/StoreMap.tsx`, `lazy` (Leaflet в отдельном чанке), `CircleMarker` с классом `store-marker` (**`className` прямым пропом** — через `pathOptions` не применяется), popup: сеть + адрес, `fitBounds` по точкам, `scrollWheelZoom` выкл., обёртка `isolate` (иначе панели Leaflet перекрывают sticky-шапку) |
+| Строка выгоды | `components/product/SavingLine.tsx` (карточка + страница товара): фраза — `ink`, сумма — `accent` semibold (по просьбе пользователя: «цифра должна выделяться»). i18n через `<Trans>` с тегом `<price>` в `card.saving` |
+| Заголовок вкладки | `lib/useDocumentTitle.ts`: «<страница> — Adil Bağa», на главной — `brand.title`; меняется с языком. В `CategoryPage` 404-заголовок ставится самой страницей (эффект родителя идёт после эффекта `NotFoundPage`) |
+| Skip-link | Первый Tab — «Перейти к содержимому» → `main#main` (`tabIndex=-1`) |
+| Git | На GitHub дефолтная ветка — **`main`** (была `feat/backend-2`, сменено 2026-09-23) |
 | Цвета сетей | `lib/stores.ts`: DINA `#2a78d6`, DANA `#eb6834`, FIX_PRICE `#4a3aa7` (прошли валидатор dataviz: CVD/контраст), неизвестная сеть — `#697178`. Зелёный для сетей не используем |
 
 Моки и типы приведены к **подтверждённому** контракту Backend 1 (см. `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`).
@@ -48,7 +52,7 @@
 | 2 | **Каталог и категория.** ProductCard, главная, `/collections/:slug`, DynamicFilters, сортировка, «Показать ещё», loading/empty/error, image fallback; unit-тесты (ProductCard, filters, empty) | ✅ |
 | 3 | **Поиск + страница товара.** `/search?q=` с debounce, `/products/:id` (картинка, бренд, атрибуты, offers, min price) | ✅ |
 | 4 | **Dashboard.** Summary cards, price spread list, карта Leaflet с маркерами по сетям | ✅ |
-| 5 | **Полировка.** Responsive (desktop + iPhone), kk-переводы, Playwright E2E основного flow, `pnpm build`, консоль без ошибок | ⏳ |
+| 5 | **Полировка.** Responsive (desktop + iPhone), kk-переводы, Playwright E2E основного flow, `pnpm build`, консоль без ошибок | ✅ (Lighthouse не прогонялся) |
 | 6 | **Интеграция с реальным API** (после ответов бэка / merge): http-адаптер, правки DTO, прогон E2E | ⏳ |
 | 7 | Деплой | отложено |
 
@@ -64,13 +68,23 @@
 
 ## Журнал
 
+### Сессия 5 — 2026-09-23
+- **По просьбе пользователя** строка выгоды: предложение графитом, сумма зелёным (`SavingLine`, см. таблицу решений).
+- `document.title` на всех страницах (`useDocumentTitle`), skip-link, ключи `brand.title`, `nav.skip` (ru+kk).
+- `tsconfig.app.json`: `lib` + `DOM.Iterable` — `tsc -b` падал на `[...HTMLCollection]` в `DashboardPage.test`, раньше это скрывал инкрементальный кэш.
+- Проход в браузере 390/768 (ru и kk): переносов и непереведённых строк нет. Подписи фильтров/категорий/товаров остаются русскими — они приходят с бэка. Хардкода кириллицы в TSX нет (кроме `Рус/Қаз`).
+- E2E `e2e/polish.spec.ts`: kk + запоминание языка + заголовок, 404 товара, пустой поиск и очистка поля, skip-link (только desktop).
+- GitHub: ветка `main` уже была (на initial commit), сделана дефолтной через API (у `gh` нет установки — токен из git credential manager).
+- Проверено: typecheck, oxlint, 63 unit-теста, build, E2E 15 passed + 1 skipped (desktop+iPhone), консоль — только ожидаемый битый URL из моков.
+- Не закоммичено.
+
 ### Сессия 4 — 2026-09-23
 - **`/dashboard`** (`pages/DashboardPage.tsx`; `StubPage` и ключ `stub.soon` удалены): summary, разброс цен, карта + список магазинов (детали — «Dashboard» в таблице решений). Зависимости: `leaflet`, `react-leaflet` 5, `@types/leaflet`.
 - `lib/stores.ts` (цвет сети, `locationKey`, `groupByStore`), `formatPercent` в `lib/format.ts`. i18n ru+kk: `dashboard.*` (плюралы `points_one/few/many/other`).
 - Мобильный: значения плиток 22px (иначе «24.09.2026» упирается в край на 390px).
 - Нестабильный тест `SearchPage › searches while typing` (дефолтный таймаут `expect.poll` 1 с под нагрузкой не хватало) — таймаут 3 с. `.vitest/` (кэш) добавлен в `.gitignore`.
 - Проверено: typecheck, oxlint, 60 unit-тестов (+ DashboardPage 4 с заглушкой карты, stores 3, formatPercent), build (StoreMap-чанк 155 КБ / 45 КБ gzip, главный не вырос), E2E desktop+iPhone (8: + «шапка → dashboard → маркеры, popup, список → товар»), скриншоты 1280/390, консоль без ошибок.
-- Не закоммичено.
+- Закоммичено: сессии 1–4 — коммиты `632481c`…`d057fc5`.
 
 ### Сессия 3 — 2026-09-23
 - **`/search`** (`pages/SearchPage.tsx`, `SearchStub` удалён): `useProductPages({ search, sort })`, общий `ProductGrid` (wide), `SortSelect`, «Показать ещё», loading/error/empty («По запросу «…» ничего не нашлось» + ссылка в каталог), пустой запрос — подсказка.
@@ -111,7 +125,7 @@
 
 ## Следующий шаг
 
-**Сессия 5 — Полировка.** Пройти все страницы на 1280/390 (и ~768): переносы, отступы, фокус-стейты, клавиатурная навигация (фильтры, поиск, popup карты). Вычитать kk-переводы целиком (переключить язык на каждой странице, найти непереведённые/длинные строки). `<title>` на каждой странице (категория, товар, поиск, аналитика). Расширить E2E основного flow (смена языка → kk-тексты; 404 товара; пустой поиск). `pnpm build`, консоль без ошибок, Lighthouse-проход по доступности. Если сессия 4 ещё не закоммичена — предложить закоммитить перед началом.
+**Сессия 6 — Интеграция с реальным API.** Если сессия 5 ещё не закоммичена — предложить закоммитить. Проверить, что бэк смёржен/доступен (`VITE_API_MODE=http`, `VITE_API_BASE_URL`), прогнать все страницы на реальных данных, сверить DTO с `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`, поправить расхождения, E2E на http-режиме. Хвост из сессии 5: Lighthouse-проход по доступности; маркеры карты не фокусируемы с клавиатуры (текстовый список точек их дублирует).
 
 ## Открытые вопросы / заметки
 

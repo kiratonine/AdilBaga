@@ -3,10 +3,12 @@ import { Link, useParams } from 'react-router'
 import { useCategoryFilters, useProduct } from '../api/queries'
 import { ApiError, type FilterDto, type ProductCardDto } from '../api/types'
 import { ProductImage } from '../components/product/ProductImage'
+import { SavingLine } from '../components/product/SavingLine'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { formatAttributeValue } from '../lib/attributes'
 import { formatDate, formatPrice } from '../lib/format'
 import { savingOf, sortOffers } from '../lib/offers'
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { NotFoundPage } from './NotFoundPage'
 
 export function ProductPage() {
@@ -25,6 +27,7 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
   const saving = savingOf(offers)
   const best = offers[0]
   const oldPrice = best?.oldPrice != null && best.oldPrice > best.price ? best.oldPrice : null
+  useDocumentTitle(product.name)
 
   return (
     <>
@@ -60,9 +63,7 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
               {oldPrice !== null && <s className="text-muted tabular">{formatPrice(oldPrice)}</s>}
             </p>
             {saving && (
-              <p className="mt-2 font-medium text-accent">
-                {t('card.saving', { amount: formatPrice(saving.amount), store: saving.store })}
-              </p>
+              <SavingLine amount={saving.amount} store={saving.store} className="mt-2" />
             )}
           </div>
 

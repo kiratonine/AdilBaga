@@ -6,6 +6,7 @@ import type { DashboardDto, PriceSpreadDto, StoreLocationDto } from '../api/type
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { formatDate, formatPercent, formatPrice } from '../lib/format'
 import { groupByStore, locationKey, storeColor } from '../lib/stores'
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 // Leaflet нужен только здесь — отдельный чанк
 const StoreMap = lazy(() => import('../components/dashboard/StoreMap'))
@@ -13,6 +14,7 @@ const StoreMap = lazy(() => import('../components/dashboard/StoreMap'))
 export function DashboardPage() {
   const { t } = useTranslation()
   const dashboard = useDashboard()
+  useDocumentTitle(t('dashboard.title'))
 
   return (
     <>

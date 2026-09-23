@@ -8,6 +8,7 @@ import { SortSelect } from '../components/catalog/SortSelect'
 import { ProductGrid } from '../components/product/ProductGrid'
 import { Button, EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { countActive, readFilters, readSort, withFilter, withoutFilters, withSort } from '../lib/filterParams'
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { NotFoundPage } from './NotFoundPage'
 
 export function CategoryPage() {
@@ -29,9 +30,12 @@ export function CategoryPage() {
   const update = (next: URLSearchParams) => setParams(next, { replace: true, preventScrollReset: true })
   const resetFilters = () => update(withoutFilters(params, filters))
 
-  if (schema.error instanceof ApiError && schema.error.status === 404) return <NotFoundPage />
-
   const category = categories.data?.find((c) => c.slug === slug)
+  const notFound = schema.error instanceof ApiError && schema.error.status === 404
+  // Заголовок ставим здесь и для 404: эффект родителя срабатывает после эффекта NotFoundPage
+  useDocumentTitle(notFound ? t('state.notFound') : category?.name)
+
+  if (notFound) return <NotFoundPage />
   const items = products.data?.pages.flat() ?? []
   const hasFilters = filters.length > 0
 
