@@ -76,7 +76,7 @@
 - E2E `e2e/polish.spec.ts`: kk + запоминание языка + заголовок, 404 товара, пустой поиск и очистка поля, skip-link (только desktop).
 - GitHub: ветка `main` уже была (на initial commit), сделана дефолтной через API (у `gh` нет установки — токен из git credential manager).
 - Проверено: typecheck, oxlint, 63 unit-теста, build, E2E 15 passed + 1 skipped (desktop+iPhone), консоль — только ожидаемый битый URL из моков.
-- Не закоммичено.
+- Закоммичено и запушено в `feat/frontend`: `3e10071`.
 
 ### Сессия 4 — 2026-09-23
 - **`/dashboard`** (`pages/DashboardPage.tsx`; `StubPage` и ключ `stub.soon` удалены): summary, разброс цен, карта + список магазинов (детали — «Dashboard» в таблице решений). Зависимости: `leaflet`, `react-leaflet` 5, `@types/leaflet`.
