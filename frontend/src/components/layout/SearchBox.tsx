@@ -1,26 +1,52 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useEffectEvent, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+
+export const SEARCH_DEBOUNCE_MS = 350
+/** Короче — слишком много случайных совпадений, ждём Enter */
+const MIN_LIVE_QUERY = 2
 
 export function SearchBox() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [params] = useSearchParams()
-  const urlQuery = pathname === '/search' ? (params.get('q') ?? '') : ''
+  const onSearchPage = pathname === '/search'
+  const urlQuery = onSearchPage ? (params.get('q') ?? '').trim() : ''
   const [value, setValue] = useState(urlQuery)
   const [syncedQuery, setSyncedQuery] = useState(urlQuery)
 
-  // Синхронизация с URL (назад/вперёд в истории) — прямо во время рендера, без эффекта
+  // Синхронизация с URL (назад/вперёд в истории) — прямо во время рендера, без эффекта.
+  // Если URL просто догнал набранный текст, ввод не трогаем (иначе съедим пробел в конце)
   if (urlQuery !== syncedQuery) {
     setSyncedQuery(urlQuery)
-    setValue(urlQuery)
+    if (urlQuery !== value.trim()) setValue(urlQuery)
   }
+
+  // На /search заменяем запись в истории и сохраняем сортировку, с других страниц — обычный переход
+  // На /search заменяем запись в истории и сохраняем сортировку, с других страниц — обычный переход
+  function goTo(q: string) {
+    const next = new URLSearchParams(onSearchPage ? params : undefined)
+    if (q) next.set('q', q)
+    else next.delete('q')
+    navigate({ pathname: '/search', search: next.toString() }, { replace: onSearchPage })
+  }
+  // Effect Event: видит свежие params, но не перезапускает таймер при каждом рендере
+  const goLive = useEffectEvent(goTo)
+
+  // Поиск по мере ввода. Очистка поля на /search тоже обновляет URL
+  const liveQuery = value.trim()
+  const shouldGo =
+    liveQuery !== urlQuery && (liveQuery.length >= MIN_LIVE_QUERY || (liveQuery === '' && onSearchPage))
+  useEffect(() => {
+    if (!shouldGo) return
+    const timer = setTimeout(() => goLive(liveQuery), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [liveQuery, shouldGo])
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    const q = value.trim()
-    if (q) navigate(`/search?q=${encodeURIComponent(q)}`)
+    if (liveQuery && liveQuery !== urlQuery) goTo(liveQuery)
   }
 
   return (

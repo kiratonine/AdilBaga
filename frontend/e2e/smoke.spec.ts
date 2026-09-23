@@ -44,6 +44,30 @@ test('category: filter updates the list and min price is highlighted', async ({ 
 
   await first.getByRole('link').click()
   await expect(page).toHaveURL(/\/products\//)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Молоко Emil 1% 500 мл')
+
+  expect(errors).toEqual([])
+})
+
+test('search while typing, then open a product', async ({ page }) => {
+  const errors = trackConsoleErrors(page)
+
+  await page.goto('/')
+  await page.getByTestId('search-input').pressSequentially('сахар')
+  await expect(page).toHaveURL(/\/search\?q=%D1%81%D0%B0%D1%85%D0%B0%D1%80$/)
+  await expect(page.getByTestId('product-card')).toHaveCount(4)
+
+  await page.getByTestId('product-card').first().getByRole('link').click()
+  await expect(page).toHaveURL(/\/products\//)
+  await expect(page.getByTestId('min-price')).toBeVisible()
+  const offers = page.getByTestId('offer-list').getByRole('listitem')
+  await expect(offers.first()).toHaveAttribute('data-best', 'true')
+  await expect(page.getByTestId('product-attributes')).toContainText('Вес')
+
+  // Назад — к тем же результатам поиска
+  await page.goBack()
+  await expect(page.getByTestId('search-input')).toHaveValue('сахар')
+  await expect(page.getByTestId('product-card')).toHaveCount(4)
 
   expect(errors).toEqual([])
 })

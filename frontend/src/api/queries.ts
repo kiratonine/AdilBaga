@@ -20,8 +20,14 @@ export const queryKeys = {
 export const useCategories = () =>
   useQuery({ queryKey: queryKeys.categories, queryFn: catalogApi.getCategories, ...STATIC })
 
-export const useCategoryFilters = (slug: string) =>
-  useQuery({ queryKey: queryKeys.filters(slug), queryFn: () => catalogApi.getCategoryFilters(slug), ...STATIC })
+/** slug неизвестен (страница товара ещё грузится) — запрос не отправляем */
+export const useCategoryFilters = (slug: string | undefined) =>
+  useQuery({
+    queryKey: queryKeys.filters(slug ?? ''),
+    queryFn: () => catalogApi.getCategoryFilters(slug ?? ''),
+    enabled: Boolean(slug),
+    ...STATIC,
+  })
 
 /** Бэк отдаёт массив без total: страница короче PAGE_SIZE — значит, она последняя */
 export function getNextOffset(lastPage: ProductCardDto[], allPages: ProductCardDto[][]): number | undefined {

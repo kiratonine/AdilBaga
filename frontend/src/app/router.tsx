@@ -1,9 +1,11 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
 import { Layout } from '../components/layout/Layout'
+import { CategoryPage } from '../pages/CategoryPage'
 import { HomePage } from '../pages/HomePage'
 import { NotFoundPage } from '../pages/NotFoundPage'
-import { CategoryPage } from '../pages/CategoryPage'
-import { ProductStub, SearchStub, StubPage } from '../pages/StubPage'
+import { ProductPage } from '../pages/ProductPage'
+import { SearchPage } from '../pages/SearchPage'
+import { StubPage } from '../pages/StubPage'
 
 export const routes: RouteObject[] = [
   {
@@ -11,8 +13,8 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: 'collections/:slug', element: <CategoryPage /> },
-      { path: 'search', element: <SearchStub /> },
-      { path: 'products/:id', element: <ProductStub /> },
+      { path: 'search', element: <SearchPage /> },
+      { path: 'products/:id', element: <ProductPage /> },
       { path: 'dashboard', element: <StubPage title="Dashboard" /> },
       { path: '*', element: <NotFoundPage /> },
     ],
