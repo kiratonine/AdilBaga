@@ -1,0 +1,146 @@
+{
+  "summary": {
+    "canonicalProducts": 30,
+    "stores": 3,
+    "matchedAcrossStores": 27,
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  "priceSpreads": [
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000005",
+      "name": "Молоко Lactel безлактозное 1% 900 мл",
+      "minPrice": 880,
+      "maxPrice": 1180,
+      "differencePercent": 34.1
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000006",
+      "name": "Молоко Адал 2,5% 1 л",
+      "minPrice": 510,
+      "maxPrice": 670,
+      "differencePercent": 31.4
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000022",
+      "name": "Сахар-песок 1 кг",
+      "minPrice": 480,
+      "maxPrice": 630,
+      "differencePercent": 31.3
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000030",
+      "name": "Масло оливковое Borges Extra Virgin 500 мл",
+      "minPrice": 3490,
+      "maxPrice": 4570,
+      "differencePercent": 30.9
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000014",
+      "name": "Хлеб Бородинский нарезка 300 г",
+      "minPrice": 260,
+      "maxPrice": 340,
+      "differencePercent": 30.8
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000025",
+      "name": "Сахар рафинад 1 кг",
+      "minPrice": 690,
+      "maxPrice": 880,
+      "differencePercent": 27.5
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000017",
+      "name": "Яйца куриные С1 10 шт",
+      "minPrice": 620,
+      "maxPrice": 790,
+      "differencePercent": 27.4
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000001",
+      "name": "Молоко FoodMaster 3,2% 1 л",
+      "minPrice": 570,
+      "maxPrice": 720,
+      "differencePercent": 26.3
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000002",
+      "name": "Молоко FoodMaster 2,5% 1 л",
+      "minPrice": 545,
+      "maxPrice": 680,
+      "differencePercent": 24.8
+    },
+    {
+      "productId": "p0a1f000-0000-4000-8000-000000000018",
+      "name": "Яйца куриные С0 10 шт",
+      "minPrice": 720,
+      "maxPrice": 890,
+      "differencePercent": 23.6
+    }
+  ],
+  "locations": [
+    {
+      "storeCode": "DINA",
+      "storeName": "Dina Market",
+      "name": "Dina Market 5 мкр",
+      "address": "5-й микрорайон, 30",
+      "latitude": 43.6555,
+      "longitude": 51.1603
+    },
+    {
+      "storeCode": "DINA",
+      "storeName": "Dina Market",
+      "name": "Dina Market 12 мкр",
+      "address": "12-й микрорайон, 7",
+      "latitude": 43.6703,
+      "longitude": 51.1745
+    },
+    {
+      "storeCode": "DINA",
+      "storeName": "Dina Market",
+      "name": "Dina Market 27 мкр",
+      "address": "27-й микрорайон, 1А",
+      "latitude": 43.6862,
+      "longitude": 51.1561
+    },
+    {
+      "storeCode": "DANA",
+      "storeName": "Dana Market",
+      "name": "Dana Market 3 мкр",
+      "address": "3-й микрорайон, 4",
+      "latitude": 43.6441,
+      "longitude": 51.1552
+    },
+    {
+      "storeCode": "DANA",
+      "storeName": "Dana Market",
+      "name": "Dana Market 14 мкр",
+      "address": "14-й микрорайон, 55",
+      "latitude": 43.6612,
+      "longitude": 51.1839
+    },
+    {
+      "storeCode": "DANA",
+      "storeName": "Dana Market",
+      "name": "Dana Market 32Б мкр",
+      "address": "32Б микрорайон, 12",
+      "latitude": 43.6958,
+      "longitude": 51.1702
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "storeName": "Fix Price",
+      "name": "Fix Price Актау Сити",
+      "address": "ТРЦ «Актау Сити», 9-й микрорайон",
+      "latitude": 43.6508,
+      "longitude": 51.1681
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "storeName": "Fix Price",
+      "name": "Fix Price 15 мкр",
+      "address": "15-й микрорайон, 21",
+      "latitude": 43.6687,
+      "longitude": 51.1602
+    }
+  ]
+}

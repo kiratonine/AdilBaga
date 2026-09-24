@@ -5,11 +5,15 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-const output = join(outputDir, 'backend-1-part-04-review.tar.gz');
+if (process.argv[2] && process.argv[2] !== 'full-stack') {
+  throw new Error('Unknown archive target');
+}
+const output = join(outputDir, process.argv[2] === 'full-stack'
+  ? 'full-stack-integration-review.tar.gz' : 'backend-1-part-04-review.tar.gz');
 const excludedDirs = new Set([
   '.git', 'TODO', 'artifacts', 'node_modules', 'dist', 'build', '.next',
   'coverage', 'tmp', 'temp', 'logs', 'playwright-report', 'test-results',
-  'traces', '.cache', '.turbo', 'cache', 'caches', '.pnpm-store',
+  'traces', '.cache', '.vite', '.vitest', '.turbo', 'cache', 'caches', '.pnpm-store',
   '.ssh', '.aws', '.config', 'credentials', 'secrets',
 ]);
 const excludedNames = new Set([
@@ -21,7 +25,7 @@ function isSafeFile(name) {
   if (name === '.env.example') return true;
   if (name === '.env' || name.startsWith('.env.')) return false;
   if (excludedNames.has(name)) return false;
-  if (/\.(log|pem|key|p12|pfx|jks|keystore|sqlite|db)$/iu.test(name)) return false;
+  if (/\.(log|pem|key|p12|pfx|jks|keystore|sqlite|db|tsbuildinfo)$/iu.test(name)) return false;
   if (/^(?:secret|credentials)(?:[._-]|$)/iu.test(name)) return false;
   return true;
 }
