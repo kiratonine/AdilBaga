@@ -11,6 +11,7 @@ import type {
   CategoryRepository,
   DashboardRepository,
   ProductRepository,
+  StoreLocationRepository,
 } from '../repositories';
 
 const snapshotAt = '2026-09-23T09:00:00.000Z';
@@ -150,5 +151,12 @@ export class FixtureDashboardRepository implements DashboardRepository {
       priceSpreads,
       locations,
     };
+  }
+}
+
+@Injectable()
+export class FixtureStoreLocationRepository implements StoreLocationRepository {
+  async findByStoreCode(storeCode: DashboardDto['locations'][number]['storeCode']) {
+    return locations.filter((location) => location.storeCode === storeCode);
   }
 }

@@ -7,6 +7,11 @@ import { normalizeProduct } from '../src/catalog/product-card';
 import { createApp } from '../src/create-app';
 import { haversineMeters } from '../src/location/haversine';
 
+// HTTP tests must never depend on live Gemini/Upstash developer credentials.
+process.env.GEMINI_API_KEY = '';
+process.env.UPSTASH_REDIS_REST_URL = '';
+process.env.UPSTASH_REDIS_REST_TOKEN = '';
+
 let app: INestApplication;
 let baseUrl: string;
 
