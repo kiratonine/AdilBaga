@@ -36,7 +36,9 @@ describe('DashboardPage', () => {
       'href',
       '/products/p0a1f000-0000-4000-8000-000000000005',
     )
-    expect(first.textContent?.replace(/\s/g, ' ')).toMatch(/880 ₸ – 1 180 ₸.*разница 34,1%/)
+    expect(first.textContent?.replace(/\s/g, ' ')).toMatch(/880 ₸ – 1 180 ₸$/)
+    // Проценты и полосу убрали по просьбе пользователя — только цены
+    expect(first.textContent).not.toMatch(/%\s*$|разница/)
   })
 
   it('groups store points by chain next to the map', async () => {

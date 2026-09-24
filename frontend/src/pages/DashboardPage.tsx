@@ -66,8 +66,6 @@ function Summary({ summary }: { summary: DashboardDto['summary'] }) {
 
 function PriceSpreads({ spreads }: { spreads: PriceSpreadDto[] }) {
   const { t } = useTranslation()
-  // Полосы в масштабе самого большого разброса — бэк уже отсортировал DESC
-  const maxPercent = Math.max(...spreads.map((s) => s.differencePercent), 1)
 
   return (
     <section aria-labelledby="spreads-title" className="mt-12">
@@ -83,27 +81,15 @@ function PriceSpreads({ spreads }: { spreads: PriceSpreadDto[] }) {
             <li
               key={spread.productId}
               data-testid="price-spread"
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 py-3 md:grid-cols-[minmax(0,1fr)_200px_180px] md:gap-x-6"
+              className="flex items-center justify-between gap-4 py-3"
             >
               <Link to={`/products/${spread.productId}`} className="min-w-0 font-medium text-pretty hover:underline">
                 {spread.name}
               </Link>
-              <p className="text-right text-[15px] tabular md:order-last">
+              <p className="shrink-0 text-right text-[15px] tabular">
                 <span className="font-semibold text-accent">{formatPrice(spread.minPrice)}</span>
                 <span className="text-muted"> – {formatPrice(spread.maxPrice)}</span>
               </p>
-              <div className="col-span-2 flex items-center gap-3 md:col-span-1">
-                <span aria-hidden="true" className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface">
-                  <span
-                    className="block h-full rounded-full bg-ink/70"
-                    style={{ width: `${(spread.differencePercent / maxPercent) * 100}%` }}
-                  />
-                </span>
-                <span className="w-14 shrink-0 text-right text-sm font-medium tabular">
-                  <span className="sr-only">{t('dashboard.difference')} </span>
-                  {formatPercent(spread.differencePercent)}
-                </span>
-              </div>
             </li>
           ))}
         </ol>

@@ -11,7 +11,7 @@ test('language switch to Kazakh is applied and remembered', async ({ page }) => 
 
   // После перезагрузки язык сохраняется
   await page.goto('/')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Бүгін қай жерде арзан')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Бүгін қай жерде тиімдірек')
   await expect(page.getByTestId('snapshot-date').first()).toHaveText('24.09.2026 күнгі баға')
 })
 

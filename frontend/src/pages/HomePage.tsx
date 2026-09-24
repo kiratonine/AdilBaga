@@ -58,7 +58,6 @@ function TopDeals() {
       <h2 id="deals-title" className="text-lg font-semibold">
         {t('home.deals')}
       </h2>
-      <p className="mt-1 text-sm text-muted">{t('home.dealsHint')}</p>
       <div className="mt-4">
         {loading && <LoadingState />}
         {dashboard.isError && <ErrorState onRetry={() => dashboard.refetch()} />}

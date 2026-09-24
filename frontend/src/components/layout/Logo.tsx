@@ -5,7 +5,7 @@ export function LogoMark({ className = 'size-8' }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
       <path
-        d="M11.2 6H26a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H11.2a2 2 0 0 1-1.5-.7l-6-7a2 2 0 0 1 0-2.6l6-7a2 2 0 0 1 1.5-.7Z"
+        d="M11.2 6H26a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H11.2a2 2 0 0 1-1.5-.7l-6-8a2 2 0 0 1 0-2.6l6-8a2 2 0 0 1 1.5-.7Z"
         fill="var(--color-accent)"
       />
       <circle cx="10.6" cy="16" r="1.9" fill="var(--color-page)" />
