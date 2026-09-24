@@ -17,6 +17,11 @@ describe('filterParams', () => {
     expect(readFilters(new URLSearchParams('lactoseFree=true'), filters)).toEqual({ lactoseFree: ['true'] })
   })
 
+  it('ignores values of a multi-select without options', () => {
+    const noOptions: FilterDto[] = [{ key: 'volumeMl', label: 'Объём', type: 'multi-select' }]
+    expect(readFilters(new URLSearchParams('volumeMl=500'), noOptions)).toEqual({})
+  })
+
   it('falls back to price_asc for unknown sort', () => {
     expect(readSort(new URLSearchParams('sort=cheapest'))).toBe('price_asc')
     expect(readSort(new URLSearchParams('sort=name_asc'))).toBe('name_asc')

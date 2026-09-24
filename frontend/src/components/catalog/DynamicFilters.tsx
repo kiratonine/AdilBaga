@@ -15,7 +15,7 @@ export function DynamicFilters({ filters, values, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {filters.map((filter) => {
+      {filters.filter(hasChoices).map((filter) => {
         const selected = values[filter.key] ?? []
         const toggle = (value: string) =>
           onChange(filter.key, selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
@@ -26,7 +26,7 @@ export function DynamicFilters({ filters, values, onChange }: Props) {
               <>
                 <legend className="mb-2.5 text-sm font-semibold">{filter.label}</legend>
                 <div className="flex flex-wrap gap-2">
-                  {filter.options.map((option) => {
+                  {(filter.options ?? []).map((option) => {
                     const value = String(option)
                     return (
                       <Chip key={value} pressed={selected.includes(value)} onClick={() => toggle(value)}>
@@ -54,6 +54,9 @@ export function DynamicFilters({ filters, values, onChange }: Props) {
     </div>
   )
 }
+
+/** Multi-select без options показывать нечего */
+const hasChoices = (filter: FilterDto) => filter.type === 'boolean' || (filter.options?.length ?? 0) > 0
 
 function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
   return (

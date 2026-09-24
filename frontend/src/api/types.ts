@@ -15,7 +15,8 @@ export type CategoryRefDto = Pick<CategoryDto, 'slug' | 'name'>
 export type AttributeValue = string | number | boolean
 
 export type FilterDto =
-  | { key: string; label: string; type: 'multi-select'; options: (string | number)[] }
+  // У бэка options необязательны и бывают boolean — те же примитивы, что в attributes
+  | { key: string; label: string; type: 'multi-select'; options?: AttributeValue[] }
   | { key: string; label: string; type: 'boolean' }
 
 export type FilterSchemaDto = {
@@ -38,7 +39,8 @@ export type ProductCardDto = {
   brand: string | null
   category: CategoryRefDto
   imageUrl: string | null
-  attributes: Record<string, AttributeValue>
+  /** null — значение у товара неизвестно */
+  attributes: Record<string, AttributeValue | null>
   minPrice: number
   /** Отсортированы по price ASC */
   offers: OfferDto[]

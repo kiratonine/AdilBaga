@@ -61,6 +61,10 @@ describe('ProductCard', () => {
     renderCard({ ...product, brand: null, offers: [product.offers[1]] })
     expect(screen.getByTestId('image-placeholder')).toBeInTheDocument()
     expect(screen.queryByText(/дешевле, чем/)).not.toBeInTheDocument()
+    // Сравнивать не с чем — единственное предложение не выделяется как самое дешёвое
+    const [row] = within(screen.getByTestId('offer-list')).getAllByRole('listitem')
+    expect(row).not.toHaveAttribute('data-best')
+    expect(text(row)).toBe('Dina570 ₸')
   })
 
   it('falls back to the placeholder when the image fails to load', async () => {

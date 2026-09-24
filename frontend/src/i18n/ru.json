@@ -23,7 +23,9 @@
   },
   "product": {
     "lowest": "Самая низкая цена",
+    "price": "Цена",
     "cheapest": "Дешевле всего",
+    "onlyStore": "Только в этой сети",
     "moreExpensive": "дороже на {{amount}}",
     "attributes": "Характеристики"
   },

@@ -23,7 +23,9 @@
   },
   "product": {
     "lowest": "Ең төмен баға",
+    "price": "Баға",
     "cheapest": "Ең арзан",
+    "onlyStore": "Тек осы желіде",
     "moreExpensive": "{{amount}} қымбат",
     "attributes": "Сипаттамалары"
   },

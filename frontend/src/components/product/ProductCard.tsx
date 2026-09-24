@@ -40,11 +40,12 @@ export function ProductCard({ product }: { product: ProductCardDto }) {
         )}
 
         <ul data-testid="offer-list" aria-label={t('card.offers')} className="mt-3 flex flex-col text-sm">
-          {offers.map((offer) => {
-            const isBest = offer.price === product.minPrice
+          {offers.map((offer, index) => {
+            // Одно предложение — сравнивать не с чем, зелёным не выделяем
+            const isBest = offers.length > 1 && offer.price === product.minPrice
             return (
               <li
-                key={offer.storeCode}
+                key={`${offer.storeCode}-${index}`}
                 data-best={isBest || undefined}
                 className={`flex items-baseline justify-between gap-3 rounded-md px-2 py-1 ${
                   isBest ? 'bg-accent-soft font-medium text-accent' : 'text-ink'

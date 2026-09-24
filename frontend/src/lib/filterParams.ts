@@ -11,7 +11,7 @@ export function readFilters(params: URLSearchParams, filters: FilterDto[]): Filt
     const picked =
       filter.type === 'boolean'
         ? raw.filter((v) => v === 'true' || v === 'false').slice(0, 1)
-        : raw.filter((v) => filter.options.some((option) => String(option) === v))
+        : raw.filter((v) => (filter.options ?? []).some((option) => String(option) === v))
     if (picked.length > 0) values[filter.key] = [...new Set(picked)]
   }
   return values

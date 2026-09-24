@@ -33,6 +33,9 @@ pnpm test:e2e    # Playwright (desktop + iPhone), сам собирает и п�
 Если `playwright install` не может скачать браузеры, запускайте через установленный Chrome:
 `PW_CHANNEL=chrome pnpm test:e2e`.
 
+E2E против живого бэка (`e2e/http.spec.ts`, ожидания берутся из того же API, preview на :4174):
+`E2E_API=http PW_CHANNEL=chrome pnpm test:e2e` (адрес — `VITE_API_BASE_URL`, по умолчанию `http://localhost:3000`).
+
 ## Дизайн-токены
 
 `src/index.css`, блок `@theme`. Нейтральная база и один акцент: зелёный (`accent`) означает «здесь дешевле» и используется только для минимальной цены и выгоды.

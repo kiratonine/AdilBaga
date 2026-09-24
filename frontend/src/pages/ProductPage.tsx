@@ -26,6 +26,8 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
   const offers = sortOffers(product.offers)
   const saving = savingOf(offers)
   const best = offers[0]
+  // Одно предложение — сравнивать не с чем, поэтому без зелёного «дешевле всего»
+  const compared = offers.length > 1
   const oldPrice = best?.oldPrice != null && best.oldPrice > best.price ? best.oldPrice : null
   useDocumentTitle(product.name)
 
@@ -55,7 +57,7 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
           </h1>
 
           <div className="mt-6">
-            <p className="text-sm text-muted">{t('product.lowest')}</p>
+            <p className="text-sm text-muted">{t(compared ? 'product.lowest' : 'product.price')}</p>
             <p className="mt-1 flex flex-wrap items-baseline gap-x-3">
               <span data-testid="min-price" className="font-display text-[36px] leading-none font-semibold tracking-[-0.02em] tabular md:text-[44px]">
                 {formatPrice(product.minPrice)}
@@ -72,12 +74,12 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
               {t('card.offers')}
             </h2>
             <ul data-testid="offer-list" className="mt-3 flex flex-col gap-1">
-              {offers.map((offer) => {
-                const isBest = offer.price === product.minPrice
+              {offers.map((offer, index) => {
+                const isBest = compared && offer.price === product.minPrice
                 const offerOld = offer.oldPrice != null && offer.oldPrice > offer.price ? offer.oldPrice : null
                 return (
                   <li
-                    key={offer.storeCode}
+                    key={`${offer.storeCode}-${index}`}
                     data-best={isBest || undefined}
                     className={`flex items-center justify-between gap-4 rounded-[var(--radius-control)] px-3 py-3 ${
                       isBest ? 'bg-accent-soft text-accent' : 'border border-line'
@@ -85,7 +87,9 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
                   >
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{offer.storeName}</span>
-                      {isBest ? (
+                      {!compared ? (
+                        <span className="text-[13px] text-muted">{t('product.onlyStore')}</span>
+                      ) : isBest ? (
                         <span className="text-[13px]">{t('product.cheapest')}</span>
                       ) : (
                         <span className="text-[13px] text-muted tabular">
@@ -119,7 +123,7 @@ function Attributes({ product }: { product: ProductCardDto }) {
   const schema = useCategoryFilters(product.category.slug)
   const rows = (schema.data?.filters ?? []).flatMap((filter: FilterDto) => {
     const value = product.attributes[filter.key]
-    return value === undefined ? [] : [{ key: filter.key, label: filter.label, value }]
+    return value === undefined || value === null ? [] : [{ key: filter.key, label: filter.label, value }]
   })
 
   if (rows.length === 0) return null

@@ -37,6 +37,9 @@
 | Заголовок вкладки | `lib/useDocumentTitle.ts`: «<страница> — Adil Bağa», на главной — `brand.title`; меняется с языком. В `CategoryPage` 404-заголовок ставится самой страницей (эффект родителя идёт после эффекта `NotFoundPage`) |
 | Skip-link | Первый Tab — «Перейти к содержимому» → `main#main` (`tabIndex=-1`) |
 | Git | На GitHub дефолтная ветка — **`main`** (была `feat/backend-2`, сменено 2026-09-23) |
+| Одно предложение | Если у товара одна цена (в датасете backend-2 так у большинства) — **без зелёной подсветки** и без «Дешевле всего»: на странице товара «Цена» вместо «Самая низкая цена» и подпись «Только в этой сети». Ключ offer — `storeCode-index` |
+| Фактический DTO бэка | `attributes` — значения могут быть `null` (не показываем); `FilterDto.options` у multi-select необязательны и бывают boolean (фильтр без options скрыт, boolean → «Да/Нет») |
+| E2E http | `E2E_API=http PW_CHANNEL=chrome pnpm test:e2e` → только `e2e/http.spec.ts`, preview на **:4174**, ожидания берутся из API (data-agnostic). Обычный прогон этот spec игнорирует |
 | Цвета сетей | `lib/stores.ts`: DINA `#2a78d6`, DANA `#eb6834`, FIX_PRICE `#4a3aa7` (прошли валидатор dataviz: CVD/контраст), неизвестная сеть — `#697178`. Зелёный для сетей не используем |
 
 Моки и типы приведены к **подтверждённому** контракту Backend 1 (см. `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`).
@@ -53,7 +56,7 @@
 | 3 | **Поиск + страница товара.** `/search?q=` с debounce, `/products/:id` (картинка, бренд, атрибуты, offers, min price) | ✅ |
 | 4 | **Dashboard.** Summary cards, price spread list, карта Leaflet с маркерами по сетям | ✅ |
 | 5 | **Полировка.** Responsive (desktop + iPhone), kk-переводы, Playwright E2E основного flow, `pnpm build`, консоль без ошибок | ✅ (Lighthouse не прогонялся) |
-| 6 | **Интеграция с реальным API** (после ответов бэка / merge): http-адаптер, правки DTO, прогон E2E | ⏳ |
+| 6 | **Интеграция с реальным API** (после ответов бэка / merge): http-адаптер, правки DTO, прогон E2E | ✅ против `feat/backend-1` (fixtures); повторить после подключения датасета backend-2 |
 | 7 | Деплой | отложено |
 
 ---
@@ -67,6 +70,14 @@
 ---
 
 ## Журнал
+
+### Сессия 6 — 2026-09-24
+- Состояние бэка: `origin/main` — только initial commit. `feat/backend-1` — NestJS API (Part 02 каталог/дашборд, Part 03 голос), **но на fixtures**: 1 категория (`milk`), 2 товара, 2 демо-точки. `feat/backend-2` — Prisma + скрейперы + `data/snapshots/final_dataset.json` (121 canonical, 243 raw, **кросс-матчей всего 3**, категории milk/bread/sugar/oil/eggs/tea/groceries/other), API нет. Реальный DB-адаптер в backend-1 не подключён.
+- Бэк запускался из worktree `origin/feat/backend-1` (`pnpm install && pnpm build && pnpm start`, :3000). Все эндпоинты отвечают по контракту 05; 404/400 — формат NestJS.
+- Расхождения с типами фронта (из `backend/src/contracts/catalog.ts`): `attributes` допускает `null`, `options` — optional и может содержать boolean. Поправлены `types.ts`, `filterParams`, `DynamicFilters`, `ProductPage` (см. таблицу решений).
+- Под реальные данные: товар с одним предложением больше не подсвечивается как «самый дешёвый» (см. «Одно предложение»). ru+kk: `product.price`, `product.onlyStore`.
+- `e2e/http.spec.ts` + режим `E2E_API=http` в `playwright.config.ts`; README дополнен.
+- Проверено: typecheck, oxlint, 65 unit-тестов, build, E2E mock 15 passed + 1 skipped, E2E http 12 passed (desktop+iPhone), скриншоты товара и дашборда на живом API, консоль без ошибок.
 
 ### Сессия 5 — 2026-09-23
 - **По просьбе пользователя** строка выгоды: предложение графитом, сумма зелёным (`SavingLine`, см. таблицу решений).
@@ -125,7 +136,7 @@
 
 ## Следующий шаг
 
-**Сессия 6 — Интеграция с реальным API.** Если сессия 5 ещё не закоммичена — предложить закоммитить. Проверить, что бэк смёржен/доступен (`VITE_API_MODE=http`, `VITE_API_BASE_URL`), прогнать все страницы на реальных данных, сверить DTO с `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`, поправить расхождения, E2E на http-режиме. Хвост из сессии 5: Lighthouse-проход по доступности; маркеры карты не фокусируемы с клавиатуры (текстовый список точек их дублирует).
+**Сессия 7 — повторная интеграция на реальном датасете, затем деплой.** Когда Backend 1 подключит DB-адаптер с данными backend-2 (или ветки смёржат в `main`): поднять бэк, `E2E_API=http PW_CHANNEL=chrome pnpm test:e2e`, визуальный проход 1280/390 — длинные КАПСОМ названия, много товаров с одной ценой, мало `priceSpreads` (на главной может быть < 8 карточек), реальные картинки и точки. Хвост: Lighthouse-проход по доступности; маркеры карты не фокусируемы с клавиатуры (текстовый список точек их дублирует). Потом — деплой (сессия 7 в плане).
 
 ## Открытые вопросы / заметки
 

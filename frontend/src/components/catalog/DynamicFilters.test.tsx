@@ -43,4 +43,17 @@ describe('DynamicFilters', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Без лактозы' }))
     expect(onChange).toHaveBeenLastCalledWith('lactoseFree', ['true'])
   })
+
+  it('skips multi-select without options and labels boolean options', () => {
+    const schema: FilterDto[] = [
+      { key: 'volumeMl', label: 'Объём', type: 'multi-select' },
+      { key: 'sliced', label: 'Нарезка', type: 'multi-select', options: [true, false] },
+    ]
+    render(<DynamicFilters filters={schema} values={{}} onChange={() => {}} />)
+    expect(screen.queryByTestId('filter-volumeMl')).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('filter-sliced')).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Да',
+      'Нет',
+    ])
+  })
 })
