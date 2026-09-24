@@ -24,7 +24,7 @@ export class VoiceService {
     @Inject(CATEGORY_REPOSITORY) private readonly categories: CategoryRepository,
     @Inject(PRODUCT_REPOSITORY) private readonly products: ProductRepository,
     @Inject(STORE_LOCATION_REPOSITORY) private readonly locations: StoreLocationRepository,
-  ) {}
+  ) { }
 
   async start(request: VoiceStartRequest): Promise<VoiceResponse> {
     const context = await this.nlpContext(request.text);
@@ -126,7 +126,7 @@ export class VoiceService {
       if (!item) return 'Подходящих товаров не найдено.';
       const nearest = item.address && item.distanceMeters !== null
         ? ` Ближайшая точка — ${item.address}, примерно ${item.distanceMeters} ${metersWord(item.distanceMeters)}.` : '';
-      return `Самое дешёвое предложение: ${item.name} за ${item.price} тенге в ${item.store}.${nearest}`;
+      return `Самое выгодное предложение: ${item.name} за ${item.price} тенге в ${item.store}.${nearest}`;
     }
     const introduction = items.length === 1 ? 'Нашёл один вариант.' : `Нашёл ${items.length} варианта.`;
     return `${introduction} ` + items.map((item, index) =>

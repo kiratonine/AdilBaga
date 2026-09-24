@@ -5,6 +5,11 @@ import { CategoriesController } from './categories/categories.controller';
 import { CategoriesService } from './categories/categories.service';
 import { DashboardController } from './dashboard/dashboard.controller';
 import { DashboardService } from './dashboard/dashboard.service';
+import { PrismaCategoryRepository } from './database/prisma-category.repository';
+import { PrismaDashboardRepository } from './database/prisma-dashboard.repository';
+import { PrismaProductRepository } from './database/prisma-product.repository';
+import { PrismaService } from './database/prisma.service';
+import { PrismaStoreLocationRepository } from './database/prisma-store-location.repository';
 import {
   FixtureCategoryRepository,
   FixtureDashboardRepository,
@@ -27,6 +32,9 @@ import { NLP_PARSER } from './voice/voice-types';
 import { VoiceController } from './voice/voice.controller';
 import { VoiceService } from './voice/voice.service';
 
+// Fixtures are opt-in for deterministic tests; normal runtime always uses PostgreSQL.
+const fixtureData = process.env.DATA_SOURCE === 'fixture';
+
 @Module({
   controllers: [CategoriesController, ProductsController, DashboardController, VoiceController],
   providers: [
@@ -37,11 +45,12 @@ import { VoiceService } from './voice/voice.service';
     GeminiNlpParser,
     FallbackNlpParser,
     NlpService,
+    ...(!fixtureData ? [PrismaService] : []),
     { provide: NLP_PARSER, useExisting: NlpService },
-    { provide: PRODUCT_REPOSITORY, useClass: FixtureProductRepository },
-    { provide: CATEGORY_REPOSITORY, useClass: FixtureCategoryRepository },
-    { provide: DASHBOARD_REPOSITORY, useClass: FixtureDashboardRepository },
-    { provide: STORE_LOCATION_REPOSITORY, useClass: FixtureStoreLocationRepository },
+    { provide: PRODUCT_REPOSITORY, useClass: fixtureData ? FixtureProductRepository : PrismaProductRepository },
+    { provide: CATEGORY_REPOSITORY, useClass: fixtureData ? FixtureCategoryRepository : PrismaCategoryRepository },
+    { provide: DASHBOARD_REPOSITORY, useClass: fixtureData ? FixtureDashboardRepository : PrismaDashboardRepository },
+    { provide: STORE_LOCATION_REPOSITORY, useClass: fixtureData ? FixtureStoreLocationRepository : PrismaStoreLocationRepository },
     {
       provide: VOICE_SESSION_REPOSITORY,
       useFactory: () => {
