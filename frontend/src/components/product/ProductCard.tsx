@@ -30,7 +30,7 @@ export function ProductCard({ product }: { product: ProductCardDto }) {
         </h3>
 
         <p className="mt-2 flex flex-wrap items-baseline gap-x-2">
-          <span data-testid="min-price" className="font-display text-[22px] leading-none font-semibold tracking-[-0.02em] tabular">
+          <span data-testid="min-price" className="font-display text-[22px] leading-none font-bold tracking-[-0.02em] tabular">
             {formatPrice(product.minPrice)}
           </span>
           {oldPrice !== null && <s className="text-sm text-muted tabular">{formatPrice(oldPrice)}</s>}

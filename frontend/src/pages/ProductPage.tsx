@@ -59,7 +59,7 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
           <div className="mt-6">
             <p className="text-sm text-muted">{t(compared ? 'product.lowest' : 'product.price')}</p>
             <p className="mt-1 flex flex-wrap items-baseline gap-x-3">
-              <span data-testid="min-price" className="font-display text-[36px] leading-none font-semibold tracking-[-0.02em] tabular md:text-[44px]">
+              <span data-testid="min-price" className="font-display text-[36px] leading-none font-bold tracking-[-0.02em] tabular md:text-[44px]">
                 {formatPrice(product.minPrice)}
               </span>
               {oldPrice !== null && <s className="text-muted tabular">{formatPrice(oldPrice)}</s>}

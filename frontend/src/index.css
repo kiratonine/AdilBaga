@@ -1,5 +1,5 @@
 @import '@fontsource-variable/golos-text';
-@import '@fontsource-variable/onest';
+@import '@fontsource-variable/montserrat';
 @import 'tailwindcss';
 
 /*
@@ -18,8 +18,8 @@
   --color-danger: #b42318;
 
   --font-sans: 'Golos Text Variable', system-ui, sans-serif;
-  /* Спокойный гротеск в духе маркетплейсов — для цен, заголовков и логотипа */
-  --font-display: 'Onest Variable', 'Golos Text Variable', sans-serif;
+  /* Выразительный геометричный гротеск — для цен, заголовков и логотипа */
+  --font-display: 'Montserrat Variable', 'Golos Text Variable', sans-serif;
 
   --radius-card: 14px;
   --radius-control: 10px;

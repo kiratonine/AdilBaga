@@ -14,7 +14,7 @@
 | Тесты | Vitest + Testing Library (unit), Playwright (E2E) |
 | Карта | Leaflet + OpenStreetMap (react-leaflet), без ключей |
 | Языки UI | **ru** (default) + **kk**, i18n через `react-i18next`. Данные товаров остаются как с бэка (ru) |
-| Дизайн | Минималистично, **без мотивов флага**. Белый фон, графит `ink #1A1F24`, серый `surface #F3F5F4`, один акцент — зелёный `accent #17744A` = «здесь дешевле» (только min price / выгода). Шрифты: Golos Text (UI) + **Onest** (цены, заголовки, логотип; Unbounded заменён в сессии 6 — «как на маркетплейсах»), self-host через `@fontsource-variable`. Лого: зелёный ценник со знаком «=». Токены — `@theme` в `src/index.css` |
+| Дизайн | Минималистично, **без мотивов флага**. Белый фон, графит `ink #1A1F24`, серый `surface #F3F5F4`, один акцент — зелёный `accent #17744A` = «здесь дешевле» (только min price / выгода). Шрифты: Golos Text (UI) + **Montserrat** (цены — bold, логотип — extrabold; выбран пользователем в сессии 6 из сравнения 9 шрифтов, до этого Unbounded → Onest). Шрифты без казахских букв (Manrope, Jost) не подходят, self-host через `@fontsource-variable`. Лого: зелёный ценник со знаком «=». Токены — `@theme` в `src/index.css` |
 | Деплой | Отложен, вернёмся позже |
 | Репо | `https://github.com/kiratonine/AdilBaga`, ветка `feat/frontend`, код в `frontend/**` |
 | Роуты | `/` — каталог (категории + товары с наибольшей экономией), `/collections/:slug` — категория, `/search?q=` — поиск по всем категориям, `/products/:id` — страница товара, `/dashboard` |
@@ -76,7 +76,7 @@
 - Бэк запускался из worktree `origin/feat/backend-1` (`pnpm install && pnpm build && pnpm start`, :3000). Все эндпоинты отвечают по контракту 05; 404/400 — формат NestJS.
 - Расхождения с типами фронта (из `backend/src/contracts/catalog.ts`): `attributes` допускает `null`, `options` — optional и может содержать boolean. Поправлены `types.ts`, `filterParams`, `DynamicFilters`, `ProductPage` (см. таблицу решений).
 - Под реальные данные: товар с одним предложением больше не подсвечивается как «самый дешёвый» (см. «Одно предложение»). ru+kk: `product.price`, `product.onlyStore`.
-- **По просьбе пользователя:** на дашборде убраны % и полоса разброса; футер — без фразы о снимке, справа «© 2026 Все права защищены»; логотип — починен незамкнутый контур (торчал угол), остриё симметрично; шрифт цен/логотипа Unbounded → Onest; главная: заголовок «Где сегодня выгоднее», подпись под «Самая большая разница в цене» удалена (`home.dealsHint`, `dashboard.difference` удалены).
+- **По просьбе пользователя:** на дашборде убраны % и полоса разброса; футер — без фразы о снимке, справа «© 2026 Все права защищены»; логотип — починен незамкнутый контур (торчал угол), остриё симметрично; шрифт цен/логотипа Unbounded → Onest → **Montserrat** (Onest показался невыразительным); главная: заголовок «Где сегодня выгоднее», подпись под «Самая большая разница в цене» удалена (`home.dealsHint`, `dashboard.difference` удалены).
 - `e2e/http.spec.ts` + режим `E2E_API=http` в `playwright.config.ts`; README дополнен.
 - Проверено: typecheck, oxlint, 65 unit-тестов, build, E2E mock 15 passed + 1 skipped, E2E http 12 passed (desktop+iPhone), скриншоты товара и дашборда на живом API, консоль без ошибок.
 

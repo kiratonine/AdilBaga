@@ -11,9 +11,9 @@ importers:
       '@fontsource-variable/golos-text':
         specifier: ^5.3.0
         version: 5.3.0
-      '@fontsource-variable/onest':
-        specifier: ^5.3.1
-        version: 5.3.1
+      '@fontsource-variable/montserrat':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@tanstack/react-query':
         specifier: ^5.103.2
         version: 5.103.2(react@19.3.0)
@@ -165,8 +165,8 @@ packages:
   '@fontsource-variable/golos-text@5.3.0':
     resolution: {integrity: sha512-D+Evz5yqXYh6tsalc537FS+cPDWn2FTdO8j/K1ZZuFAvA7ib6WnusTiihciq7mMnm6GBo6XTlh0JXPrhBsam2g==}
 
-  '@fontsource-variable/onest@5.3.1':
-    resolution: {integrity: sha512-xaaw6G4HDB2/RczsWLD/2bnib4ykmQlTlBUN3GOEOiyErilZukQWVJG95h9zwAy0i8KY+QzDa+COPfqhI72Acw==}
+  '@fontsource-variable/montserrat@5.3.0':
+    resolution: {integrity: sha512-7PaZoxaxrWLAyrhO46v65An9LhUhfkTExWLhfbywYZCnZEgg/W1rEHnlNmZKjNZ3nJTVYyicqxlJt10z/26yTA==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -1262,7 +1262,7 @@ snapshots:
 
   '@fontsource-variable/golos-text@5.3.0': {}
 
-  '@fontsource-variable/onest@5.3.1': {}
+  '@fontsource-variable/montserrat@5.3.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

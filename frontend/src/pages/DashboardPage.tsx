@@ -54,7 +54,7 @@ function Summary({ summary }: { summary: DashboardDto['summary'] }) {
       {tiles.map((tile) => (
         <div key={tile.key} data-testid="summary-card" className="flex flex-col rounded-[var(--radius-card)] bg-surface px-4 py-4 md:px-5">
           <dt className="text-sm text-muted">{tile.label}</dt>
-          <dd className="order-first font-display text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular sm:text-[26px] md:text-[32px]">
+          <dd className="order-first font-display text-[22px] leading-tight font-bold tracking-[-0.02em] tabular sm:text-[26px] md:text-[32px]">
             {tile.value}
           </dd>
           {tile.hint && <dd className="mt-1 text-[13px] text-muted">{tile.hint}</dd>}
