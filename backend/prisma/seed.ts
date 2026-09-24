@@ -10,6 +10,13 @@ async function seed() {
   console.log('ADIL BAĞA — DATABASE SEEDER (AKTAU CONTEXT)');
   console.log('='.repeat(60));
 
+  // 0. Clean existing records for clean idempotent seeding
+  console.log('>>> [0/5] Cleaning existing product and offer records...');
+  await prisma.offer.deleteMany();
+  await prisma.productMapping.deleteMany();
+  await prisma.canonicalProduct.deleteMany();
+  await prisma.rawProduct.deleteMany();
+
   // 1. Seed Stores
   console.log('>>> [1/5] Seeding Stores...');
   const storesData = [

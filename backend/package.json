@@ -6,7 +6,9 @@
   "scripts": {
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:verify": "tsx scripts/verify_db.ts",
     "import:dina": "tsx src/modules/import/scrapers/dina.scraper.ts",
     "import:dana": "tsx src/modules/import/scrapers/dana.scraper.ts",
     "import:fixprice": "tsx src/modules/import/scrapers/fixprice.loader.ts",
