@@ -9,9 +9,10 @@ env/
 __pycache__/
 *.pyc
 
-# Environment variables
+# Environment variables & local secrets
 .env
 *.env.local
+docs/SUPABASE_CONFIG.md
 
 # Logs
 *.log
