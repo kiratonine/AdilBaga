@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DinaScraper } from '../src/modules/import/scrapers/dina.scraper';
@@ -18,7 +19,7 @@ async function runPipeline() {
   // 1. Run Dina Scraper
   console.log('>>> [1/3] Ingesting Dina Market (Aktau shop 28)...');
   const dinaScraper = new DinaScraper();
-  const dinaRes = await dinaScraper.fetchProducts(6, 50);
+  const dinaRes = await dinaScraper.fetchProducts();
   console.log(`[DINA] Fetched ${dinaRes.totalFetched} products.`);
 
   // 2. Run Dana Scraper

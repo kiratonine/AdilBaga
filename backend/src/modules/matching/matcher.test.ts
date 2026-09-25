@@ -110,6 +110,26 @@ function runTests() {
   const res5 = matcher.canMatch(matcher.prepareCandidate(prodA), matcher.prepareCandidate(prodB));
   assert(res5.match === true && res5.method === 'barcode', 'Barcode exact match works');
 
+  // 6. Different product type test: Promo гречка 700g vs Promo манка 700g MUST NOT MATCH
+  const buckwheatPromo: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_8',
+    name: 'Крупа Promo гречка 700 г',
+    brand: 'Promo',
+    category: 'groats',
+    price: 305
+  };
+  const semolinaPromo: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_9',
+    name: 'Крупа Promo манная 700 г',
+    brand: 'Promo',
+    category: 'groats',
+    price: 361
+  };
+  const res6 = matcher.canMatch(matcher.prepareCandidate(buckwheatPromo), matcher.prepareCandidate(semolinaPromo));
+  assert(res6.match === false, 'Different product types (buckwheat vs semolina) under same brand/weight must NOT match');
+
   console.log(`\nRESULTS: ${passed}/${total} tests passed!`);
   if (passed !== total) {
     process.exit(1);

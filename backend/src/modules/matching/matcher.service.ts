@@ -51,13 +51,15 @@ export class MatcherService {
   }
 
   public buildFingerprint(category: string, attrs: NormalizedAttributes): string {
-    const cat = category.toLowerCase().trim();
+    const pType = (attrs.productType || 'notype').toLowerCase();
+    const cat = attrs.productType ? this.mapProductTypeToCategory(attrs.productType) : category.toLowerCase().trim();
     const brand = (attrs.brand || 'nobrand').toLowerCase().replace(/\s+/g, '');
+    const tea = attrs.teaType || 'notea';
     const size = attrs.volumeMl ? `${attrs.volumeMl}ml` : (attrs.weightGrams ? `${attrs.weightGrams}g` : 'nosize');
     const fat = attrs.fatPercent ? `${attrs.fatPercent}pct` : 'nofat';
     const variant = attrs.breadType || 'novariant';
 
-    return `${cat}|${brand}|${size}|${fat}|${variant}`;
+    return `${cat}|${brand}|${pType}|${tea}|${size}|${fat}|${variant}`;
   }
 
   public canMatch(a: MatchCandidate, b: MatchCandidate): { match: boolean; confidence: number; method: 'barcode' | 'deterministic' | 'ai' } {
@@ -73,7 +75,22 @@ export class MatcherService {
       return { match: true, confidence: 1.0, method: 'barcode' };
     }
 
-    // 3. Strict Size Rule: Different volume/weight cannot be the same SKU!
+    // 3. Strict Product Type Rule: Different product types can NEVER match!
+    if (a.attrs.productType && b.attrs.productType && a.attrs.productType !== b.attrs.productType) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 4. Strict Tea Type check: Green tea and black tea cannot match!
+    if (a.attrs.teaType && b.attrs.teaType && a.attrs.teaType !== b.attrs.teaType) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 5. Strict Package Count check: Different pack sizes cannot match (e.g. 100 bags vs 25 bags)
+    if (a.attrs.packageCount && b.attrs.packageCount && a.attrs.packageCount !== b.attrs.packageCount) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 6. Strict Size Rule: Different volume/weight cannot be the same SKU!
     if (a.attrs.volumeMl && b.attrs.volumeMl && Math.abs(a.attrs.volumeMl - b.attrs.volumeMl) > 20) {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
@@ -81,22 +98,22 @@ export class MatcherService {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 4. Strict Fat % Rule: Different fat % cannot be the same SKU!
+    // 7. Strict Fat % Rule: Different fat % cannot be the same SKU!
     if (a.attrs.fatPercent && b.attrs.fatPercent && Math.abs(a.attrs.fatPercent - b.attrs.fatPercent) > 0.1) {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 5. Brand check: If both brands are known and distinct -> no match
+    // 8. Brand check: If both brands are known and distinct -> no match
     if (a.attrs.brand && b.attrs.brand && a.attrs.brand !== b.attrs.brand) {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 6. Deterministic Fingerprint Match
-    if (a.fingerprint === b.fingerprint && !a.fingerprint.includes('nobrand|nosize')) {
+    // 9. Deterministic Fingerprint Match: Must have both known brand and known size!
+    if (a.fingerprint === b.fingerprint && !a.fingerprint.includes('nobrand') && !a.fingerprint.includes('nosize')) {
       return { match: true, confidence: 0.98, method: 'deterministic' };
     }
 
-    // 7. Token Similarity Match for Cleaned Names
+    // 8. Token Similarity Match for Cleaned Names
     const similarity = this.calculateTokenSimilarity(a.attrs.cleanedName, b.attrs.cleanedName);
     
     // When same brand and same size are confirmed, similarity >= 0.65 indicates match
@@ -125,6 +142,15 @@ export class MatcherService {
       let bestMethod: 'barcode' | 'deterministic' | 'ai' = 'deterministic';
 
       for (const group of groups) {
+        // A single store cannot offer two distinct products as the same canonical SKU
+        const storeAlreadyHasOffer = group.offers.some(o => o.storeCode === cand.raw.storeCode);
+        if (storeAlreadyHasOffer) {
+          const isBarcodeExact = cand.barcode && group.members.some(m => (m.rawProduct.rawPayload as any)?.barcode === cand.barcode);
+          if (!isBarcodeExact) {
+            continue;
+          }
+        }
+
         const repCandidate = this.prepareCandidate(group.members[0].rawProduct);
         const { match, confidence, method } = this.canMatch(cand, repCandidate);
 
@@ -159,11 +185,15 @@ export class MatcherService {
         }
       } else {
         const canonTitle = this.normalizer.buildCanonicalTitle(cand.raw.name, cand.attrs.brand, cand.attrs);
+        const canonCategory = cand.attrs.productType
+          ? this.mapProductTypeToCategory(cand.attrs.productType)
+          : (cand.raw.category || 'other');
+
         const newGroup: MatchGroup = {
           id: `canon_${groups.length + 1}`,
           canonicalName: canonTitle,
           brand: cand.attrs.brand || null,
-          category: cand.raw.category || 'other',
+          category: canonCategory,
           imageUrl: cand.raw.imageUrl || null,
           attributes: {
             volumeMl: cand.attrs.volumeMl,
@@ -216,5 +246,55 @@ export class MatcherService {
     const overlap = intersection / Math.min(tokens1.size, tokens2.size);
 
     return 0.5 * jaccard + 0.5 * overlap;
+  }
+
+  public mapProductTypeToCategory(pType: string): string {
+    switch (pType) {
+      case 'milk':
+      case 'kefir':
+      case 'sour_cream':
+      case 'cottage_cheese':
+      case 'cheese':
+      case 'butter':
+        return 'milk';
+      case 'bread':
+      case 'crispbread':
+        return 'bread';
+      case 'eggs':
+        return 'eggs';
+      case 'sugar':
+      case 'salt':
+        return 'sugar';
+      case 'vegetable_oil':
+        return 'oil';
+      case 'buckwheat':
+      case 'rice':
+      case 'flour':
+      case 'pasta':
+      case 'semolina':
+      case 'oats':
+      case 'millet':
+      case 'barley':
+      case 'legumes':
+        return 'groats';
+      case 'potato':
+      case 'carrot':
+      case 'onion':
+      case 'cabbage':
+      case 'tomato':
+      case 'cucumber':
+      case 'apple':
+      case 'banana':
+        return 'vegetables';
+      case 'beef':
+      case 'chicken':
+      case 'minced_meat':
+      case 'meat_legs':
+      case 'crab_sticks':
+      case 'fish':
+        return 'meat';
+      default:
+        return 'other';
+    }
   }
 }

@@ -7,11 +7,38 @@ export class DanaScraper {
   private readonly userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
   private readonly categoryUrls: { slug: string; path: string }[] = [
+    // 1. Dairy
     { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/moloko/' },
+    { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/smetana/' },
+    { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/tvorog_i_tvorozhnye_izdeliya/' },
+    { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/maslo_i_zhiry/' },
+
+    // 2. Bread
     { slug: 'bread', path: '/catalog/produkty_pitaniya_/khlebobulochnye_izdeliya/khleb_lepyeshki_/' },
+
+    // 3. Eggs
     { slug: 'eggs', path: '/catalog/produkty_pitaniya_/molochnye_produkty/yaytsa/' },
+
+    // 4. Sugar & Salt
     { slug: 'sugar', path: '/catalog/produkty_pitaniya_/bakaleya/sakhar_sol/' },
-    { slug: 'oil', path: '/catalog/produkty_pitaniya_/bakaleya/rasitelnye_masla/' }
+    { slug: 'sugar', path: '/catalog/produkty_pitaniya_/pripravy_spetsii_sousy_zapravki/sol_drozhi_i_rozrykhliteli/' },
+
+    // 5. Oils
+    { slug: 'oil', path: '/catalog/produkty_pitaniya_/bakaleya/rasitelnye_masla/' },
+
+    // 6. Groats, Pasta & Flour
+    { slug: 'groats', path: '/catalog/produkty_pitaniya_/bakaleya/krupy/' },
+    { slug: 'groats', path: '/catalog/produkty_pitaniya_/bakaleya/makaronnye_izdeliya/' },
+    { slug: 'groats', path: '/catalog/produkty_pitaniya_/bakaleya/muka_konditerskie_dobavki/' },
+
+    // 7. Vegetables & Fruits
+    { slug: 'vegetables', path: '/catalog/produkty_pitaniya_/ovoshchi_frukty_i_yagody/' },
+
+    // 8. Meat & Poultry
+    { slug: 'meat', path: '/catalog/produkty_pitaniya_/myaso_i_ptitsa/' },
+
+    // 9. Tea & Grocery
+    { slug: 'other', path: '/catalog/produkty_pitaniya_/bakaleya/chay_kofe_kakao/' }
   ];
 
   public async fetchProducts(): Promise<IngestionResult> {
@@ -63,12 +90,14 @@ export class DanaScraper {
             imgUrl = `${this.baseUrl}${imgUrl}`;
           }
 
+          const category = this.refineCategory(name, cat.slug);
+
           allProducts.push({
             storeCode: 'DANA',
             sourceProductId: sourceId,
             sourceUrl,
             name,
-            category: cat.slug,
+            category,
             price,
             oldPrice,
             imageUrl: imgUrl,
@@ -83,9 +112,9 @@ export class DanaScraper {
           });
         });
 
-        console.log(`[DANA] Fetched ${cat.slug}: ${allProducts.filter(p => p.category === cat.slug).length} items`);
+        console.log(`[DANA] Fetched ${cat.slug} (${cat.path}): total Dana items so far = ${allProducts.length}`);
       } catch (err: any) {
-        console.error(`[DANA] Failed to fetch category ${cat.slug}:`, err.message);
+        console.error(`[DANA] Failed to fetch category ${cat.slug} (${cat.path}):`, err.message);
       }
     }
 
@@ -96,15 +125,34 @@ export class DanaScraper {
       capturedAt: new Date().toISOString()
     };
   }
+
+  private refineCategory(name: string, assignedSlug: string): string {
+    const lower = name.toLowerCase();
+    if ((lower.includes('соль') || lower.includes('тұз')) && !lower.includes('фасол') && !lower.includes('хлебцы')) return 'sugar';
+    if (lower.includes('яйц') || lower.includes('жұмыртқ')) return 'eggs';
+    if (lower.includes('масло сливочн') || lower.includes('сары май') || lower.includes('крестьянск')) return 'milk';
+    if (lower.includes('масло подсолнеч') || lower.includes('масло растительн') || lower.includes('оливков')) return 'oil';
+    if (lower.includes('мука') || lower.includes('рожк') || lower.includes('макарон') || lower.includes('гречк') || lower.includes('рис ') || lower.includes('крупа') || lower.includes('хлопья')) return 'groats';
+    if (lower.includes('картоф') || lower.includes('морков') || lower.includes('лук ') || lower.includes('капуст') || lower.includes('яблок') || lower.includes('помидор') || lower.includes('огурц')) return 'vegetables';
+    if (lower.includes('куриц') || lower.includes('говядин') || lower.includes('окороч') || lower.includes('рыб')) return 'meat';
+
+    return assignedSlug;
+  }
 }
 
 // Allow direct execution
 if (require.main === module) {
   (async () => {
     const scraper = new DanaScraper();
-    console.log('[DANA] Starting live HTML import from Dana Market Aktau...');
+    console.log('[DANA] Starting live import from Dana Market (Aktau)...');
     const result = await scraper.fetchProducts();
-    console.log(`[DANA] Total products collected: ${result.totalFetched}`);
-    console.log('[DANA] Sample product:', result.products[0]);
+    console.log(`[DANA] Finished! Total products fetched: ${result.totalFetched}`);
+    
+    const byCat: Record<string, number> = {};
+    for (const p of result.products) {
+      const c = p.category || 'other';
+      byCat[c] = (byCat[c] || 0) + 1;
+    }
+    console.log('[DANA] Breakdown by category:', byCat);
   })();
 }
