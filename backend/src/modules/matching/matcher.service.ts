@@ -52,23 +52,23 @@ export class MatcherService {
 
   public buildFingerprint(category: string, attrs: NormalizedAttributes): string {
     const pType = (attrs.productType || 'notype').toLowerCase();
-    const cat = attrs.productType ? this.mapProductTypeToCategory(attrs.productType) : category.toLowerCase().trim();
+    const cat = attrs.productType ? this.mapProductTypeToCategory(attrs.productType) : this.mapRawCategory(category);
     const brand = (attrs.brand || 'nobrand').toLowerCase().replace(/\s+/g, '');
     const tea = attrs.teaType || 'notea';
     const size = attrs.volumeMl ? `${attrs.volumeMl}ml` : (attrs.weightGrams ? `${attrs.weightGrams}g` : 'nosize');
     const pack = attrs.packageCount ? `${attrs.packageCount}pcs` : 'nopack';
     const fat = attrs.fatPercent ? `${attrs.fatPercent}pct` : 'nofat';
-    const variant = attrs.breadType || 'novariant';
+    const variant = attrs.breadType || attrs.flavorVariant || attrs.oilVariant || 'novariant';
 
     return `${cat}|${brand}|${pType}|${tea}|${size}|${pack}|${fat}|${variant}`;
   }
 
   public canMatch(a: MatchCandidate, b: MatchCandidate): { match: boolean; confidence: number; method: 'barcode' | 'deterministic' | 'ai' } {
-    // 1. Strict Category check
-    if (a.raw.category && b.raw.category && a.raw.category !== 'other' && b.raw.category !== 'other') {
-      if (a.raw.category !== b.raw.category) {
-        return { match: false, confidence: 0, method: 'deterministic' };
-      }
+    // 1. Strict Category check (canonical category)
+    const catA = a.attrs.productType ? this.mapProductTypeToCategory(a.attrs.productType) : this.mapRawCategory(a.raw.category);
+    const catB = b.attrs.productType ? this.mapProductTypeToCategory(b.attrs.productType) : this.mapRawCategory(b.raw.category);
+    if (catA && catB && catA !== 'other' && catB !== 'other' && catA !== catB) {
+      return { match: false, confidence: 0, method: 'deterministic' };
     }
 
     // 2. Exact Barcode Match
@@ -86,12 +86,18 @@ export class MatcherService {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 5. Strict Package Count check: Different pack sizes cannot match (e.g. 100 bags vs 25 bags)
+    // 5. Strict Package Count check: Different pack sizes cannot match (e.g. 100 bags vs 25 bags, 10 eggs vs 20 eggs)
     if (a.attrs.packageCount && b.attrs.packageCount && a.attrs.packageCount !== b.attrs.packageCount) {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 6. Strict Size Rule: Different volume/weight cannot be the same SKU!
+    // 6. Dimension Type Mismatch Guard: If one candidate has volumeMl and the other has weightGrams (without barcode)
+    if ((a.attrs.volumeMl != null && b.attrs.weightGrams != null) ||
+        (a.attrs.weightGrams != null && b.attrs.volumeMl != null)) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 7. Strict Size Rule: Different volume/weight cannot be the same SKU!
     if (a.attrs.volumeMl && b.attrs.volumeMl && Math.abs(a.attrs.volumeMl - b.attrs.volumeMl) > 20) {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
@@ -99,22 +105,41 @@ export class MatcherService {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 7. Strict Fat % Rule: Different fat % cannot be the same SKU!
+    // 8. Strict Fat % Rule: Different fat % cannot be the same SKU!
     if (a.attrs.fatPercent && b.attrs.fatPercent && Math.abs(a.attrs.fatPercent - b.attrs.fatPercent) > 0.1) {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 8. Brand check: If both brands are known and distinct -> no match
+    // 9. Flavor Variant Guard: Conflicting flavor variants (vanilla vs chocolate, or flavored vs classic/unflavored)
+    if (a.attrs.flavorVariant || b.attrs.flavorVariant) {
+      if (a.attrs.flavorVariant !== b.attrs.flavorVariant) {
+        return { match: false, confidence: 0, method: 'deterministic' };
+      }
+    }
+
+    // 10. Oil Variant Guard: Conflicting oil compositions (sunflower vs sunflower+olive mix)
+    if (a.attrs.oilVariant || b.attrs.oilVariant) {
+      if (a.attrs.oilVariant !== b.attrs.oilVariant) {
+        return { match: false, confidence: 0, method: 'deterministic' };
+      }
+    }
+
+    // 11. Bread Type Guard: Differing bread types cannot match (e.g. rye vs white)
+    if (a.attrs.breadType && b.attrs.breadType && a.attrs.breadType !== b.attrs.breadType) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 12. Brand check: If both brands are known and distinct -> no match
     if (a.attrs.brand && b.attrs.brand && a.attrs.brand !== b.attrs.brand) {
       return { match: false, confidence: 0, method: 'deterministic' };
     }
 
-    // 9. Deterministic Fingerprint Match: Must have both known brand and known size!
+    // 13. Deterministic Fingerprint Match: Must have both known brand and known size!
     if (a.fingerprint === b.fingerprint && !a.fingerprint.includes('nobrand') && !a.fingerprint.includes('nosize')) {
       return { match: true, confidence: 0.98, method: 'deterministic' };
     }
 
-    // 8. Token Similarity Match for Cleaned Names
+    // 14. Token Similarity Match for Cleaned Names
     const similarity = this.calculateTokenSimilarity(a.attrs.cleanedName, b.attrs.cleanedName);
 
     // When same brand and same size are confirmed, similarity >= 0.65 indicates match
@@ -191,11 +216,14 @@ export class MatcherService {
         if ((matchedGroup.attributes as any).packageCount == null && cand.attrs.packageCount != null) {
           (matchedGroup.attributes as any).packageCount = cand.attrs.packageCount;
         }
+        if ((matchedGroup.attributes as any).productType == null && cand.attrs.productType != null) {
+          (matchedGroup.attributes as any).productType = cand.attrs.productType;
+        }
       } else {
         const canonTitle = this.normalizer.buildCanonicalTitle(cand.raw.name, cand.attrs.brand, cand.attrs);
         const canonCategory = cand.attrs.productType
           ? this.mapProductTypeToCategory(cand.attrs.productType)
-          : (cand.raw.category || 'other');
+          : this.mapRawCategory(cand.raw.category);
 
         const newGroup: MatchGroup = {
           id: `canon_${groups.length + 1}`,
@@ -209,7 +237,8 @@ export class MatcherService {
             fatPercent: cand.attrs.fatPercent,
             packageCount: cand.attrs.packageCount ?? null,
             breadType: cand.attrs.breadType,
-            sliced: cand.attrs.sliced
+            sliced: cand.attrs.sliced,
+            productType: cand.attrs.productType ?? null
           },
           members: [
             {
@@ -266,14 +295,17 @@ export class MatcherService {
     return 0.5 * jaccard + 0.5 * overlap;
   }
 
+  public mapRawCategory(rawCategory?: string): string {
+    const cat = (rawCategory || 'other').toLowerCase().trim();
+    if (['milk', 'bread', 'eggs', 'sugar', 'oil'].includes(cat)) {
+      return cat;
+    }
+    return 'other';
+  }
+
   public mapProductTypeToCategory(pType: string): string {
     switch (pType) {
       case 'milk':
-      case 'kefir':
-      case 'sour_cream':
-      case 'cottage_cheese':
-      case 'cheese':
-      case 'butter':
         return 'milk';
       case 'bread':
       case 'crispbread':
@@ -285,32 +317,6 @@ export class MatcherService {
         return 'sugar';
       case 'vegetable_oil':
         return 'oil';
-      case 'buckwheat':
-      case 'rice':
-      case 'flour':
-      case 'pasta':
-      case 'semolina':
-      case 'oats':
-      case 'millet':
-      case 'barley':
-      case 'legumes':
-        return 'groats';
-      case 'potato':
-      case 'carrot':
-      case 'onion':
-      case 'cabbage':
-      case 'tomato':
-      case 'cucumber':
-      case 'apple':
-      case 'banana':
-        return 'vegetables';
-      case 'beef':
-      case 'chicken':
-      case 'minced_meat':
-      case 'meat_legs':
-      case 'crab_sticks':
-      case 'fish':
-        return 'meat';
       default:
         return 'other';
     }

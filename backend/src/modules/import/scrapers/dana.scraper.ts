@@ -9,9 +9,9 @@ export class DanaScraper {
   private readonly categoryUrls: { slug: string; path: string }[] = [
     // 1. Dairy
     { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/moloko/' },
-    { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/smetana/' },
-    { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/tvorog_i_tvorozhnye_izdeliya/' },
-    { slug: 'milk', path: '/catalog/produkty_pitaniya_/molochnye_produkty/maslo_i_zhiry/' },
+    { slug: 'other', path: '/catalog/produkty_pitaniya_/molochnye_produkty/smetana/' },
+    { slug: 'other', path: '/catalog/produkty_pitaniya_/molochnye_produkty/tvorog_i_tvorozhnye_izdeliya/' },
+    { slug: 'other', path: '/catalog/produkty_pitaniya_/molochnye_produkty/maslo_i_zhiry/' },
 
     // 2. Bread
     { slug: 'bread', path: '/catalog/produkty_pitaniya_/khlebobulochnye_izdeliya/khleb_lepyeshki_/' },
@@ -128,15 +128,18 @@ export class DanaScraper {
 
   private refineCategory(name: string, assignedSlug: string): string {
     const lower = name.toLowerCase();
-    if ((lower.includes('соль') || lower.includes('тұз')) && !lower.includes('фасол') && !lower.includes('хлебцы')) return 'sugar';
+    if (lower.includes('майонез')) return 'other';
+    if (lower.includes('хлеб') || lower.includes('батон') || lower.includes('лепешк')) return 'bread';
     if (lower.includes('яйц') || lower.includes('жұмыртқ')) return 'eggs';
-    if (lower.includes('масло сливочн') || lower.includes('сары май') || lower.includes('крестьянск')) return 'milk';
+    if (lower.includes('кефир') || lower.includes('творог') || lower.includes('творож') || lower.includes('сметан') || lower.includes('тан') || lower.includes('айран') || lower.includes('сыр') || lower.includes('масло сливочн') || lower.includes('сары май') || lower.includes('крестьянск')) return 'other';
+    if (lower.includes('молок') || lower.includes('nemoloko') || lower.includes('немолоко') || lower.includes('сүт') || lower.includes('сгущен')) return 'milk';
+    if ((lower.includes('соль') || lower.includes('тұз') || lower.includes('сахар') || lower.includes('рафинад')) && !lower.includes('фасол') && !lower.includes('хлебцы')) return 'sugar';
     if (lower.includes('масло подсолнеч') || lower.includes('масло растительн') || lower.includes('оливков')) return 'oil';
-    if (lower.includes('мука') || lower.includes('рожк') || lower.includes('макарон') || lower.includes('гречк') || lower.includes('рис ') || lower.includes('крупа') || lower.includes('хлопья')) return 'groats';
-    if (lower.includes('картоф') || lower.includes('морков') || lower.includes('лук ') || lower.includes('капуст') || lower.includes('яблок') || lower.includes('помидор') || lower.includes('огурц')) return 'vegetables';
-    if (lower.includes('куриц') || lower.includes('говядин') || lower.includes('окороч') || lower.includes('рыб')) return 'meat';
 
-    return assignedSlug;
+    if (['milk', 'bread', 'eggs', 'sugar', 'oil'].includes(assignedSlug)) {
+      return assignedSlug;
+    }
+    return 'other';
   }
 }
 

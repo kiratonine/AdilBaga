@@ -205,6 +205,127 @@ function runTests() {
   const res11 = matcher.canMatch(matcher.prepareCandidate(sugarDina), matcher.prepareCandidate(sugarDana));
   assert(res11.match === true, 'Cross-store match: Сахар Достык 3 кг (DINA) == САХАР "ДОСТЫК" 3КГ (DANA)');
 
+  // 12. Category semantics: Kefir is NOT canonical milk (must be other)
+  const kefirRaw: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_kefir_1',
+    name: 'Кефир Акнек /пл/б /6 3.2% 1 л',
+    category: 'milk',
+    price: 572
+  };
+  const kefirGroup = matcher.groupProducts([kefirRaw])[0];
+  assert(kefirGroup?.category === 'other', 'Category semantics: Kefir maps to category "other", NOT "milk"');
+
+  // 13. Category semantics: Tan/Ayran is NOT canonical milk (must be other)
+  const tanRaw: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_tan_1',
+    name: 'Тан Акнек п/б 1 л',
+    category: 'milk',
+    price: 341
+  };
+  const tanGroup = matcher.groupProducts([tanRaw])[0];
+  assert(tanGroup?.category === 'other', 'Category semantics: Tan/Ayran maps to category "other", NOT "milk"');
+
+  // 14. Category semantics: Actual milk is canonical milk
+  const milkActual: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_milk_1',
+    name: 'Молоко Новый день 2.5% 1 л',
+    category: 'milk',
+    price: 568
+  };
+  const milkGroup = matcher.groupProducts([milkActual])[0];
+  assert(milkGroup?.category === 'milk', 'Category semantics: Actual milk maps to category "milk"');
+
+  // 15. Nemoloko oat classic 3.2% 1L is preserved as category milk
+  const nemolokoClassicRaw: RawImportedProduct = {
+    storeCode: 'DANA',
+    sourceProductId: 'dana_nemo_classic',
+    name: 'МОЛОЧНЫЙ НАПИТОК "NEMOLOKO" ОВСЯНОЕ КЛАССИЧЕСКОЕ 3,2 % 1 л',
+    category: 'milk',
+    price: 995
+  };
+  const nemoClassicGroup = matcher.groupProducts([nemolokoClassicRaw])[0];
+  assert(
+    nemoClassicGroup?.category === 'milk' &&
+    (nemoClassicGroup?.attributes as any)?.volumeMl === 1000 &&
+    (nemoClassicGroup?.attributes as any)?.fatPercent === 3.2,
+    'Category semantics: Nemoloko oat classic 3.2% 1L has category "milk", volumeMl=1000, fatPercent=3.2'
+  );
+
+  // 16. Matching Guard: Dimension mismatch (950g vs 2L) MUST NOT MATCH
+  const miloko950g: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_miloko_950',
+    name: 'Молоко "Милоко" 3,2% 950г',
+    category: 'milk',
+    price: 596
+  };
+  const miloko2L: RawImportedProduct = {
+    storeCode: 'DANA',
+    sourceProductId: 'dana_miloko_2l',
+    name: 'МОЛОКО "МИЛОКО" 3,2% 2Л',
+    category: 'milk',
+    price: 1204
+  };
+  const res16 = matcher.canMatch(matcher.prepareCandidate(miloko950g), matcher.prepareCandidate(miloko2L));
+  assert(res16.match === false, 'Matching Guard: 950g vs 2L dimension mismatch must NOT match');
+
+  // 17. Matching Guard: Flavor mismatch (vanilla vs chocolate) MUST NOT MATCH
+  const nemoVanilla: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_nemo_vanilla',
+    name: 'Напиток овсяный Nemoloko ванильный 1 л',
+    category: 'milk',
+    price: 1187
+  };
+  const nemoChocolate: RawImportedProduct = {
+    storeCode: 'DANA',
+    sourceProductId: 'dana_nemo_choco',
+    name: 'МОЛОЧНЫЙ НАПИТОК "NEMOLOKO"  ОВСЯНОЕ ШОКОЛАДНОЕ 1л',
+    category: 'milk',
+    price: 1224
+  };
+  const res17 = matcher.canMatch(matcher.prepareCandidate(nemoVanilla), matcher.prepareCandidate(nemoChocolate));
+  assert(res17.match === false, 'Matching Guard: vanilla vs chocolate flavor mismatch must NOT match');
+
+  // 18. Matching Guard: Oil composition mismatch (pure sunflower vs sunflower+olive mix) MUST NOT MATCH
+  const oleinaSunflower: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_oleina_pure',
+    name: 'Масло "Олейна" подсолнечное 1л',
+    category: 'oil',
+    price: 974
+  };
+  const oleinaMix: RawImportedProduct = {
+    storeCode: 'DANA',
+    sourceProductId: 'dana_oleina_mix',
+    name: 'МАСЛО OLEINA МИКС ПОДСОЛНЕЧНЫЙ И ОЛИВКОВЫЙ 1Л',
+    category: 'oil',
+    price: 965
+  };
+  const res18 = matcher.canMatch(matcher.prepareCandidate(oleinaSunflower), matcher.prepareCandidate(oleinaMix));
+  assert(res18.match === false, 'Matching Guard: pure sunflower vs sunflower+olive mix must NOT match');
+
+  // 19. Weighted price guard: Low-price piece item 9 ₸ is preserved without modification
+  const lowPricePiece = {
+    id: '12345',
+    name: 'Пакет полиэтиленовый майка',
+    price: 9,
+    oldPrice: null,
+    price_type: 'piece',
+    isWeightProduct: false
+  };
+  const lowPriceProd = scraper.processProductItem(lowPricePiece);
+  assert(lowPriceProd?.price === 9, 'Weighted price guard: piece item price 9 ₸ remains 9 ₸ (NOT multiplied to 9000 ₸)');
+
+  // 20. Canonical attributes preservation: productType is saved in canonical attributes
+  assert(
+    (nemoClassicGroup?.attributes as any)?.productType === 'milk',
+    'Attributes preservation: CanonicalProduct.attributes preserves productType'
+  );
+
   console.log(`\nRESULTS: ${passed}/${total} tests passed!`);
   if (passed !== total) {
     process.exit(1);

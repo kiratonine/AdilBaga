@@ -78,39 +78,47 @@ export class DinaScraper {
     for (const conf of categoryConfigs) {
       console.log(`[DINA] Fetching category "${conf.name}" (ID ${conf.id})...`);
       for (let page = 1; page <= conf.pages; page++) {
-        try {
-          const response = await axios.post(
-            this.endpoint,
-            {
-              query: productsQuery,
-              variables: {
-                shopId: this.shopId,
-                categoryId: conf.id,
-                page,
-                limit: 40
-              }
-            },
-            {
-              headers: {
-                'User-Agent': this.userAgent,
-                'Content-Type': 'application/json'
+        let edges: any[] = [];
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const response = await axios.post(
+              this.endpoint,
+              {
+                query: productsQuery,
+                variables: {
+                  shopId: this.shopId,
+                  categoryId: conf.id,
+                  page,
+                  limit: 40
+                }
               },
-              timeout: 15000
+              {
+                headers: {
+                  'User-Agent': this.userAgent,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 30000
+              }
+            );
+
+            edges = response.data?.data?.products?.edges || [];
+            break;
+          } catch (err: any) {
+            if (attempt === 2) {
+              console.error(`[DINA] Error fetching category ${conf.id} page ${page}:`, err.message);
+            } else {
+              await new Promise(r => setTimeout(r, 1000));
             }
-          );
-
-          const edges = response.data?.data?.products?.edges || [];
-          if (edges.length === 0) break;
-
-          for (const item of edges) {
-            const product = this.processProductItem(item, conf.defaultCat);
-            if (!product || seenIds.has(product.sourceProductId)) continue;
-            seenIds.add(product.sourceProductId);
-            allProducts.push(product);
           }
-        } catch (err: any) {
-          console.error(`[DINA] Error fetching category ${conf.id} page ${page}:`, err.message);
-          break;
+        }
+
+        if (edges.length === 0) break;
+
+        for (const item of edges) {
+          const product = this.processProductItem(item, conf.defaultCat);
+          if (!product || seenIds.has(product.sourceProductId)) continue;
+          seenIds.add(product.sourceProductId);
+          allProducts.push(product);
         }
       }
     }
@@ -214,7 +222,7 @@ export class DinaScraper {
     if (!name || isNaN(rawPrice) || rawPrice <= 0) return null;
 
     const id = String(item.id || item.xid);
-    const isWeight = item.price_type === 'weight' || item.isWeightProduct === true || (rawPrice > 0 && rawPrice < 15);
+    const isWeight = item.price_type === 'weight' || item.isWeightProduct === true;
     let price = rawPrice;
     let oldPrice = item.oldPrice ? Number(item.oldPrice) : null;
 
@@ -228,7 +236,7 @@ export class DinaScraper {
         multiplier = parseFloat(weightMatchG[1]);
       }
       price = Math.round(rawPrice * multiplier);
-      if (oldPrice && oldPrice < 15) {
+      if (oldPrice) {
         oldPrice = Math.round(oldPrice * multiplier);
       }
     } else {
@@ -253,16 +261,15 @@ export class DinaScraper {
 
   public detectCategory(name: string, defaultCat = 'other'): string {
     const lower = name.toLowerCase();
-    if (lower.includes('яйц') || lower.includes('жұмыртқ')) return 'eggs';
-    if (lower.includes('молок') || lower.includes('сливк') || lower.includes('кефир') || lower.includes('творог') || lower.includes('сметан') || lower.includes('масло сливочн') || lower.includes('сыр ') || lower.includes('сыр,') || lower.includes('nemoloko')) return 'milk';
+    if (lower.includes('майонез')) return 'other';
     if (lower.includes('хлеб') || lower.includes('батон') || lower.includes('лепешк') || lower.includes('багет') || lower.includes('булочк') || lower.includes('чиабатта')) return 'bread';
+    if (lower.includes('яйц') || lower.includes('жұмыртқ')) return 'eggs';
+    if (lower.includes('кефир') || lower.includes('творог') || lower.includes('сметан') || lower.includes('тан ') || lower.includes('тан,') || lower.includes('айран') || lower.includes('сыр ') || lower.includes('сыр,') || lower.includes('масло сливочн')) return 'other';
+    if (lower.includes('молок') || lower.includes('nemoloko') || lower.includes('немолоко') || lower.includes('сүт') || lower.includes('сгущен')) return 'milk';
     if (lower.includes('сахар') || lower.includes('рафинад') || ((lower.includes('соль') || lower.includes('тұз')) && !lower.includes('фасол') && !lower.includes('хлебцы'))) return 'sugar';
     if (lower.includes('масло подсолнеч') || lower.includes('масло растительн') || lower.includes('масло оливков')) return 'oil';
-    if (lower.includes('круп') || lower.includes('мука') || lower.includes('рис') || lower.includes('гречк') || lower.includes('макарон') || lower.includes('рожк') || lower.includes('овсян') || lower.includes('геркулес') || lower.includes('спагетти') || lower.includes('вермишель') || lower.includes('пшено') || lower.includes('перлов')) return 'groats';
-    if (lower.includes('картоф') || lower.includes('морков') || lower.includes('лук ') || lower.includes('капуст') || lower.includes('яблок') || lower.includes('банан') || lower.includes('томат') || lower.includes('помидор') || lower.includes('огурц') || lower.includes('персик') || lower.includes('дыня')) return 'vegetables';
-    if (lower.includes('говядин') || lower.includes('куриц') || lower.includes('окороч') || lower.includes('фарш') || lower.includes('рыб') || lower.includes('сельдь') || lower.includes('мясо') || lower.includes('мидии') || lower.includes('кальмар')) return 'meat';
 
-    return defaultCat;
+    return 'other';
   }
 }
 

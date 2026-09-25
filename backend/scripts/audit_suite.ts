@@ -180,6 +180,85 @@ async function runAudit() {
   }
   assert(dtoValid, 'All RawProducts have valid storeCode, non-empty sourceProductId, non-empty name, and integer price > 0', invalidReason);
 
+  // --- SUITE 6: APPROVED CATEGORIES CONTRACT (Section 4) ---
+  console.log('\n>>> 6. APPROVED CATEGORIES CONTRACT');
+  const approvedCategories = new Set(['milk', 'bread', 'eggs', 'sugar', 'oil', 'other']);
+  const nonApprovedFound = new Set<string>();
+  for (const c of snapshot.canonicalProducts) {
+    if (!approvedCategories.has(c.category)) {
+      nonApprovedFound.add(c.category);
+    }
+  }
+  assert(nonApprovedFound.size === 0, `All canonical products belong strictly to the 6 approved categories (violations: ${Array.from(nonApprovedFound).join(', ')})`);
+
+  // --- SUITE 7: MILK SEMANTICS & NO NON-MILK DAIRY IN MILK (Section 2) ---
+  console.log('\n>>> 7. MILK SEMANTICS & SIRI FLOW INTEGRITY');
+  const milkItems = snapshot.canonicalProducts.filter((p: any) => p.category === 'milk');
+  assert(milkItems.length > 0, `Category "milk" contains canonical items (count: ${milkItems.length})`);
+
+  const forbiddenMilkKeywords = ['кефир', 'тан', 'айран', 'сметан', 'творог', 'сыр', 'сливочн', 'сары май', 'майонез', 'сырок', 'сушк'];
+  const milkViolations = milkItems.filter((p: any) =>
+    forbiddenMilkKeywords.some(k => p.canonicalName.toLowerCase().includes(k))
+  );
+  assert(milkViolations.length === 0, `Category "milk" contains ZERO non-milk dairy items (kefir, tan, ayran, sour cream, cheese, butter; actual violations: ${milkViolations.length})`);
+
+  // Siri flow check: cheapest milk 1000ml 3.2%
+  const siriCheapest = milkItems
+    .filter((p: any) => p.attributes?.volumeMl === 1000 && p.attributes?.fatPercent === 3.2)
+    .sort((a: any, b: any) => a.minPrice - b.minPrice)[0];
+  assert(
+    Boolean(siriCheapest && siriCheapest.canonicalName.toLowerCase().includes('молоко')),
+    `Siri demo query "молоко 1 л 3.2%" returns actual milk as TOP-1 (actual: "${siriCheapest?.canonicalName}")`
+  );
+
+  // --- SUITE 8: BASKET POSITION INTEGRITY (Section 8.C) ---
+  console.log('\n>>> 8. BASKET POSITION INTEGRITY');
+  const dinaMilk1000 = snapshot.canonicalProducts
+    .filter((p: any) => p.category === 'milk' && p.attributes?.volumeMl === 1000 && p.offers.some((o: any) => o.storeCode === 'DINA'))
+    .sort((a: any, b: any) => {
+      const priceA = a.offers.find((o: any) => o.storeCode === 'DINA').price;
+      const priceB = b.offers.find((o: any) => o.storeCode === 'DINA').price;
+      return priceA - priceB;
+    })[0];
+  assert(
+    Boolean(dinaMilk1000 && dinaMilk1000.canonicalName.toLowerCase().includes('молоко')),
+    `DINA basket position "milk 1000ml" chooses actual milk, NOT tan/kefir (actual: "${dinaMilk1000?.canonicalName}", price: ${dinaMilk1000?.offers.find((o: any) => o.storeCode === 'DINA')?.price} ₸)`
+  );
+
+  // --- SUITE 9: CROSS-STORE FALSE-POSITIVE GUARDS (Section 3 & 8.D) ---
+  console.log('\n>>> 9. CROSS-STORE MATCHING INTEGRITY');
+  const multiStoreGroups = snapshot.canonicalProducts.filter((p: any) =>
+    new Set(p.offers.map((o: any) => o.storeCode)).size >= 2
+  );
+  assert(multiStoreGroups.length >= 10, `Multi-store matched groups count >= 10 (actual: ${multiStoreGroups.length})`);
+
+  // Check no size mismatch across members
+  let noSizeMismatch = true;
+  let noFlavorMismatch = true;
+  let noOilMismatch = true;
+
+  for (const g of multiStoreGroups) {
+    const rawNames = g.members.map((m: any) => m.rawProduct.name.toLowerCase());
+    // Check 950g vs 2L
+    const has950g = rawNames.some((n: string) => n.includes('950г') || n.includes('950 г'));
+    const has2L = rawNames.some((n: string) => n.includes('2л') || n.includes('2 л') || n.includes('2.7л'));
+    if (has950g && has2L) noSizeMismatch = false;
+
+    // Check vanilla vs chocolate
+    const hasVanilla = rawNames.some((n: string) => n.includes('ваниль'));
+    const hasChoco = rawNames.some((n: string) => n.includes('шоколад'));
+    if (hasVanilla && hasChoco) noFlavorMismatch = false;
+
+    // Check pure sunflower vs sunflower+olive mix
+    const hasPureSunflower = rawNames.some((n: string) => n.includes('подсолнеч') && !n.includes('оливков') && !n.includes('микс'));
+    const hasOliveMix = rawNames.some((n: string) => n.includes('оливков') || n.includes('микс'));
+    if (hasPureSunflower && hasOliveMix && g.category === 'oil') noOilMismatch = false;
+  }
+
+  assert(noSizeMismatch, 'No cross-store group combines conflicting sizes (950g vs 2L)');
+  assert(noFlavorMismatch, 'No cross-store group combines conflicting flavors (vanilla vs chocolate)');
+  assert(noOilMismatch, 'No cross-store group combines pure sunflower oil with olive mix');
+
   // --- SUMMARY ---
   console.log('\n' + '='.repeat(70));
   console.log(`TOTAL TESTS: ${passed + failed} | PASSED: ${passed} | FAILED: ${failed}`);

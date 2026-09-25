@@ -8,6 +8,8 @@ export interface NormalizedAttributes {
   brand?: string | null;
   productType?: string | null;
   teaType?: 'green' | 'black' | null;
+  flavorVariant?: string | null;
+  oilVariant?: string | null;
   cleanedName: string;
 }
 
@@ -176,6 +178,10 @@ export class NormalizerService {
       }
     }
 
+    // 10. Flavor variant & Oil variant detection
+    const flavorVariant = this.detectFlavorVariant(clean);
+    const oilVariant = this.detectOilVariant(clean);
+
     return {
       volumeMl,
       weightGrams,
@@ -186,43 +192,86 @@ export class NormalizerService {
       brand: detectedBrand,
       productType,
       teaType,
+      flavorVariant,
+      oilVariant,
       cleanedName: clean
     };
   }
 
+  public detectFlavorVariant(clean: string): string | null {
+    if (clean.includes('ваниль') || clean.includes('vanilla')) return 'vanilla';
+    if (clean.includes('шоколад') || clean.includes('chocolate')) return 'chocolate';
+    if (clean.includes('клубник') || clean.includes('strawberry')) return 'strawberry';
+    if ((clean.includes('банан') || clean.includes('banana')) && !clean.startsWith('банан')) return 'banana';
+    if (clean.includes('вишн') || clean.includes('cherry')) return 'cherry';
+    if (clean.includes('малин') || clean.includes('raspberry')) return 'raspberry';
+    if (clean.includes('персик') || clean.includes('peach')) return 'peach';
+    if (clean.includes('кокос') || clean.includes('coconut')) return 'coconut';
+    if (clean.includes('ягод') || clean.includes('лесн') || clean.includes('berry')) return 'berries';
+    if (clean.includes('карамел') || clean.includes('caramel')) return 'caramel';
+    if (clean.includes('классическ') || clean.includes('classic')) return 'classic';
+    return null;
+  }
+
+  public detectOilVariant(clean: string): string | null {
+    if (!clean.includes('масло') && !clean.includes('масла') && !clean.includes('oleina') && !clean.includes('слобода')) {
+      return null;
+    }
+
+    const hasOlive = clean.includes('оливков') || clean.includes('olive');
+    const hasMix = clean.includes('микс') || clean.includes('mix') || clean.includes('купаж') || clean.includes('с добавлением');
+    const hasSunflower = clean.includes('подсолнеч') || clean.includes('күнбағыс');
+    const hasCorn = clean.includes('кукуруз');
+
+    if (hasOlive && (hasSunflower || hasMix)) return 'sunflower_olive_mix';
+    if (hasOlive) return 'olive';
+    if (hasCorn) return 'corn';
+    if (hasSunflower) return 'sunflower';
+    if (hasMix) return 'mix';
+    return null;
+  }
+
   public detectProductType(clean: string): string | null {
-    // 1. Groats & Bakery
+    // 0. Condiments, Sauces & Confectionery
+    if (clean.includes('майонез')) return 'mayonnaise';
+    if (clean.includes('сушк') || clean.includes('печень') || clean.includes('пряник') || clean.includes('вафл') || clean.includes('торт') || clean.includes('пирог') || clean.includes('кекс')) return 'bakery_sweet';
+
+    // 1. Bread & Bakery (checked before dairy so "хлеб на кефире" is bread)
+    if (clean.includes('хлеб') || clean.includes(' батон') || clean.includes('багет') || clean.includes('чиабатта') || clean.includes('булочк') || clean.includes('лепешк')) return 'bread';
+    if (clean.includes('хлебц')) return 'crispbread';
+
+    // 2. Groats & Pasta (Nemoloko is explicitly excluded from oats and rice!)
     if (clean.includes('гречк') || clean.includes('гречнев')) return 'buckwheat';
     if ((clean.includes('рис ') || clean.includes('рис,') || clean.includes(' рис') || clean.includes('күріш')) && !clean.includes('хлебцы') && !clean.includes('немолоко') && !clean.includes('nemoloko')) return 'rice';
     if (clean.includes('мука') || clean.includes(' ұн') || clean.startsWith('ұн')) return 'flour';
     if (clean.includes('рожк') || clean.includes('макарон') || clean.includes('вермишел') || clean.includes('спагетти') || clean.includes('ракушк') || clean.includes('перья')) return 'pasta';
     if (clean.includes('манка') || clean.includes('манн')) return 'semolina';
-    if (clean.includes('овсян') || clean.includes('геркулес')) return 'oats';
+    if ((clean.includes('овсян') || clean.includes('геркулес')) && !clean.includes('nemoloko') && !clean.includes('немолоко')) return 'oats';
     if (clean.includes('пшено') || clean.includes('пшенн')) return 'millet';
     if (clean.includes('перлов') || clean.includes('ячнев') || clean.includes('ячмен')) return 'barley';
     if (clean.includes('фасол') || clean.includes('горох') || clean.includes('нут ') || clean.includes('чечевиц')) return 'legumes';
 
-    // 2. Dairy (checked before sugar so condensed milk with sugar is categorized as milk)
-    if (clean.includes('кефир') || clean.includes('айран')) return 'kefir';
+    // 3. Dairy & Plant Milk (distinct subtypes)
+    if (clean.includes('сырок')) return 'cottage_cheese';
+    if (clean.includes('кефир')) return 'kefir';
+    if (clean.includes('тан ') || clean.includes('тан,') || clean.includes(' тан') || clean.includes('айран') || clean.startsWith('тан')) return 'tan_ayran';
     if (clean.includes('сметан') || clean.includes('қаймақ')) return 'sour_cream';
-    if (clean.includes('творог') || clean.includes('творожн') || clean.includes('сүзбе')) return 'cottage_cheese';
+    if (clean.includes('творог') || clean.includes('творож') || clean.includes('сүзбе')) return 'cottage_cheese';
     if (clean.includes('сыр ') || clean.includes('сыр,') || clean.includes('сыры') || clean.includes('ірімшік')) return 'cheese';
-    if (clean.includes('молок') || clean.includes('сүт') || clean.includes('nemoloko') || clean.includes('немолоко') || clean.includes('сгущен')) return 'milk';
+    if ((clean.includes('масло') || clean.includes('спред')) && (clean.includes('сливочн') || clean.includes('сары май') || clean.includes('крестьянск') || clean.includes('коровье') || clean.includes('деревенское') || clean.includes('жайлау') || clean.includes('особое') || clean.includes('облегченное') || clean.includes('традиционное'))) return 'butter';
+    if (clean.includes('сливочн') || clean.includes('сары май') || clean.includes('крестьянск')) return 'butter';
+    if (clean.includes('сливк')) return 'cream';
+    if ((clean.includes('молок') || clean.includes('сүт') || clean.includes('nemoloko') || clean.includes('немолоко') || clean.includes('сгущен')) && !clean.includes('сушк') && !clean.includes('сырок')) return 'milk';
 
-    // 3. Sugar & Salt
+    // 4. Sugar & Salt
     if (clean.includes('сахар') || clean.includes('қант') || clean.includes('рафинад')) return 'sugar';
     if ((clean.includes('соль') || clean.includes('тұз')) && !clean.includes('фасол') && !clean.includes('хлебцы')) return 'salt';
 
-    // 4. Oils & Butter
+    // 5. Oils
     if (clean.includes('подсолнечн') || clean.includes('растительн') || clean.includes('күнбағыс') || clean.includes('оливков')) return 'vegetable_oil';
-    if (clean.includes('сливочн') || clean.includes('сары май') || clean.includes('крестьянск')) return 'butter';
 
-    // 5. Eggs
+    // 6. Eggs
     if (clean.includes('яйц') || clean.includes('жұмыртқ')) return 'eggs';
-
-    // 6. Bread
-    if (clean.includes('хлеб') || clean.includes(' батон') || clean.includes('багет') || clean.includes('чиабатта') || clean.includes('булочк') || clean.includes('лепешк')) return 'bread';
-    if (clean.includes('хлебц')) return 'crispbread';
 
     // 7. Vegetables & Fruits
     if (clean.includes('картоф') || clean.includes('картоп')) return 'potato';

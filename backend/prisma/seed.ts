@@ -95,9 +95,9 @@ async function seed() {
       name: 'Молочные продукты',
       filterSchema: {
         filters: [
-          { key: 'volumeMl', label: 'Объём', type: 'multi-select', options: [500, 900, 1000] },
+          { key: 'volumeMl', label: 'Объём', type: 'multi-select', options: [500, 900, 950, 1000] },
           { key: 'fatPercent', label: 'Жирность', type: 'multi-select', options: [1.5, 2.5, 3.2, 6.0, 8.5] },
-          { key: 'brand', label: 'Бренд', type: 'multi-select', options: ['FoodMaster', 'Nemoloko', 'Петропавловское', 'Рогачевъ'] }
+          { key: 'brand', label: 'Бренд', type: 'multi-select', options: ['FoodMaster', 'Nemoloko', 'Петропавловское', 'Рогачевъ', 'Новый День', 'ЭкоНива', 'Мумуня', 'Деревенское', 'Айс', 'DEP'] }
         ]
       }
     },
@@ -107,7 +107,7 @@ async function seed() {
       filterSchema: {
         filters: [
           { key: 'breadType', label: 'Тип', type: 'multi-select', options: ['white', 'rye', 'flatbread', 'baton', 'crispbread'] },
-          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [100, 300, 450, 500] },
+          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [100, 300, 400, 450, 500, 600] },
           { key: 'sliced', label: 'Нарезка', type: 'boolean' }
         ]
       }
@@ -126,7 +126,7 @@ async function seed() {
       name: 'Сахар и соль',
       filterSchema: {
         filters: [
-          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [500, 700, 1000] }
+          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [500, 700, 800, 1000, 2000, 3000, 5000] }
         ]
       }
     },
@@ -135,36 +135,8 @@ async function seed() {
       name: 'Растительные масла',
       filterSchema: {
         filters: [
-          { key: 'volumeMl', label: 'Объём', type: 'multi-select', options: [500, 900, 1000, 5000] },
-          { key: 'brand', label: 'Бренд', type: 'multi-select', options: ['Золотая Семечка', 'Слобода', 'Шедевр', 'Затея'] }
-        ]
-      }
-    },
-    {
-      slug: 'groats',
-      name: 'Крупы, макароны и мука',
-      filterSchema: {
-        filters: [
-          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [400, 700, 900, 1000, 2000, 3000, 5000] },
-          { key: 'brand', label: 'Бренд', type: 'multi-select', options: ['Promo', 'Цесна', 'АкМаржан', 'Баракат', 'Янтарь', 'Союз', 'Dr.Korner'] }
-        ]
-      }
-    },
-    {
-      slug: 'vegetables',
-      name: 'Овощи и фрукты',
-      filterSchema: {
-        filters: [
-          { key: 'weightGrams', label: 'Фасовка/Вес', type: 'multi-select', options: [500, 1000] }
-        ]
-      }
-    },
-    {
-      slug: 'meat',
-      name: 'Мясо, птица и рыба',
-      filterSchema: {
-        filters: [
-          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [500, 1000] }
+          { key: 'volumeMl', label: 'Объём', type: 'multi-select', options: [500, 800, 900, 1000, 1800, 2000, 5000] },
+          { key: 'brand', label: 'Бренд', type: 'multi-select', options: ['Золотая Семечка', 'Слобода', 'Шедевр', 'Затея', 'Маслозавод №1', 'Белес', 'Царь', 'Oleina'] }
         ]
       }
     },
