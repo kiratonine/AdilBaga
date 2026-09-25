@@ -5,11 +5,14 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && process.argv[2] !== 'full-stack') {
+if (process.argv[2] && !['full-stack', 'full-stack-backend2'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
 const output = join(outputDir, process.argv[2] === 'full-stack'
-  ? 'full-stack-integration-review.tar.gz' : 'backend-1-part-04-review.tar.gz');
+  ? 'full-stack-integration-review.tar.gz'
+  : process.argv[2] === 'full-stack-backend2'
+    ? 'full-stack-backend2-review.tar.gz'
+    : 'backend-1-part-04-review.tar.gz');
 const excludedDirs = new Set([
   '.git', 'TODO', 'artifacts', 'node_modules', 'dist', 'build', '.next',
   'coverage', 'tmp', 'temp', 'logs', 'playwright-report', 'test-results',
