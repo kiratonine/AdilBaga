@@ -5,6 +5,7 @@ import { useDashboard } from '../api/queries'
 import type { DashboardDto, PriceSpreadDto, StoreLocationDto } from '../api/types'
 import { Baskets } from '../components/dashboard/Baskets'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { basketLine } from '../lib/basketText'
 import { summarizeBaskets, type BasketSummary } from '../lib/baskets'
 import { formatDate, formatPercent, formatPrice } from '../lib/format'
 import { groupByStore, locationKey, storeColor } from '../lib/stores'
@@ -140,8 +141,7 @@ function Stores({ locations, baskets }: { locations: StoreLocationDto[]; baskets
                 </p>
                 {basket && (
                   <p data-testid="store-basket" className="mt-0.5 pl-5 text-[15px] tabular">
-                    {t('dashboard.basketOnMap', { amount: formatPrice(basket.total) })}
-                    {basket.missing > 0 && <span className="text-muted"> · {t('dashboard.basketIncomplete')}</span>}
+                    {basketLine(basket, t)}
                   </p>
                 )}
                 <ul className="mt-1.5 flex flex-col gap-1 pl-5 text-[15px]">

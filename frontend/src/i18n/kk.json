@@ -94,14 +94,18 @@
     "points_one": "{{count}} дүкен",
     "points_other": "{{count}} дүкен",
     "basket": "Азық-түлік себетінің құны",
-    "basketHint": "Әр позиция бойынша желідегі ең арзан тауарлардың сомасы: {{items}}",
+    "basketHint": "Себеттің әр позициясы бойынша желідегі ең арзан тауарлардың сомасы",
     "basketBest": "Ең тиімді",
     "basketOver": "{{amount}} қымбат",
     "basketMissing": "{{total}} позицияның {{count}} позициясы жоқ",
     "basketItems": "Себет құрамы",
     "basketNotFound": "желіде жоқ",
     "basketOnMap": "Себет: {{amount}}",
-    "basketIncomplete": "толық емес"
+    "basketIncomplete": "толық емес",
+    "basketNoData": "Деректер жоқ",
+    "basketNoDataHint": "Бұл желіде себеттің бірде-бір позициясы табылмады",
+    "basketOnMapNoData": "Себет: деректер жоқ",
+    "basketLabelNoData": "деректер жоқ"
   },
   "landing": {
     "eyebrow": "Smart City Aktau",

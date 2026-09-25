@@ -116,3 +116,20 @@ test('dashboard: summary, spreads and markers match the API', async ({ page, req
   await expect(page.getByTestId('store-map').locator('path.store-marker')).toHaveCount(dashboard.locations.length)
   expect(errors).toEqual([])
 })
+
+test('dashboard: basket per chain and its total at every store point', async ({ page, request }) => {
+  const dashboard = await api<DashboardDto>(request, '/dashboard')
+  test.skip(!dashboard.baskets?.length, 'бэк не отдаёт baskets')
+  const baskets = dashboard.baskets ?? []
+
+  await page.goto('/dashboard')
+  await expect(page.getByTestId('basket')).toHaveCount(baskets.length)
+  // Пустая корзина (все позиции null) показывается как «Нет данных», а не 0 ₸
+  for (const basket of baskets) {
+    const card = page.getByTestId('basket').filter({ hasText: basket.storeName })
+    const empty = basket.items.every((i) => i.price === null)
+    await expect(card.getByTestId('basket-total')).toHaveText(empty ? 'Нет данных' : digits(basket.total))
+  }
+  const withBasket = dashboard.locations.filter((l) => baskets.some((b) => b.storeCode === l.storeCode))
+  await expect(page.getByTestId('store-map').locator('.basket-label')).toHaveCount(withBasket.length)
+})

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { AttributionControl, CircleMarker, MapContainer, Popup, TileLayer, Tooltip } from 'react-leaflet'
 import type { StoreLocationDto } from '../../api/types'
 import type { BasketSummary } from '../../lib/baskets'
+import { basketLine } from '../../lib/basketText'
 import { formatPrice } from '../../lib/format'
 import { locationKey, storeColor } from '../../lib/stores'
 
@@ -60,18 +61,13 @@ export default function StoreMap({ locations, baskets = [], label }: Props) {
             >
               {basket && (
                 <Tooltip permanent direction="top" offset={[0, -8]} className={basketLabelClass(basket)}>
-                  {formatPrice(basket.total)}
+                  {basket.empty ? t('dashboard.basketLabelNoData') : formatPrice(basket.total)}
                 </Tooltip>
               )}
               <Popup>
                 <strong className="block text-[14px]">{location.storeName}</strong>
                 <span className="block text-[13px]">{location.address}</span>
-                {basket && (
-                  <span className="mt-1 block text-[13px]">
-                    {t('dashboard.basketOnMap', { amount: formatPrice(basket.total) })}
-                    {basket.missing > 0 && ` · ${t('dashboard.basketIncomplete')}`}
-                  </span>
-                )}
+                {basket && <span className="mt-1 block text-[13px]">{basketLine(basket, t)}</span>}
               </Popup>
             </CircleMarker>
           )

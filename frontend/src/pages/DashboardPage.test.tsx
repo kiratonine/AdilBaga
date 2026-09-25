@@ -90,6 +90,37 @@ describe('DashboardPage', () => {
     ])
   })
 
+  it('shows "no data" instead of 0 ₸ when nothing was found in a chain', async () => {
+    // Реальный ответ бэка (PART_05_REPORT.md): у DINA нет ни одной позиции, total = 0
+    const item = (categorySlug: string, price: number | null) => ({
+      categorySlug,
+      categoryName: categorySlug,
+      productId: price === null ? null : `${categorySlug}-id`,
+      name: price === null ? null : categorySlug,
+      price,
+    })
+    vi.spyOn(catalogApi, 'getDashboard').mockResolvedValue({
+      ...dashboardMock,
+      baskets: [
+        { storeCode: 'DINA', storeName: 'Dina Market', total: 0, items: [item('milk', null), item('sugar', null), item('oil', null)] },
+        { storeCode: 'DANA', storeName: 'Dana Market', total: 2155, items: [item('milk', 752), item('sugar', 483), item('oil', 920)] },
+        { storeCode: 'FIX_PRICE', storeName: 'Fix Price', total: 2050, items: [item('milk', 650), item('sugar', 580), item('oil', 820)] },
+      ],
+    } as never)
+    renderApp('/dashboard')
+
+    const baskets = await screen.findAllByTestId('basket')
+    expect(baskets.map((b) => within(b).getByTestId('basket-total').textContent?.replace(/\s/g, ' '))).toEqual([
+      '2 050 ₸',
+      '2 155 ₸',
+      'Нет данных',
+    ])
+    expect(baskets[0]).toHaveAttribute('data-best', 'true')
+    expect(baskets[2]).not.toHaveTextContent('0 ₸')
+    expect(within(baskets[2]).queryByText('Состав корзины')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('store-basket')[0]).toHaveTextContent('Корзина: нет данных')
+  })
+
   it('hides the basket block when the backend sends no baskets', async () => {
     const { baskets: _, ...withoutBaskets } = dashboardMock
     vi.spyOn(catalogApi, 'getDashboard').mockResolvedValue(withoutBaskets as never)

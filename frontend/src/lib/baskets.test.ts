@@ -35,6 +35,16 @@ describe('summarizeBaskets', () => {
     ])
   })
 
+  it('puts a basket with nothing found after the incomplete ones', () => {
+    // Как DINA на реальных данных: все позиции null, total = 0
+    const result = summarizeBaskets([basket('DINA', [null, null, null]), basket('DANA', [700, null, 900]), basket('FIX_PRICE', [650, 580, 820])])
+    expect(result.map((b) => [b.storeCode, b.empty, b.best])).toEqual([
+      ['FIX_PRICE', false, true],
+      ['DANA', false, false],
+      ['DINA', true, false],
+    ])
+  })
+
   it('has no best basket when all are incomplete', () => {
     const result = summarizeBaskets([basket('DINA', [null, 100]), basket('DANA', [50, null])])
     expect(result.every((b) => !b.best && b.overBest === null)).toBe(true)
