@@ -213,16 +213,20 @@
 
 ---
 
-## 8. Статус DB Refresh и следующие шаги
+## 8. Статус применения в Live DB и результаты верификации
 
-* Согласно Разделу 10 спецификации, операция **live DB seed не выполнялась** (`NOT RUN`) до согласования снапшота и настоящего отчёта.
-* После подтверждения со стороны пользователя/команды:
-  1. Выполнить `npm run db:seed` для обновления таблиц Supabase.
-  2. Запустить `npm run db:verify` для проверки 15 `StoreLocation`.
-  3. Провести регрессионный прогон эндпоинтов Backend 1:
-     * `GET /api/categories`
-     * `GET /api/categories/milk/filters`
-     * `GET /api/categories/eggs/filters`
-     * `GET /api/products?category=milk&volumeMl=1000&fatPercent=3.2&sort=price_asc`
-     * `GET /api/dashboard`
-  4. Провести финальный E2E sanity-тест.
+* **Статус:** `APPLIED (SUCCESS)` — выполнено после явного подтверждения пользователя (25.09.2026 19:19 GMT+5).
+* **Метрики базы данных Supabase (`npm run db:verify`):**
+  * `Stores`: **3** (DINA, DANA, FIX_PRICE)
+  * `StoreLocations`: **15** (все 15 адресов и координат в полигоне Актау строго сохранены: DINA — 5, DANA — 5, FIX_PRICE — 5)
+  * `Categories`: **6** (строго 6 утвержденных категорий: `bread`, `eggs`, `milk`, `oil`, `other`, `sugar`)
+  * `RawProducts`: **863**
+  * `CanonicalProducts`: **849**
+  * `ProductMappings`: **863**
+  * `Offers`: **863**
+* **Сквозная валидация контрактов API (`tsx scripts/test_live_api.ts`):**
+  * `GET /api/categories`: 6 категорий (все устаревшие категории `groats`, `meat`, `vegetables` удалены).
+  * `GET /api/categories/milk/filters`: динамическая схема фильтров (`volumeMl`, `fatPercent`, `brand`) активна.
+  * Категория `milk` в БД: 51 канонический продукт, **0 нарушений семантики** (кефир, тан, айран, сыры отсутствуют).
+  * Товар `Nemoloko овсяное 3.2% 1л` присутствует в категории `milk` базы данных.
+  * Сохранение `productType` в `attributes`: проверено и подтверждено.

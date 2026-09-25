@@ -1,7 +1,8 @@
 import 'dotenv/config';
-import { PrismaClient, StoreCode, MatchMethod, ReviewStatus } from '@prisma/client';
+import { PrismaClient, StoreCode, MatchMethod, ReviewStatus, Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient({
   datasources: {
@@ -23,6 +24,11 @@ async function seed() {
   await prisma.productMapping.deleteMany();
   await prisma.canonicalProduct.deleteMany();
   await prisma.rawProduct.deleteMany();
+  await prisma.category.deleteMany({
+    where: {
+      slug: { notIn: ['milk', 'bread', 'eggs', 'sugar', 'oil', 'other'] }
+    }
+  });
 
   // 1. Seed Stores
   console.log('>>> [1/5] Seeding Stores...');
@@ -159,22 +165,26 @@ async function seed() {
 
   // 4. Seed Products and Offers from Snapshot
   if (fs.existsSync(SNAPSHOT_PATH)) {
-    console.log(`>>> [4/5] Ingesting Products & Offers from ${SNAPSHOT_PATH}...`);
+    console.log(`>>> [4/5] Preparing Products & Offers from ${SNAPSHOT_PATH}...`);
     const dataset = JSON.parse(fs.readFileSync(SNAPSHOT_PATH, 'utf-8'));
     const canonicalList = dataset.canonicalProducts || [];
 
+    const rawProductsToInsert: Prisma.RawProductCreateManyInput[] = [];
+    const canonicalProductsToInsert: Prisma.CanonicalProductCreateManyInput[] = [];
+    const mappingsToInsert: Prisma.ProductMappingCreateManyInput[] = [];
+    const offersToInsert: Prisma.OfferCreateManyInput[] = [];
+
     for (const group of canonicalList) {
       const catId = categoryMap.get(group.category) || categoryMap.get('other')!;
+      const canonicalId = randomUUID();
 
-      // Create Canonical Product
-      const canonicalRecord = await prisma.canonicalProduct.create({
-        data: {
-          name: group.canonicalName,
-          brand: group.brand,
-          categoryId: catId,
-          imageUrl: group.imageUrl,
-          attributes: group.attributes
-        }
+      canonicalProductsToInsert.push({
+        id: canonicalId,
+        name: group.canonicalName,
+        brand: group.brand ?? null,
+        categoryId: catId,
+        imageUrl: group.imageUrl ?? null,
+        attributes: group.attributes ?? Prisma.JsonNull,
       });
 
       // Process Members & Offers
@@ -183,57 +193,56 @@ async function seed() {
         const sId = storeMap.get(raw.storeCode as StoreCode);
         if (!sId) continue;
 
-        // Upsert RawProduct
-        const rawRecord = await prisma.rawProduct.upsert({
-          where: {
-            storeId_sourceProductId: {
-              storeId: sId,
-              sourceProductId: String(raw.sourceProductId)
-            }
-          },
-          update: {
-            rawPrice: raw.price,
-            rawOldPrice: raw.oldPrice
-          },
-          create: {
-            storeId: sId,
-            sourceProductId: String(raw.sourceProductId),
-            sourceUrl: raw.sourceUrl,
-            rawName: raw.name,
-            rawBrand: raw.brand,
-            rawCategory: raw.category,
-            rawPrice: raw.price,
-            rawOldPrice: raw.oldPrice,
-            rawImageUrl: raw.imageUrl,
-            rawPayload: raw.rawPayload
-          }
+        const rawId = randomUUID();
+        rawProductsToInsert.push({
+          id: rawId,
+          storeId: sId,
+          sourceProductId: String(raw.sourceProductId),
+          sourceUrl: raw.sourceUrl ?? null,
+          rawName: raw.name,
+          rawBrand: raw.brand ?? null,
+          rawCategory: raw.category ?? null,
+          rawPrice: raw.price,
+          rawOldPrice: raw.oldPrice ?? null,
+          rawImageUrl: raw.imageUrl ?? null,
+          rawPayload: raw.rawPayload ?? Prisma.JsonNull,
         });
 
-        // Create ProductMapping
-        await prisma.productMapping.create({
-          data: {
-            rawProductId: rawRecord.id,
-            canonicalProductId: canonicalRecord.id,
-            matchMethod: m.matchMethod as MatchMethod,
-            matchConfidence: m.matchConfidence,
-            reviewStatus: m.reviewStatus as ReviewStatus
-          }
+        mappingsToInsert.push({
+          id: randomUUID(),
+          rawProductId: rawId,
+          canonicalProductId: canonicalId,
+          matchMethod: m.matchMethod as MatchMethod,
+          matchConfidence: m.matchConfidence ?? 1.0,
+          reviewStatus: (m.reviewStatus as ReviewStatus) ?? ReviewStatus.approved,
         });
 
-        // Create Offer
-        await prisma.offer.create({
-          data: {
-            canonicalProductId: canonicalRecord.id,
-            rawProductId: rawRecord.id,
-            storeId: sId,
-            price: raw.price,
-            oldPrice: raw.oldPrice,
-            inStock: true
-          }
+        offersToInsert.push({
+          id: randomUUID(),
+          canonicalProductId: canonicalId,
+          rawProductId: rawId,
+          storeId: sId,
+          price: raw.price,
+          oldPrice: raw.oldPrice ?? null,
+          inStock: true,
         });
       }
     }
-    console.log(`>>> [5/5] Seeded ${canonicalList.length} Canonical Products into Database!`);
+
+    const chunkInsert = async <T>(name: string, items: T[], fn: (chunk: T[]) => Promise<any>, chunkSize = 200) => {
+      console.log(`    - Ingesting ${items.length} ${name}...`);
+      for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        await fn(chunk);
+      }
+    };
+
+    await chunkInsert('Raw Products', rawProductsToInsert, chunk => prisma.rawProduct.createMany({ data: chunk }));
+    await chunkInsert('Canonical Products', canonicalProductsToInsert, chunk => prisma.canonicalProduct.createMany({ data: chunk }));
+    await chunkInsert('Product Mappings', mappingsToInsert, chunk => prisma.productMapping.createMany({ data: chunk }));
+    await chunkInsert('Offers', offersToInsert, chunk => prisma.offer.createMany({ data: chunk }));
+
+    console.log(`>>> [5/5] Seeded ${canonicalList.length} Canonical Products and ${offersToInsert.length} Offers!`);
   } else {
     console.log(`>>> Note: ${SNAPSHOT_PATH} does not exist yet. Run 'npm run data:pipeline' first.`);
   }
