@@ -50,7 +50,26 @@ export class NormalizerService {
     { canonical: 'Милоко', patterns: [/милоко/i] },
     { canonical: 'Милково', patterns: [/милково/i] },
     { canonical: 'Моё', patterns: [/моё/i, /мое/i] },
-    { canonical: 'Кубанский Маслодел', patterns: [/кубанский\s*маслодел/i] }
+    { canonical: 'Кубанский Маслодел', patterns: [/кубанский\s*маслодел/i] },
+    { canonical: 'Достык', patterns: [/достык/i, /dostyk/i] },
+    { canonical: 'Савушкин', patterns: [/савушкин/i, /савушкин\s*продукт/i] },
+    { canonical: 'ЭкоНива', patterns: [/эконива/i, /эко\s*нива/i, /ekoniva/i] },
+    { canonical: 'Царь', patterns: [/царь/i, /цар/i] },
+    { canonical: 'Barilla', patterns: [/barilla/i, /барилла/i] },
+    { canonical: 'Макфа', patterns: [/макфа/i, /makfa/i] },
+    { canonical: 'DEP', patterns: [/\bdep\b/i, /\bдеп\b/i] },
+    { canonical: 'Новый День', patterns: [/новый\s*день/i] },
+    { canonical: '3 Желания', patterns: [/3\s*желания/i, /три\s*желания/i] },
+    { canonical: 'Акнек', patterns: [/акнек/i, /aknek/i] },
+    { canonical: 'Тахир', patterns: [/тахир/i, /tahir/i] },
+    { canonical: 'Чудо', patterns: [/\bчудо\b/i] },
+    { canonical: 'Ehrmann', patterns: [/ehrmann/i, /эрманн/i, /эрман/i] },
+    { canonical: 'Даниссимо', patterns: [/даниссимо/i, /danissimo/i] },
+    { canonical: 'Жасмин', patterns: [/жасмин/i, /jasmin/i] },
+    { canonical: 'Анвар', patterns: [/анвар/i, /anvar/i] },
+    { canonical: 'Baraka', patterns: [/baraka/i, /барака/i] },
+    { canonical: 'Alpro', patterns: [/alpro/i, /альпро/i] },
+    { canonical: 'Масленково', patterns: [/масленково/i] }
   ];
 
   public normalize(rawName: string, knownBrand?: string): NormalizedAttributes {
@@ -62,6 +81,7 @@ export class NormalizerService {
     let clean = rawName
       .toLowerCase()
       .replace(/ё/g, 'е')
+      .replace(/["'«»„“]/g, ' ')
       .replace(/(\d+),(\d+)/g, '$1.$2') // Comma decimals to dot: 3,2 -> 3.2
       .replace(/\s+/g, ' ')
       .trim();

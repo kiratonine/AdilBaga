@@ -23,6 +23,12 @@ export class DinaScraper {
             price_type
             isWeightProduct
             count_multiplier
+            preview {
+              url
+            }
+            images {
+              url
+            }
             stock {
               amount
             }
@@ -31,7 +37,34 @@ export class DinaScraper {
       }
     `;
 
-    // Target categories by ID on shop 28 (Aktau 33 mkr)
+    const searchProductsQuery = `
+      query searchProducts($shopId: ID!, $searchQuery: SearchQuery!, $page: Int, $limit: Int) {
+        searchProducts(shop_id: $shopId, searchQuery: $searchQuery, _page: $page, _limit: $limit) {
+          edges {
+            id
+            xid
+            name
+            slug
+            price
+            oldPrice
+            price_type
+            isWeightProduct
+            count_multiplier
+            preview {
+              url
+            }
+            images {
+              url
+            }
+            stock {
+              amount
+            }
+          }
+        }
+      }
+    `;
+
+    // 1. Target categories by ID on shop 28 (Aktau 33 mkr)
     const categoryConfigs = [
       { id: '1', name: 'Овощи и фрукты', defaultCat: 'vegetables', pages: 2 },
       { id: '3', name: 'Хлеб и выпечка', defaultCat: 'bread', pages: 2 },
@@ -70,47 +103,10 @@ export class DinaScraper {
           if (edges.length === 0) break;
 
           for (const item of edges) {
-            const id = String(item.id || item.xid);
-            if (seenIds.has(id)) continue;
-            seenIds.add(id);
-
-            const name = item.name?.trim() || '';
-            const rawPrice = Number(item.price);
-            if (!name || isNaN(rawPrice) || rawPrice <= 0) continue;
-
-            // Correct price for weight items (price in tenge/gram -> convert to tenge/kg)
-            let price = rawPrice;
-            let oldPrice = item.oldPrice ? Number(item.oldPrice) : null;
-
-            if (item.price_type === 'weight' || item.isWeightProduct === true || (rawPrice > 0 && rawPrice < 15)) {
-              const weightMatchKg = name.match(/(\d+(?:\.\d+)?)\s*(?:кг|kg)/i);
-              const weightMatchG = name.match(/(\d+(?:\.\d+)?)\s*(?:г|g|гр)/i);
-              let multiplier = 1000;
-              if (weightMatchKg) {
-                multiplier = parseFloat(weightMatchKg[1]) * 1000;
-              } else if (weightMatchG && parseFloat(weightMatchG[1]) > 50) {
-                multiplier = parseFloat(weightMatchG[1]);
-              }
-              price = Math.round(rawPrice * multiplier);
-              if (oldPrice && oldPrice < 15) {
-                oldPrice = Math.round(oldPrice * multiplier);
-              }
-            } else {
-              price = Math.round(rawPrice);
-              if (oldPrice) oldPrice = Math.round(oldPrice);
-            }
-
-            allProducts.push({
-              storeCode: 'DINA',
-              sourceProductId: id,
-              sourceUrl: item.slug ? `https://dinamarket.kz/product/${item.slug}` : undefined,
-              name,
-              category: this.detectCategory(name, conf.defaultCat),
-              price,
-              oldPrice,
-              imageUrl: null,
-              rawPayload: item
-            });
+            const product = this.processProductItem(item, conf.defaultCat);
+            if (!product || seenIds.has(product.sourceProductId)) continue;
+            seenIds.add(product.sourceProductId);
+            allProducts.push(product);
           }
         } catch (err: any) {
           console.error(`[DINA] Error fetching category ${conf.id} page ${page}:`, err.message);
@@ -119,7 +115,7 @@ export class DinaScraper {
       }
     }
 
-    // Also fetch general catalog top pages to catch promo brand items
+    // 2. Fetch general catalog top pages to catch promo brand items
     for (let page = 1; page <= 3; page++) {
       try {
         const response = await axios.post(
@@ -143,46 +139,64 @@ export class DinaScraper {
 
         const edges = response.data?.data?.products?.edges || [];
         for (const item of edges) {
-          const id = String(item.id || item.xid);
-          if (seenIds.has(id)) continue;
-          seenIds.add(id);
-
-          const name = item.name?.trim() || '';
-          const rawPrice = Number(item.price);
-          if (!name || isNaN(rawPrice) || rawPrice <= 0) continue;
-
-          let price = rawPrice;
-          let oldPrice = item.oldPrice ? Number(item.oldPrice) : null;
-          if (item.price_type === 'weight' || item.isWeightProduct === true || (rawPrice > 0 && rawPrice < 15)) {
-            const weightMatchKg = name.match(/(\d+(?:\.\d+)?)\s*(?:кг|kg)/i);
-            const weightMatchG = name.match(/(\d+(?:\.\d+)?)\s*(?:г|g|гр)/i);
-            let multiplier = 1000;
-            if (weightMatchKg) {
-              multiplier = parseFloat(weightMatchKg[1]) * 1000;
-            } else if (weightMatchG && parseFloat(weightMatchG[1]) > 50) {
-              multiplier = parseFloat(weightMatchG[1]);
-            }
-            price = Math.round(rawPrice * multiplier);
-            if (oldPrice && oldPrice < 15) oldPrice = Math.round(oldPrice * multiplier);
-          } else {
-            price = Math.round(rawPrice);
-            if (oldPrice) oldPrice = Math.round(oldPrice);
-          }
-
-          allProducts.push({
-            storeCode: 'DINA',
-            sourceProductId: id,
-            sourceUrl: item.slug ? `https://dinamarket.kz/product/${item.slug}` : undefined,
-            name,
-            category: this.detectCategory(name, 'other'),
-            price,
-            oldPrice,
-            imageUrl: null,
-            rawPayload: item
-          });
+          const product = this.processProductItem(item, 'other');
+          if (!product || seenIds.has(product.sourceProductId)) continue;
+          seenIds.add(product.sourceProductId);
+          allProducts.push(product);
         }
       } catch (err: any) {
+        console.warn(`[DINA] General catalog page ${page} warning:`, err.message);
         break;
+      }
+    }
+
+    // 3. Target search for demo-critical items (milk, sugar, oil, bread, eggs, etc.)
+    const targetKeywords = [
+      'молоко',
+      'foodmaster',
+      'хлеб',
+      'батон',
+      'яйца',
+      'масло подсолнечное',
+      'сахар',
+      'nemoloko',
+      'эконива',
+      'достык',
+      'савушкин'
+    ];
+
+    for (const kw of targetKeywords) {
+      try {
+        const response = await axios.post(
+          this.endpoint,
+          {
+            query: searchProductsQuery,
+            variables: {
+              shopId: this.shopId,
+              searchQuery: { search: kw },
+              page: 1,
+              limit: 25
+            }
+          },
+          {
+            headers: {
+              'User-Agent': this.userAgent,
+              'Content-Type': 'application/json'
+            },
+            timeout: 15000
+          }
+        );
+
+        const edges = response.data?.data?.searchProducts?.edges || [];
+        for (const item of edges) {
+          const product = this.processProductItem(item, 'other');
+          if (!product || seenIds.has(product.sourceProductId)) continue;
+          seenIds.add(product.sourceProductId);
+          allProducts.push(product);
+        }
+      } catch (err: any) {
+        const errMsg = err.response?.data?.errors?.[0]?.message || err.message;
+        console.warn(`[DINA] Target search warning for "${kw}":`, errMsg);
       }
     }
 
@@ -194,7 +208,50 @@ export class DinaScraper {
     };
   }
 
-  private detectCategory(name: string, defaultCat = 'other'): string {
+  public processProductItem(item: any, defaultCat = 'other'): RawImportedProduct | null {
+    const name = item.name?.trim() || '';
+    const rawPrice = Number(item.price);
+    if (!name || isNaN(rawPrice) || rawPrice <= 0) return null;
+
+    const id = String(item.id || item.xid);
+    const isWeight = item.price_type === 'weight' || item.isWeightProduct === true || (rawPrice > 0 && rawPrice < 15);
+    let price = rawPrice;
+    let oldPrice = item.oldPrice ? Number(item.oldPrice) : null;
+
+    if (isWeight) {
+      const weightMatchKg = name.match(/(\d+(?:\.\d+)?)\s*(?:кг|kg)/i);
+      const weightMatchG = name.match(/(\d+(?:\.\d+)?)\s*(?:г|g|гр)/i);
+      let multiplier = 1000;
+      if (weightMatchKg) {
+        multiplier = parseFloat(weightMatchKg[1]) * 1000;
+      } else if (weightMatchG && parseFloat(weightMatchG[1]) > 50) {
+        multiplier = parseFloat(weightMatchG[1]);
+      }
+      price = Math.round(rawPrice * multiplier);
+      if (oldPrice && oldPrice < 15) {
+        oldPrice = Math.round(oldPrice * multiplier);
+      }
+    } else {
+      price = Math.round(rawPrice);
+      if (oldPrice) oldPrice = Math.round(oldPrice);
+    }
+
+    const imageUrl = item.preview?.url || item.images?.[0]?.url || null;
+
+    return {
+      storeCode: 'DINA',
+      sourceProductId: id,
+      sourceUrl: item.slug ? `https://dinamarket.kz/product/${item.slug}` : undefined,
+      name,
+      category: this.detectCategory(name, defaultCat),
+      price,
+      oldPrice,
+      imageUrl,
+      rawPayload: item
+    };
+  }
+
+  public detectCategory(name: string, defaultCat = 'other'): string {
     const lower = name.toLowerCase();
     if (lower.includes('яйц') || lower.includes('жұмыртқ')) return 'eggs';
     if (lower.includes('молок') || lower.includes('сливк') || lower.includes('кефир') || lower.includes('творог') || lower.includes('сметан') || lower.includes('масло сливочн') || lower.includes('сыр ') || lower.includes('сыр,') || lower.includes('nemoloko')) return 'milk';
@@ -218,10 +275,13 @@ if (require.main === module) {
     console.log(`[DINA] Finished! Total products fetched: ${result.totalFetched}`);
 
     const byCat: Record<string, number> = {};
+    let withImg = 0;
     for (const p of result.products) {
       const c = p.category || 'other';
       byCat[c] = (byCat[c] || 0) + 1;
+      if (p.imageUrl) withImg++;
     }
     console.log('[DINA] Breakdown by category:', byCat);
+    console.log(`[DINA] Products with imageUrl: ${withImg} / ${result.totalFetched} (${Math.round((withImg / result.totalFetched) * 100)}%)`);
   })();
 }

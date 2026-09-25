@@ -56,10 +56,11 @@ export class MatcherService {
     const brand = (attrs.brand || 'nobrand').toLowerCase().replace(/\s+/g, '');
     const tea = attrs.teaType || 'notea';
     const size = attrs.volumeMl ? `${attrs.volumeMl}ml` : (attrs.weightGrams ? `${attrs.weightGrams}g` : 'nosize');
+    const pack = attrs.packageCount ? `${attrs.packageCount}pcs` : 'nopack';
     const fat = attrs.fatPercent ? `${attrs.fatPercent}pct` : 'nofat';
     const variant = attrs.breadType || 'novariant';
 
-    return `${cat}|${brand}|${pType}|${tea}|${size}|${fat}|${variant}`;
+    return `${cat}|${brand}|${pType}|${tea}|${size}|${pack}|${fat}|${variant}`;
   }
 
   public canMatch(a: MatchCandidate, b: MatchCandidate): { match: boolean; confidence: number; method: 'barcode' | 'deterministic' | 'ai' } {
@@ -186,6 +187,10 @@ export class MatcherService {
         if (!matchedGroup.imageUrl && cand.raw.imageUrl) {
           matchedGroup.imageUrl = cand.raw.imageUrl;
         }
+
+        if ((matchedGroup.attributes as any).packageCount == null && cand.attrs.packageCount != null) {
+          (matchedGroup.attributes as any).packageCount = cand.attrs.packageCount;
+        }
       } else {
         const canonTitle = this.normalizer.buildCanonicalTitle(cand.raw.name, cand.attrs.brand, cand.attrs);
         const canonCategory = cand.attrs.productType
@@ -202,6 +207,7 @@ export class MatcherService {
             volumeMl: cand.attrs.volumeMl,
             weightGrams: cand.attrs.weightGrams,
             fatPercent: cand.attrs.fatPercent,
+            packageCount: cand.attrs.packageCount ?? null,
             breadType: cand.attrs.breadType,
             sliced: cand.attrs.sliced
           },
@@ -235,8 +241,17 @@ export class MatcherService {
   }
 
   private calculateTokenSimilarity(s1: string, s2: string): number {
-    const tokens1 = new Set(s1.split(/\s+/).filter(t => t.length > 2));
-    const tokens2 = new Set(s2.split(/\s+/).filter(t => t.length > 2));
+    const cleanTokens = (str: string) =>
+      new Set(
+        str
+          .toLowerCase()
+          .replace(/["'«»„“\(\)\[\],\.\/\\:;]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length > 2)
+      );
+
+    const tokens1 = cleanTokens(s1);
+    const tokens2 = cleanTokens(s2);
 
     if (tokens1.size === 0 || tokens2.size === 0) return 0;
 

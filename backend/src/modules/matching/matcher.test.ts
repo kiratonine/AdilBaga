@@ -130,6 +130,81 @@ function runTests() {
   const res6 = matcher.canMatch(matcher.prepareCandidate(buckwheatPromo), matcher.prepareCandidate(semolinaPromo));
   assert(res6.match === false, 'Different product types (buckwheat vs semolina) under same brand/weight must NOT match');
 
+  // 7. packageCount extraction and preservation in canonical group attributes
+  const quailEgg: RawImportedProduct = {
+    storeCode: 'DANA',
+    sourceProductId: 'dana_egg_20',
+    name: 'ЯЙЦО ПЕРЕПЕЛИНЫЕ 20ШТ',
+    category: 'eggs',
+    price: 650
+  };
+  const candQuail = matcher.prepareCandidate(quailEgg);
+  assert(candQuail.attrs.packageCount === 20, 'Normalizer: 20ШТ extracted as packageCount = 20');
+  const groupsQuail = matcher.groupProducts([quailEgg]);
+  assert((groupsQuail[0]?.attributes as any)?.packageCount === 20, 'Matcher: MatchGroup.attributes preserves packageCount = 20');
+
+  // 8. packageCount mismatch protection: 10 eggs vs 20 eggs MUST NOT MATCH
+  const egg10: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_egg_10',
+    name: 'Яйцо куриное 10 шт С1',
+    category: 'eggs',
+    price: 550
+  };
+  const egg20: RawImportedProduct = {
+    storeCode: 'DANA',
+    sourceProductId: 'dana_egg_20b',
+    name: 'Яйцо куриное 20 шт С1',
+    category: 'eggs',
+    price: 1050
+  };
+  const res8 = matcher.canMatch(matcher.prepareCandidate(egg10), matcher.prepareCandidate(egg20));
+  assert(res8.match === false, 'Package count mismatch (10 шт vs 20 шт) must NOT match');
+
+  // 9. Weighted price normalization in DinaScraper (0.7 -> 700 ₸)
+  const { DinaScraper } = require('../import/scrapers/dina.scraper');
+  const scraper = new DinaScraper();
+  const bananItem = {
+    id: '927',
+    name: 'Банан',
+    price: 0.7,
+    oldPrice: 0.9,
+    price_type: 'weight',
+    isWeightProduct: true
+  };
+  const bananProd = scraper.processProductItem(bananItem);
+  assert(bananProd?.price === 700 && bananProd?.oldPrice === 900, 'DINA weighted price: 0.7 ₸/g normalized to 700 ₸/kg and oldPrice 900 ₸');
+
+  // 10. Piece product price NOT multiplied
+  const breadItem = {
+    id: '3001',
+    name: 'Хлеб формовой',
+    price: 180,
+    oldPrice: null,
+    price_type: 'piece',
+    isWeightProduct: false
+  };
+  const breadProd = scraper.processProductItem(breadItem);
+  assert(breadProd?.price === 180, 'Piece product price preserved without modification (180 ₸)');
+
+  // 11. Cross-store positive matching for canonical brand and size
+  const sugarDina: RawImportedProduct = {
+    storeCode: 'DINA',
+    sourceProductId: 'dina_s_3kg',
+    name: 'Сахар песок Достык 3кг/5',
+    category: 'sugar',
+    price: 2172
+  };
+  const sugarDana: RawImportedProduct = {
+    storeCode: 'DANA',
+    sourceProductId: 'dana_s_3kg',
+    name: 'САХАР "ДОСТЫК" 3КГ',
+    category: 'sugar',
+    price: 1821
+  };
+  const res11 = matcher.canMatch(matcher.prepareCandidate(sugarDina), matcher.prepareCandidate(sugarDana));
+  assert(res11.match === true, 'Cross-store match: Сахар Достык 3 кг (DINA) == САХАР "ДОСТЫК" 3КГ (DANA)');
+
   console.log(`\nRESULTS: ${passed}/${total} tests passed!`);
   if (passed !== total) {
     process.exit(1);
