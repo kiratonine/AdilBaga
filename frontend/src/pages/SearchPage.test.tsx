@@ -44,9 +44,9 @@ describe('SearchPage', () => {
   })
 
   it('searches while typing, after a pause', async () => {
-    const { router } = renderApp('/')
+    const { router } = renderApp('/catalog')
     await userEvent.type(screen.getByTestId('search-input'), 'хлеб')
-    expect(router.state.location.pathname).toBe('/')
+    expect(router.state.location.pathname).toBe('/catalog')
 
     await expect.poll(() => router.state.location.pathname, { timeout: 3000 }).toBe('/search')
     expect(searchOf(router.state.location.search)).toBe('хлеб')
@@ -59,9 +59,9 @@ describe('SearchPage', () => {
   })
 
   it('does not search live for a single character', async () => {
-    const { router } = renderApp('/')
+    const { router } = renderApp('/catalog')
     await userEvent.type(screen.getByTestId('search-input'), 'м')
     await new Promise((resolve) => setTimeout(resolve, 500))
-    expect(router.state.location.pathname).toBe('/')
+    expect(router.state.location.pathname).toBe('/catalog')
   })
 })

@@ -17,16 +17,17 @@
 | Дизайн | Минималистично, **без мотивов флага**. Белый фон, графит `ink #1A1F24`, серый `surface #F3F5F4`, один акцент — зелёный `accent #17744A` = «здесь дешевле» (только min price / выгода). Шрифты: Golos Text (UI) + **Montserrat** (цены — bold, логотип — extrabold; выбран пользователем в сессии 6 из сравнения 9 шрифтов, до этого Unbounded → Onest). Шрифты без казахских букв (Manrope, Jost) не подходят, self-host через `@fontsource-variable`. Лого: зелёный ценник со знаком «=». Токены — `@theme` в `src/index.css` |
 | Деплой | **Не наша зона** — фронтенд деплой не делает (решение пользователя, сессия 6) |
 | Репо | `https://github.com/kiratonine/AdilBaga`, ветка `feat/frontend`, код в `frontend/**` |
-| Роуты | `/` — каталог (категории + товары с наибольшей экономией), `/collections/:slug` — категория, `/search?q=` — поиск по всем категориям, `/products/:id` — страница товара, `/dashboard` |
+| Роуты | `/` — лендинг (сессия 7), `/catalog` — каталог (категории + товары с наибольшей экономией), `/collections/:slug` — категория, `/search?q=` — поиск по всем категориям, `/products/:id` — страница товара, `/dashboard` |
 | API-слой | `catalogApi` с двумя адаптерами: mock (JSON из `src/mocks/`) и http. Переключение через `VITE_API_MODE=mock\|http` + `VITE_API_BASE_URL` |
 | Пагинация | «Показать ещё» (limit/offset, `PAGE_SIZE = 24`). Бэк отдаёт **массив без total**: следующей страницы нет, если пришло < limit. Счётчик «Найдено N» не показываем (максимум — число загруженных) |
 | Фильтры | Только из schema бэка. Типы: `multi-select`, `boolean` (`?key=true|false`). Мульти-значения — повтор параметра, OR внутри ключа, AND между ключами. `options` — **голые значения**; подписи через `lib/attributes.ts` (единицы по суффиксу ключа: `*Ml`, `*Grams`, `*Percent`, `count`). Подписи атрибутов на странице товара — `filter.label` из schema категории. Состояние фильтров в URL query |
 | Дата | **Плашки «Цены актуальны на…» в шапке нет** (убрана по просьбе пользователя в сессии 2). Дата snapshot — на каждой карточке: «Цена на DD.MM.YYYY» из `product.snapshotAt` (testid `snapshot-date`). Никогда не писать «в реальном времени» |
 | Необязательные поля | `offer.inStock`, `location.id`, `priceSpread.imageUrl/category/minStoreName/maxStoreName` — optional в типах, в моках отсутствуют, UI от них не зависит. Ключ маркера карты — `storeCode + address` |
 | Прочее из контракта | `brand` может быть `null`; категории только из `GET /api/categories` (слаги не хардкодить); `nameKk` нет; неизвестный sort → 400 |
-| Testid | `category-card`, `product-card`, `min-price`, `filter-<key>`, `offer-list` (мин. предложение — `li[data-best]`), `search-input`, `sort-select`, `load-more`, `snapshot-date`, `nav-dashboard`, `loading-state`, `error-state`, `empty-state`, `image-placeholder`, `product-attributes`, `summary-card`, `price-spread`, `store-map` (маркеры — `path.store-marker`), `store-list`, `store-group` |
+| Testid | `category-card`, `product-card`, `min-price`, `filter-<key>`, `offer-list` (мин. предложение — `li[data-best]`), `search-input`, `sort-select`, `load-more`, `snapshot-date`, `nav-catalog`, `nav-dashboard`, `landing-example`, `siri-dialog`, `loading-state`, `error-state`, `empty-state`, `image-placeholder`, `product-attributes`, `summary-card`, `price-spread`, `store-map` (маркеры — `path.store-marker`), `store-list`, `store-group` |
 | Футер | Слева логотип + «Сравниваем цены на продукты в сетях Актау.», справа «© {год} Все права защищены» (`footer.rights`, testid `copyright`). Без списка магазинов и без фразы о снимке |
-| Главная | Заголовок «Где сегодня выгоднее» (kk «Бүгін қай жерде тиімдірек»). Чипы категорий + «Самая большая разница в цене»: топ-8 `dashboard.priceSpreads` → карточки через `useProductsByIds` (по `getProduct` на id), без подписи-пояснения |
+| Лендинг | `pages/LandingPage.tsx` на `/`, тексты — `landing.*` (ru+kk), статичные, без запросов к API. **Без шапки сайта** (Layout скрывает `Header` на `/`), сверху справа только `LanguageSwitch`. Блоки: hero (строка «Smart City Aktau · Adil Baga», h1 «Где продукты в Актау выгоднее» с неразрывными пробелами, подводка, «Открыть каталог» / «Аналитика цен», карточка «Молоко 3,2%, 1 л» Dina 570 / Dana 620 / Fix Price 650 без плашки «Пример»), «Проблема» (3 карточки), «Как работает» (3 шага), «Спросите у Siri» (пункты + пример диалога), «Для кого» (жителям → `/catalog`, городу → `/dashboard`). Формулировки — «выгоднее», не «дешевле»; «молоко» только в примерах (просьба пользователя). **Тексты пользователь правит сам** — не переписывать без запроса. В шапке добавлен «Каталог» (`nav-catalog`, на мобильном скрыт — не влезает). Заголовок вкладки каталога — «Каталог — Adil Bağa» |
+| Каталог (`/catalog`) | Заголовок «Где сегодня выгоднее» (kk «Бүгін қай жерде тиімдірек»). Чипы категорий + «Самая большая разница в цене»: топ-8 `dashboard.priceSpreads` → карточки через `useProductsByIds` (по `getProduct` на id), без подписи-пояснения |
 | Категория | Фильтры: multi-select — чипы (`aria-pressed`), boolean — один чип (вкл = `?key=true`). URL: `lib/filterParams.ts` (невалидные ключи/значения/sort из URL игнорируются, `price_asc` в URL не пишется), `replace: true`. Мобильный: панель фильтров по кнопке «Фильтры (n)». Запрос товаров ждёт schema. `useProductPages` = `useInfiniteQuery`, при смене фильтров держит прежний список (opacity 50%) |
 | Поиск | Единственное поле — `SearchBox` в шапке, отдельного инпута на `/search` нет. Живой поиск: debounce 350 мс, от 2 символов (1 символ — только по Enter). С других страниц — push на `/search?q=`, на `/search` — `replace` с сохранением `sort`; очистка поля на `/search` убирает `q`. Пустой `q` — подсказка «Что ищем?», запрос не шлём. Сортировка скрыта, если ничего не найдено |
 | Товар | `/products/:id`: крошки Каталог / категория, картинка (sticky на desktop), бренд, h1, «Самая низкая цена» + old price + строка выгоды, offers по возрастанию: минимум — `accent-soft` «Дешевле всего», остальные «дороже на X ₸». Характеристики (`dl`) — только ключи, у которых есть `filter.label` в schema категории, в порядке schema. 404 → NotFound |
@@ -58,6 +59,7 @@
 | 5 | **Полировка.** Responsive (desktop + iPhone), kk-переводы, Playwright E2E основного flow, `pnpm build`, консоль без ошибок | ✅ (Lighthouse не прогонялся) |
 | 6 | **Интеграция с реальным API** (после ответов бэка / merge): http-адаптер, правки DTO, прогон E2E | ✅ против `feat/backend-1` (fixtures); повторить после подключения датасета backend-2 |
 | 7 | Деплой | не наша зона |
+| 8 | Лендинг на `/` | ✅ (тексты — за пользователем) |
 
 ---
 
@@ -70,6 +72,13 @@
 ---
 
 ## Журнал
+
+### Сессия 7 — 2026-09-25
+- **Лендинг** для хакатона на `/`, каталог переехал на `/catalog` (решение пользователя). Ссылки «Каталог» в крошках, 404 и пустом поиске → `/catalog`; логотип ведёт на лендинг. Детали — «Лендинг» в таблице решений.
+- Тексты: пробовали переписать «как маркетолог» — пользователь вернул первую версию и будет править сам; затем «дешевле» → «выгоднее» (kk «арзан» → «тиімді»).
+- Тесты: `LandingPage.test.tsx` (3), Layout-тесты каталога и E2E (smoke/http/polish) переведены на `/catalog`, новый E2E «лендинг → каталог → логотип».
+- Проверено: typecheck, oxlint, 68 unit-тестов, build, E2E 23 passed + 1 skipped (desktop+iPhone), отсутствие горизонтального скролла на iPhone (/, /catalog, /dashboard — временным spec), скриншоты 1280/390.
+- По ходу по просьбе пользователя: убрана шапка на лендинге (кроме выбора языка), плашка «Пример», хвост «— в одном окне», подпись «Әділ баға — …» → «Adil Baga». Тесты, которым нужна шапка, открывают `/catalog`.
 
 ### Сессия 6 — 2026-09-24
 - Состояние бэка: `origin/main` — только initial commit. `feat/backend-1` — NestJS API (Part 02 каталог/дашборд, Part 03 голос), **но на fixtures**: 1 категория (`milk`), 2 товара, 2 демо-точки. `feat/backend-2` — Prisma + скрейперы + `data/snapshots/final_dataset.json` (121 canonical, 243 raw, **кросс-матчей всего 3**, категории milk/bread/sugar/oil/eggs/tea/groceries/other), API нет. Реальный DB-адаптер в backend-1 не подключён.

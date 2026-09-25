@@ -39,7 +39,7 @@ test('home: categories and price spreads from the API', async ({ page, request }
   const categories = await api<CategoryDto[]>(request, '/categories')
   const dashboard = await api<DashboardDto>(request, '/dashboard')
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await expect(page.getByTestId('category-card')).toHaveCount(categories.length)
   await expect(page.getByTestId('product-card')).toHaveCount(Math.min(dashboard.priceSpreads.length, 8))
   expect(errors).toEqual([])
@@ -50,7 +50,7 @@ test('category: list, filter and min price match the API', async ({ page, reques
   const [category] = await api<CategoryDto[]>(request, '/categories')
   const products = await api<ProductCardDto[]>(request, `/products?category=${category.slug}&limit=${PAGE_SIZE}`)
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await page.getByTestId('category-card').filter({ hasText: category.name }).click()
   await expect(page).toHaveURL(new RegExp(`/collections/${category.slug}$`))
   await expectCards(page, products.length)
@@ -79,7 +79,7 @@ test('search while typing matches the API', async ({ page, request }) => {
   const query = product.name.split(/\s+/)[0].toLocaleLowerCase('ru')
   const found = await api<ProductCardDto[]>(request, `/products?search=${encodeURIComponent(query)}&limit=${PAGE_SIZE}`)
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await page.getByTestId('search-input').pressSequentially(query)
   await expect(page).toHaveURL(/\/search\?q=/)
   await expectCards(page, found.length)

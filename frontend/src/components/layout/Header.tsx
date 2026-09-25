@@ -4,22 +4,13 @@ import { LanguageSwitch } from './LanguageSwitch'
 import { Logo } from './Logo'
 import { SearchBox } from './SearchBox'
 
+const navLink = ({ isActive }: { isActive: boolean }) =>
+  `flex h-10 items-center rounded-[var(--radius-control)] px-3 text-[15px] font-medium transition-colors ${
+    isActive ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-surface'
+  }`
+
 export function Header() {
   const { t } = useTranslation()
-
-  const dashboardLink = (
-    <NavLink
-      to="/dashboard"
-      data-testid="nav-dashboard"
-      className={({ isActive }) =>
-        `flex h-10 items-center rounded-[var(--radius-control)] px-3 text-[15px] font-medium transition-colors ${
-          isActive ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-surface'
-        }`
-      }
-    >
-      {t('nav.dashboard')}
-    </NavLink>
-  )
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-page/95 backdrop-blur supports-[backdrop-filter]:bg-page/85">
@@ -29,7 +20,15 @@ export function Header() {
         <div className="order-last col-span-3 md:order-none md:col-span-1">
           <SearchBox />
         </div>
-        <nav className="flex justify-end md:col-start-3">{dashboardLink}</nav>
+        <nav className="flex justify-end gap-1 md:col-start-3">
+          {/* На мобильном в шапке нет места: в каталог ведут лендинг и хлебные крошки */}
+          <NavLink to="/catalog" data-testid="nav-catalog" className={(state) => `max-sm:hidden ${navLink(state)}`}>
+            {t('nav.home')}
+          </NavLink>
+          <NavLink to="/dashboard" data-testid="nav-dashboard" className={navLink}>
+            {t('nav.dashboard')}
+          </NavLink>
+        </nav>
         <LanguageSwitch />
       </div>
     </header>

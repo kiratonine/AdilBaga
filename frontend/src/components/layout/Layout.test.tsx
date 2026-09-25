@@ -8,7 +8,7 @@ describe('Layout', () => {
   afterEach(() => setLanguage('ru'))
 
   it('shows top price spreads on the home page with the snapshot date', async () => {
-    renderApp('/')
+    renderApp('/catalog')
     const cards = await screen.findAllByTestId('product-card', {}, { timeout: 3000 })
     expect(cards).toHaveLength(8)
     expect(within(cards[0]).getByRole('link')).toHaveTextContent('Молоко Lactel безлактозное 1% 900 мл')
@@ -17,24 +17,24 @@ describe('Layout', () => {
   })
 
   it('lists categories from the API', async () => {
-    renderApp('/')
+    renderApp('/catalog')
     expect(await screen.findAllByTestId('category-card')).toHaveLength(5)
   })
 
   it('submits search to /search?q=', async () => {
-    const { router } = renderApp('/')
+    const { router } = renderApp('/catalog')
     await userEvent.type(screen.getByTestId('search-input'), 'молоко{Enter}')
     expect(router.state.location.pathname).toBe('/search')
     expect(new URLSearchParams(router.state.location.search).get('q')).toBe('молоко')
   })
 
   it('switches interface language to Kazakh', async () => {
-    renderApp('/')
+    renderApp('/catalog')
     const group = screen.getByRole('group', { name: 'Язык интерфейса' })
     await userEvent.click(within(group).getByRole('button', { name: 'Қаз' }))
     expect(await screen.findByText('Талдау')).toBeInTheDocument()
     expect(document.documentElement.lang).toBe('kk')
-    expect(document.title).toBe('Adil Bağa — Ақтаудағы бағаларды салыстыру')
+    expect(document.title).toBe('Каталог — Adil Bağa')
   })
 
   it('sets the tab title per page', async () => {

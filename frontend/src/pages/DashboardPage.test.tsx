@@ -54,7 +54,7 @@ describe('DashboardPage', () => {
   })
 
   it('is reachable from the header', async () => {
-    const { router } = renderApp('/')
+    const { router } = renderApp('/catalog')
     ;(await screen.findByTestId('nav-dashboard')).click()
     expect(await screen.findByRole('heading', { level: 1, name: 'Аналитика цен' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/dashboard')

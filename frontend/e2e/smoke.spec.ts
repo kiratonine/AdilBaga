@@ -7,10 +7,26 @@ function trackConsoleErrors(page: Page) {
   return errors
 }
 
-test('home shows categories and top price spreads', async ({ page }) => {
+test('landing leads to the catalog and back by the logo', async ({ page }) => {
   const errors = trackConsoleErrors(page)
 
   await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Где продукты в Актау выгоднее')
+  await expect(page.getByTestId('siri-dialog')).toBeVisible()
+
+  await page.getByRole('main').getByRole('link', { name: 'Открыть каталог' }).first().click()
+  await expect(page).toHaveURL(/\/catalog$/)
+  await expect(page.getByTestId('nav-catalog')).toHaveAttribute('aria-current', 'page')
+
+  await page.getByRole('link', { name: 'Adil Bağa' }).click()
+  await expect(page).toHaveURL(/\/$/)
+  expect(errors).toEqual([])
+})
+
+test('home shows categories and top price spreads', async ({ page }) => {
+  const errors = trackConsoleErrors(page)
+
+  await page.goto('/catalog')
   await expect(page.getByTestId('category-card')).toHaveCount(5)
   await expect(page.getByTestId('product-card')).toHaveCount(8)
   await expect(page.getByTestId('snapshot-date').first()).toHaveText('Цена на 24.09.2026')
@@ -25,7 +41,7 @@ test('home shows categories and top price spreads', async ({ page }) => {
 test('category: filter updates the list and min price is highlighted', async ({ page }) => {
   const errors = trackConsoleErrors(page)
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await page.getByTestId('category-card').filter({ hasText: 'Молоко' }).click()
   await expect(page).toHaveURL(/\/collections\/milk/)
   await expect(page.getByTestId('product-card')).toHaveCount(10)
@@ -52,7 +68,7 @@ test('category: filter updates the list and min price is highlighted', async ({ 
 test('search while typing, then open a product', async ({ page }) => {
   const errors = trackConsoleErrors(page)
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await page.getByTestId('search-input').pressSequentially('сахар')
   await expect(page).toHaveURL(/\/search\?q=%D1%81%D0%B0%D1%85%D0%B0%D1%80$/)
   await expect(page.getByTestId('product-card')).toHaveCount(4)
@@ -75,7 +91,7 @@ test('search while typing, then open a product', async ({ page }) => {
 test('dashboard: summary, price spreads and store map', async ({ page }) => {
   const errors = trackConsoleErrors(page)
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await page.getByTestId('nav-dashboard').click()
   await expect(page).toHaveURL(/\/dashboard$/)
 

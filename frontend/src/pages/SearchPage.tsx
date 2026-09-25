@@ -45,7 +45,7 @@ export function SearchPage() {
               title={t('search.empty', { query: q })}
               hint={t('search.emptyHint')}
               action={
-                <Link to="/" className="font-medium text-accent underline underline-offset-4">
+                <Link to="/catalog" className="font-medium text-accent underline underline-offset-4">
                   {t('state.toCatalog')}
                 </Link>
               }
