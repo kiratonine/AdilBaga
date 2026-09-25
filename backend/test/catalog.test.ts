@@ -115,6 +115,15 @@ test('dashboard derives summary, sorted spreads and locations', async () => {
   assert.deepEqual(dashboard.priceSpreads.map((spread) => spread.differencePercent), [8.77, 7.69]);
   assert.equal(dashboard.locations.length, 2);
   assert.equal(dashboard.locations[0]?.storeCode, 'DINA');
+  assert.deepEqual(dashboard.baskets?.map((basket) => basket.storeCode), ['DINA', 'DANA']);
+  assert.deepEqual(dashboard.baskets?.map((basket) => basket.total), [570, 620]);
+  for (const basket of dashboard.baskets ?? []) {
+    assert.deepEqual(basket.items.map((item) => item.categorySlug), ['milk', 'sugar', 'oil']);
+    assert.equal(basket.items[0]?.productId, '2358a413-8c03-4e59-baad-7675045b97bb');
+    assert.deepEqual(basket.items.slice(1).map((item) => [item.productId, item.name, item.price]), [
+      [null, null, null], [null, null, null],
+    ]);
+  }
 });
 
 test('Haversine returns plausible meters', () => {

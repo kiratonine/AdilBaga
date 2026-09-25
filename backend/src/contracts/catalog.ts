@@ -44,6 +44,21 @@ export interface ProductQuery {
   filters?: Record<string, Array<string | number | boolean>>;
 }
 
+export interface BasketItemDto {
+  categorySlug: string;
+  categoryName: string;
+  productId: string | null;
+  name: string | null;
+  price: number | null;
+}
+
+export interface BasketDto {
+  storeCode: OfferDto['storeCode'];
+  storeName: string;
+  total: number;
+  items: BasketItemDto[];
+}
+
 export interface DashboardDto {
   summary: {
     canonicalProducts: number;
@@ -66,4 +81,5 @@ export interface DashboardDto {
     latitude: number;
     longitude: number;
   }>;
+  baskets?: BasketDto[];
 }
