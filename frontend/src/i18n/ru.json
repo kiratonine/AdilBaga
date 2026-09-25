@@ -94,7 +94,16 @@
     "points_one": "{{count}} точка",
     "points_few": "{{count}} точки",
     "points_many": "{{count}} точек",
-    "points_other": "{{count}} точки"
+    "points_other": "{{count}} точки",
+    "basket": "Стоимость продуктовой корзины",
+    "basketHint": "Сумма самых дешёвых товаров сети в каждой позиции: {{items}}",
+    "basketBest": "Выгоднее всего",
+    "basketOver": "дороже на {{amount}}",
+    "basketMissing": "Нет {{count}} из {{total}} позиций",
+    "basketItems": "Состав корзины",
+    "basketNotFound": "нет в сети",
+    "basketOnMap": "Корзина: {{amount}}",
+    "basketIncomplete": "неполная"
   },
   "landing": {
     "eyebrow": "Smart City Aktau",

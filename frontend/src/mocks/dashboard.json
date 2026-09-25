@@ -142,5 +142,133 @@
       "latitude": 43.6687,
       "longitude": 51.1602
     }
+  ],
+  "baskets": [
+    {
+      "storeCode": "DINA",
+      "storeName": "Dina Market",
+      "total": 2750,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молоко",
+          "productId": "p0a1f000-0000-4000-8000-000000000006",
+          "name": "Молоко Адал 2,5% 1 л",
+          "price": 510
+        },
+        {
+          "categorySlug": "bread",
+          "categoryName": "Хлеб",
+          "productId": "p0a1f000-0000-4000-8000-000000000011",
+          "name": "Хлеб пшеничный формовой 450 г",
+          "price": 150
+        },
+        {
+          "categorySlug": "eggs",
+          "categoryName": "Яйца",
+          "productId": "p0a1f000-0000-4000-8000-000000000018",
+          "name": "Яйца куриные С0 10 шт",
+          "price": 720
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар",
+          "productId": "p0a1f000-0000-4000-8000-000000000022",
+          "name": "Сахар-песок 1 кг",
+          "price": 480
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Масло растительное",
+          "productId": "p0a1f000-0000-4000-8000-000000000026",
+          "name": "Масло подсолнечное рафинированное Шедевр 1 л",
+          "price": 890
+        }
+      ]
+    },
+    {
+      "storeCode": "DANA",
+      "storeName": "Dana Market",
+      "total": 3170,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молоко",
+          "productId": "p0a1f000-0000-4000-8000-000000000001",
+          "name": "Молоко FoodMaster 3,2% 1 л",
+          "price": 660
+        },
+        {
+          "categorySlug": "bread",
+          "categoryName": "Хлеб",
+          "productId": "p0a1f000-0000-4000-8000-000000000011",
+          "name": "Хлеб пшеничный формовой 450 г",
+          "price": 170
+        },
+        {
+          "categorySlug": "eggs",
+          "categoryName": "Яйца",
+          "productId": "p0a1f000-0000-4000-8000-000000000018",
+          "name": "Яйца куриные С0 10 шт",
+          "price": 890
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар",
+          "productId": "p0a1f000-0000-4000-8000-000000000022",
+          "name": "Сахар-песок 1 кг",
+          "price": 630
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Масло растительное",
+          "productId": "p0a1f000-0000-4000-8000-000000000028",
+          "name": "Масло подсолнечное нерафинированное Алтын 1 л",
+          "price": 820
+        }
+      ]
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "storeName": "Fix Price",
+      "total": 2250,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молоко",
+          "productId": "p0a1f000-0000-4000-8000-000000000006",
+          "name": "Молоко Адал 2,5% 1 л",
+          "price": 540
+        },
+        {
+          "categorySlug": "bread",
+          "categoryName": "Хлеб",
+          "productId": "p0a1f000-0000-4000-8000-000000000011",
+          "name": "Хлеб пшеничный формовой 450 г",
+          "price": 180
+        },
+        {
+          "categorySlug": "eggs",
+          "categoryName": "Яйца",
+          "productId": null,
+          "name": null,
+          "price": null
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар",
+          "productId": "p0a1f000-0000-4000-8000-000000000022",
+          "name": "Сахар-песок 1 кг",
+          "price": 510
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Масло растительное",
+          "productId": "p0a1f000-0000-4000-8000-000000000026",
+          "name": "Масло подсолнечное рафинированное Шедевр 1 л",
+          "price": 1020
+        }
+      ]
+    }
   ]
 }

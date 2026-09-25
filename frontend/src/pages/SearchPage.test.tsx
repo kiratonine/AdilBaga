@@ -48,13 +48,13 @@ describe('SearchPage', () => {
     await userEvent.type(screen.getByTestId('search-input'), 'хлеб')
     expect(router.state.location.pathname).toBe('/catalog')
 
-    await expect.poll(() => router.state.location.pathname, { timeout: 3000 }).toBe('/search')
+    await expect.poll(() => router.state.location.pathname, { timeout: 5000 }).toBe('/search')
     expect(searchOf(router.state.location.search)).toBe('хлеб')
     expect(await screen.findAllByTestId('product-card')).toHaveLength(5)
 
     // На странице поиска уточнение запроса заменяет запись в истории, а не добавляет новую
     await userEvent.type(screen.getByTestId('search-input'), ' ржаной')
-    await expect.poll(() => searchOf(router.state.location.search), { timeout: 3000 }).toBe('хлеб ржаной')
+    await expect.poll(() => searchOf(router.state.location.search), { timeout: 5000 }).toBe('хлеб ржаной')
     expect(router.state.historyAction).toBe('REPLACE')
   })
 

@@ -1,6 +1,9 @@
 import { screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { catalogApi } from '../api/catalogApi'
 import type { StoreLocationDto } from '../api/types'
+import dashboardMock from '../mocks/dashboard.json'
 import { renderApp } from '../test/render'
 
 // Leaflet в jsdom не рисуется — карту проверяет E2E, здесь только какие точки ей переданы
@@ -11,6 +14,8 @@ vi.mock('../components/dashboard/StoreMap', () => ({
 }))
 
 describe('DashboardPage', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   it('shows summary cards from the dashboard', async () => {
     renderApp('/dashboard')
     expect(await screen.findByRole('heading', { level: 1, name: 'Аналитика цен' })).toBeInTheDocument()
@@ -51,6 +56,47 @@ describe('DashboardPage', () => {
     ])
     expect(within(groups[2]).getByText('15-й микрорайон, 21')).toBeInTheDocument()
     expect(await screen.findByTestId('store-map')).toHaveTextContent('DINA,DINA,DINA,DANA,DANA,DANA,FIX_PRICE,FIX_PRICE')
+  })
+
+  it('shows the basket price per chain, the best complete one first', async () => {
+    renderApp('/dashboard')
+    const baskets = await screen.findAllByTestId('basket')
+    const text = (el: HTMLElement) => el.textContent?.replace(/\s/g, ' ')
+    expect(baskets.map((b) => text(within(b).getByTestId('basket-total')))).toEqual(['2 750 ₸', '3 170 ₸', '2 250 ₸'])
+    expect(baskets[0]).toHaveAttribute('data-best', 'true')
+    expect(baskets[0]).toHaveTextContent('Dina Market')
+    expect(baskets[0]).toHaveTextContent('Выгоднее всего')
+    expect(text(baskets[1])).toContain('дороже на 420 ₸')
+    // Fix Price дешевле, но без яиц — выгоднейшей не считается
+    expect(baskets[2]).not.toHaveAttribute('data-best')
+    expect(baskets[2]).toHaveTextContent('Нет 1 из 5 позиций')
+  })
+
+  it('opens the basket contents with links to products', async () => {
+    renderApp('/dashboard')
+    const [dina, , fix] = await screen.findAllByTestId('basket')
+    await userEvent.click(within(dina).getByText('Состав корзины'))
+    expect(within(dina).getByRole('link', { name: /Молоко/ })).toHaveAttribute('href', expect.stringMatching(/^\/products\//))
+    expect(within(fix).getByText('нет в сети')).toBeInTheDocument()
+  })
+
+  it('shows the chain basket next to its store points', async () => {
+    renderApp('/dashboard')
+    const lines = await screen.findAllByTestId('store-basket')
+    expect(lines.map((l) => l.textContent?.replace(/\s/g, ' '))).toEqual([
+      'Корзина: 2 750 ₸',
+      'Корзина: 3 170 ₸',
+      'Корзина: 2 250 ₸ · неполная',
+    ])
+  })
+
+  it('hides the basket block when the backend sends no baskets', async () => {
+    const { baskets: _, ...withoutBaskets } = dashboardMock
+    vi.spyOn(catalogApi, 'getDashboard').mockResolvedValue(withoutBaskets as never)
+    renderApp('/dashboard')
+    expect(await screen.findAllByTestId('summary-card')).toHaveLength(4)
+    expect(screen.queryByTestId('basket')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('store-basket')).not.toBeInTheDocument()
   })
 
   it('is reachable from the header', async () => {

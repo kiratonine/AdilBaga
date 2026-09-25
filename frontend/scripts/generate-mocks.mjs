@@ -166,6 +166,35 @@ const locations = [
   longitude,
 }))
 
+// Продуктовая корзина: в каждой позиции — самый дешёвый подходящий товар сети.
+// Состав в проде задаёт бэк (docs/context/07_FRONTEND_QUESTIONS_BASKET.md).
+// Яйца C0 есть не во всех сетях — у Fix Price корзина неполная, проверяем этот случай.
+const basketRules = [
+  ['milk', (a) => a.volumeMl === 1000],
+  ['bread', () => true],
+  ['eggs', (a) => a.count === 10 && a.grade === 'C0'],
+  ['sugar', (a) => a.weightGrams === 1000],
+  ['oil', (a) => a.volumeMl === 1000],
+]
+
+const baskets = Object.entries(STORES).map(([storeCode, storeName]) => {
+  const items = basketRules.map(([slug, fits]) => {
+    const category = categories.find((c) => c.slug === slug)
+    const best = products
+      .filter((p) => p.category.slug === slug && fits(p.attributes))
+      .flatMap((p) => p.offers.filter((o) => o.storeCode === storeCode).map((o) => ({ product: p, price: o.price })))
+      .sort((a, b) => a.price - b.price)[0]
+    return {
+      categorySlug: slug,
+      categoryName: category.name,
+      productId: best?.product.id ?? null,
+      name: best?.product.name ?? null,
+      price: best?.price ?? null,
+    }
+  })
+  return { storeCode, storeName, total: items.reduce((sum, i) => sum + (i.price ?? 0), 0), items }
+})
+
 const dashboard = {
   summary: {
     canonicalProducts: products.length,
@@ -175,6 +204,7 @@ const dashboard = {
   },
   priceSpreads,
   locations,
+  baskets,
 }
 
 const write = (file, data) => writeFileSync(join(outDir, file), JSON.stringify(data, null, 2) + '\n')

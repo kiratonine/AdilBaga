@@ -86,6 +86,24 @@ export type StoreLocationDto = {
   longitude: number
 }
 
+/** Позиция корзины: самый дешёвый подходящий товар категории в сети; null — в сети такого нет */
+export type BasketItemDto = {
+  categorySlug: string
+  categoryName: string
+  productId: string | null
+  name: string | null
+  price: number | null
+}
+
+/** Продуктовая корзина одной сети. Состав и подсчёт — на бэке (07_FRONTEND_QUESTIONS_BASKET.md) */
+export type BasketDto = {
+  storeCode: StoreCode
+  storeName: string
+  /** Сумма найденных позиций */
+  total: number
+  items: BasketItemDto[]
+}
+
 export type DashboardDto = {
   summary: {
     canonicalProducts: number
@@ -95,6 +113,8 @@ export type DashboardDto = {
   }
   priceSpreads: PriceSpreadDto[]
   locations: StoreLocationDto[]
+  /** Предложено бэку, пока не в контракте: без поля блок корзины не показываем */
+  baskets?: BasketDto[]
 }
 
 export interface CatalogApi {

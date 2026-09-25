@@ -100,6 +100,13 @@ test('dashboard: summary, price spreads and store map', async ({ page }) => {
   await expect(page.getByTestId('store-map').locator('path.store-marker')).toHaveCount(8)
   await expect(page.getByTestId('store-group')).toHaveCount(3)
 
+  // У каждой точки — сумма корзины её сети, самая выгодная (Dina) — акцентом
+  await expect(page.getByTestId('basket')).toHaveCount(3)
+  const labels = page.getByTestId('store-map').locator('.basket-label')
+  await expect(labels).toHaveCount(8)
+  await expect(page.getByTestId('store-map').locator('.basket-label--best')).toHaveCount(3)
+  await expect(page.getByTestId('store-map').locator('.basket-label--partial')).toHaveCount(2)
+
   // Маркер открывает подпись с сетью и адресом
   await page.getByTestId('store-map').locator('path.store-marker').first().click({ force: true })
   await expect(page.locator('.leaflet-popup-content')).toContainText('Dina Market')

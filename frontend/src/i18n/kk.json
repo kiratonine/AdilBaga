@@ -92,7 +92,16 @@
     "map": "Дүкендер картада",
     "mapHint": "Бағалары салыстырылатын Ақтаудағы желі дүкендері",
     "points_one": "{{count}} дүкен",
-    "points_other": "{{count}} дүкен"
+    "points_other": "{{count}} дүкен",
+    "basket": "Азық-түлік себетінің құны",
+    "basketHint": "Әр позиция бойынша желідегі ең арзан тауарлардың сомасы: {{items}}",
+    "basketBest": "Ең тиімді",
+    "basketOver": "{{amount}} қымбат",
+    "basketMissing": "{{total}} позицияның {{count}} позициясы жоқ",
+    "basketItems": "Себет құрамы",
+    "basketNotFound": "желіде жоқ",
+    "basketOnMap": "Себет: {{amount}}",
+    "basketIncomplete": "толық емес"
   },
   "landing": {
     "eyebrow": "Smart City Aktau",
