@@ -6,6 +6,8 @@ export interface NormalizedAttributes {
   breadType?: string | null;
   sliced?: boolean | null;
   brand?: string | null;
+  productType?: string | null;
+  teaType?: 'green' | 'black' | null;
   cleanedName: string;
 }
 
@@ -25,12 +27,30 @@ export class NormalizerService {
     { canonical: 'Tess', patterns: [/tess/i, /тесс/i] },
     { canonical: 'Пиала', patterns: [/пиала\s*gold/i, /пиала/i] },
     { canonical: 'Петропавловское', patterns: [/петропавловск\w*/i] },
-    { canonical: 'Айна', patterns: [/айна/i] },
+    { canonical: 'Айна', patterns: [/айна/i, /айналайын/i] },
     { canonical: 'Күнделік', patterns: [/кунделик/i, /күнделік/i] },
     { canonical: 'Promo', patterns: [/promo/i, /промо/i] },
     { canonical: 'Шалун', patterns: [/шалун/i] },
     { canonical: 'Пекарь', patterns: [/пекарь/i] },
-    { canonical: 'Русский Продукт', patterns: [/русский\s*продукт/i] }
+    { canonical: 'Русский Продукт', patterns: [/русский\s*продукт/i] },
+    { canonical: 'Маслозавод №1', patterns: [/маслозавод\s*(?:№|no)?\s*1/i] },
+    { canonical: 'Oleina', patterns: [/oleina/i, /олейна/i] },
+    { canonical: 'Магаш', patterns: [/магаш/i, /magash/i] },
+    { canonical: 'Алтын Дан', patterns: [/алтын\s*дан/i] },
+    { canonical: 'Нур', patterns: [/хлеб.*нур/i, /"нур"/i] },
+    { canonical: 'Bionan', patterns: [/bionan/i, /бионан/i] },
+    { canonical: 'АкМаржан', patterns: [/акмаржан/i, /ак-маржан/i] },
+    { canonical: 'Баракат', patterns: [/баракат/i] },
+    { canonical: 'Янтарь', patterns: [/янтарь/i] },
+    { canonical: 'Домик в деревне', patterns: [/домик\s*в\s*деревне/i] },
+    { canonical: 'Простоквашино', patterns: [/простоквашино/i] },
+    { canonical: 'Деревенское', patterns: [/деревенск\w*/i] },
+    { canonical: 'Одари', patterns: [/одари/i] },
+    { canonical: 'Околица', patterns: [/околица/i] },
+    { canonical: 'Милоко', patterns: [/милоко/i] },
+    { canonical: 'Милково', patterns: [/милково/i] },
+    { canonical: 'Моё', patterns: [/моё/i, /мое/i] },
+    { canonical: 'Кубанский Маслодел', patterns: [/кубанский\s*маслодел/i] }
   ];
 
   public normalize(rawName: string, knownBrand?: string): NormalizedAttributes {
@@ -123,6 +143,19 @@ export class NormalizerService {
       }
     }
 
+    // 8. Product type detection
+    const productType = this.detectProductType(clean);
+
+    // 9. Tea type detection
+    let teaType: 'green' | 'black' | null = null;
+    if (productType === 'tea' || clean.includes('чай')) {
+      if (clean.includes('зелен') || clean.includes('green')) {
+        teaType = 'green';
+      } else if (clean.includes('черн') || clean.includes('black')) {
+        teaType = 'black';
+      }
+    }
+
     return {
       volumeMl,
       weightGrams,
@@ -131,8 +164,68 @@ export class NormalizerService {
       breadType,
       sliced,
       brand: detectedBrand,
+      productType,
+      teaType,
       cleanedName: clean
     };
+  }
+
+  public detectProductType(clean: string): string | null {
+    // 1. Groats & Bakery
+    if (clean.includes('гречк') || clean.includes('гречнев')) return 'buckwheat';
+    if ((clean.includes('рис ') || clean.includes('рис,') || clean.includes(' рис') || clean.includes('күріш')) && !clean.includes('хлебцы') && !clean.includes('немолоко') && !clean.includes('nemoloko')) return 'rice';
+    if (clean.includes('мука') || clean.includes(' ұн') || clean.startsWith('ұн')) return 'flour';
+    if (clean.includes('рожк') || clean.includes('макарон') || clean.includes('вермишел') || clean.includes('спагетти') || clean.includes('ракушк') || clean.includes('перья')) return 'pasta';
+    if (clean.includes('манка') || clean.includes('манн')) return 'semolina';
+    if (clean.includes('овсян') || clean.includes('геркулес')) return 'oats';
+    if (clean.includes('пшено') || clean.includes('пшенн')) return 'millet';
+    if (clean.includes('перлов') || clean.includes('ячнев') || clean.includes('ячмен')) return 'barley';
+    if (clean.includes('фасол') || clean.includes('горох') || clean.includes('нут ') || clean.includes('чечевиц')) return 'legumes';
+
+    // 2. Dairy (checked before sugar so condensed milk with sugar is categorized as milk)
+    if (clean.includes('кефир') || clean.includes('айран')) return 'kefir';
+    if (clean.includes('сметан') || clean.includes('қаймақ')) return 'sour_cream';
+    if (clean.includes('творог') || clean.includes('творожн') || clean.includes('сүзбе')) return 'cottage_cheese';
+    if (clean.includes('сыр ') || clean.includes('сыр,') || clean.includes('сыры') || clean.includes('ірімшік')) return 'cheese';
+    if (clean.includes('молок') || clean.includes('сүт') || clean.includes('nemoloko') || clean.includes('немолоко') || clean.includes('сгущен')) return 'milk';
+
+    // 3. Sugar & Salt
+    if (clean.includes('сахар') || clean.includes('қант') || clean.includes('рафинад')) return 'sugar';
+    if ((clean.includes('соль') || clean.includes('тұз')) && !clean.includes('фасол') && !clean.includes('хлебцы')) return 'salt';
+
+    // 4. Oils & Butter
+    if (clean.includes('подсолнечн') || clean.includes('растительн') || clean.includes('күнбағыс') || clean.includes('оливков')) return 'vegetable_oil';
+    if (clean.includes('сливочн') || clean.includes('сары май') || clean.includes('крестьянск')) return 'butter';
+
+    // 5. Eggs
+    if (clean.includes('яйц') || clean.includes('жұмыртқ')) return 'eggs';
+
+    // 6. Bread
+    if (clean.includes('хлеб') || clean.includes(' батон') || clean.includes('багет') || clean.includes('чиабатта') || clean.includes('булочк') || clean.includes('лепешк')) return 'bread';
+    if (clean.includes('хлебц')) return 'crispbread';
+
+    // 7. Vegetables & Fruits
+    if (clean.includes('картоф') || clean.includes('картоп')) return 'potato';
+    if (clean.includes('морков') || clean.includes('сәбіз')) return 'carrot';
+    if ((clean.includes('лук ') || clean.includes('лук,') || clean.includes('пияз')) && !clean.includes('яблок') && !clean.includes('кукуруз')) return 'onion';
+    if (clean.includes('капуст') || clean.includes('қырыққабат')) return 'cabbage';
+    if (clean.includes('томат') || clean.includes('помидор') || clean.includes('қызанақ')) return 'tomato';
+    if (clean.includes('огурц') || clean.includes('қияр')) return 'cucumber';
+    if (clean.includes('яблок') || clean.includes('алма')) return 'apple';
+    if (clean.includes('банан')) return 'banana';
+
+    // 8. Meat & Fish
+    if (clean.includes('фарш')) return 'minced_meat';
+    if (clean.includes('краб палочки') || clean.includes('крабовые палочки')) return 'crab_sticks';
+    if (clean.includes('ноги ') || clean.includes('ноги говяжь')) return 'meat_legs';
+    if (clean.includes('говядин') || clean.includes('сиыр')) return 'beef';
+    if (clean.includes('куриц') || clean.includes('куры') || clean.includes('окороч') || clean.includes('цыпленок') || clean.includes('тауық') || clean.includes('бройлер')) return 'chicken';
+    if (clean.includes('рыб') || clean.includes('сельдь') || clean.includes('судак') || clean.includes('сазан') || clean.includes('карась') || clean.includes('балық') || clean.includes('кальмар') || clean.includes('мидии')) return 'fish';
+
+    // 9. Tea
+    if (clean.includes('чай ') || clean.includes('чай,') || clean.includes(' чай') || clean.includes('шайы')) return 'tea';
+
+    return null;
   }
 
   public canonicalizeBrand(rawBrand: string): string {

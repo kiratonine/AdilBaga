@@ -1,8 +1,15 @@
+import 'dotenv/config';
 import { PrismaClient, StoreCode, MatchMethod, ReviewStatus } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL || process.env.DATABASE_URL,
+    },
+  },
+});
 const SNAPSHOT_PATH = path.resolve(__dirname, '../../data/snapshots/final_dataset.json');
 
 async function seed() {
@@ -130,6 +137,34 @@ async function seed() {
         filters: [
           { key: 'volumeMl', label: 'Объём', type: 'multi-select', options: [500, 900, 1000, 5000] },
           { key: 'brand', label: 'Бренд', type: 'multi-select', options: ['Золотая Семечка', 'Слобода', 'Шедевр', 'Затея'] }
+        ]
+      }
+    },
+    {
+      slug: 'groats',
+      name: 'Крупы, макароны и мука',
+      filterSchema: {
+        filters: [
+          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [400, 700, 900, 1000, 2000, 3000, 5000] },
+          { key: 'brand', label: 'Бренд', type: 'multi-select', options: ['Promo', 'Цесна', 'АкМаржан', 'Баракат', 'Янтарь', 'Союз', 'Dr.Korner'] }
+        ]
+      }
+    },
+    {
+      slug: 'vegetables',
+      name: 'Овощи и фрукты',
+      filterSchema: {
+        filters: [
+          { key: 'weightGrams', label: 'Фасовка/Вес', type: 'multi-select', options: [500, 1000] }
+        ]
+      }
+    },
+    {
+      slug: 'meat',
+      name: 'Мясо, птица и рыба',
+      filterSchema: {
+        filters: [
+          { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [500, 1000] }
         ]
       }
     },
