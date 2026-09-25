@@ -5,13 +5,15 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && !['full-stack', 'full-stack-backend2'].includes(process.argv[2])) {
+if (process.argv[2] && !['full-stack', 'full-stack-backend2', 'backend-1-part-05'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
 const output = join(outputDir, process.argv[2] === 'full-stack'
   ? 'full-stack-integration-review.tar.gz'
   : process.argv[2] === 'full-stack-backend2'
     ? 'full-stack-backend2-review.tar.gz'
+    : process.argv[2] === 'backend-1-part-05'
+      ? 'backend-1-part-05-review.tar.gz'
     : 'backend-1-part-04-review.tar.gz');
 const excludedDirs = new Set([
   '.git', 'TODO', 'artifacts', 'node_modules', 'dist', 'build', '.next',
@@ -38,7 +40,7 @@ function collect(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!excludedDirs.has(entry.name)) collect(path);
+      if (!excludedDirs.has(entry.name) && !(process.argv[2] === 'backend-1-part-05' && directory === root && entry.name === 'frontend')) collect(path);
     } else if (entry.isFile() && isSafeFile(entry.name)) {
       files.push(relative(root, path));
     }

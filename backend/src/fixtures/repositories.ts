@@ -7,6 +7,7 @@ import type {
   ProductQuery,
 } from '../contracts/catalog';
 import { normalizeProduct } from '../catalog/product-card';
+import { calculateBaskets } from '../dashboard/basket-calculator';
 import type {
   CategoryRepository,
   DashboardRepository,
@@ -150,6 +151,10 @@ export class FixtureDashboardRepository implements DashboardRepository {
       },
       priceSpreads,
       locations,
+      baskets: calculateBaskets(products, [
+        { code: 'DINA', name: 'Dina' },
+        { code: 'DANA', name: 'Dana' },
+      ]),
     };
   }
 }
