@@ -1,0 +1,141 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum StoreCode {
+  DINA
+  DANA
+  FIX_PRICE
+}
+
+enum MatchMethod {
+  barcode
+  deterministic
+  ai
+  manual
+}
+
+enum ReviewStatus {
+  approved
+  pending
+  rejected
+}
+
+model Store {
+  id           String          @id @default(uuid())
+  code         StoreCode       @unique
+  name         String
+  logoUrl      String?
+  locations    StoreLocation[]
+  rawProducts  RawProduct[]
+  offers       Offer[]
+
+  @@map("stores")
+}
+
+model StoreLocation {
+  id        String   @id @default(uuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  address   String
+  latitude  Float
+  longitude Float
+
+  @@index([storeId])
+  @@map("store_locations")
+}
+
+model Category {
+  id                String             @id @default(uuid())
+  slug              String             @unique
+  name              String
+  filterSchema      Json?
+  canonicalProducts CanonicalProduct[]
+
+  @@map("categories")
+}
+
+model RawProduct {
+  id              String          @id @default(uuid())
+  storeId         String
+  store           Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sourceProductId String
+  sourceUrl       String?
+  rawName         String
+  rawBrand        String?
+  rawCategory     String?
+  rawPrice        Int
+  rawOldPrice     Int?
+  rawImageUrl     String?
+  rawPayload      Json?
+  createdAt       DateTime        @default(now())
+
+  mappings        ProductMapping[]
+  offers          Offer[]
+
+  @@unique([storeId, sourceProductId])
+  @@index([storeId])
+  @@index([rawCategory])
+  @@map("raw_products")
+}
+
+model CanonicalProduct {
+  id          String          @id @default(uuid())
+  name        String
+  brand       String?
+  categoryId  String
+  category    Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  imageUrl    String?
+  attributes  Json?
+  createdAt   DateTime        @default(now())
+
+  mappings    ProductMapping[]
+  offers      Offer[]
+
+  @@index([categoryId])
+  @@index([brand])
+  @@map("canonical_products")
+}
+
+model ProductMapping {
+  id                 String           @id @default(uuid())
+  rawProductId       String
+  rawProduct         RawProduct       @relation(fields: [rawProductId], references: [id], onDelete: Cascade)
+  canonicalProductId String
+  canonicalProduct   CanonicalProduct @relation(fields: [canonicalProductId], references: [id], onDelete: Cascade)
+  matchMethod        MatchMethod
+  matchConfidence    Float            @default(1.0)
+  reviewStatus       ReviewStatus     @default(approved)
+  createdAt          DateTime         @default(now())
+
+  @@index([rawProductId])
+  @@index([canonicalProductId])
+  @@map("product_mappings")
+}
+
+model Offer {
+  id                 String           @id @default(uuid())
+  canonicalProductId String
+  canonicalProduct   CanonicalProduct @relation(fields: [canonicalProductId], references: [id], onDelete: Cascade)
+  rawProductId       String
+  rawProduct         RawProduct       @relation(fields: [rawProductId], references: [id], onDelete: Cascade)
+  storeId            String
+  store              Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  price              Int
+  oldPrice           Int?
+  inStock            Boolean          @default(true)
+  snapshotAt         DateTime         @default(now())
+
+  @@index([canonicalProductId])
+  @@index([storeId])
+  @@index([price])
+  @@index([snapshotAt])
+  @@map("offers")
+}

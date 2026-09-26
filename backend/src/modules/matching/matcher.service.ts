@@ -1,0 +1,324 @@
+import { RawImportedProduct } from '../import/types/import.types';
+import { NormalizerService, NormalizedAttributes } from '../normalization/normalizer.service';
+
+export interface MatchCandidate {
+  raw: RawImportedProduct;
+  attrs: NormalizedAttributes;
+  fingerprint: string;
+  barcode?: string | null;
+}
+
+export interface MatchGroup {
+  id: string;
+  canonicalName: string;
+  brand?: string | null;
+  category: string;
+  imageUrl?: string | null;
+  attributes: Record<string, unknown>;
+  members: {
+    rawProduct: RawImportedProduct;
+    matchMethod: 'barcode' | 'deterministic' | 'ai' | 'manual';
+    matchConfidence: number;
+    reviewStatus: 'approved' | 'pending' | 'rejected';
+  }[];
+  minPrice: number;
+  offers: {
+    storeCode: string;
+    price: number;
+    oldPrice?: number | null;
+    inStock: boolean;
+  }[];
+}
+
+export class MatcherService {
+  private readonly normalizer: NormalizerService;
+
+  constructor() {
+    this.normalizer = new NormalizerService();
+  }
+
+  public prepareCandidate(raw: RawImportedProduct): MatchCandidate {
+    const attrs = this.normalizer.normalize(raw.name, raw.brand);
+    const barcode = (raw.rawPayload as any)?.barcode || null;
+    const fingerprint = this.buildFingerprint(raw.category || 'other', attrs);
+
+    return {
+      raw,
+      attrs,
+      fingerprint,
+      barcode
+    };
+  }
+
+  public buildFingerprint(category: string, attrs: NormalizedAttributes): string {
+    const pType = (attrs.productType || 'notype').toLowerCase();
+    const cat = attrs.productType ? this.mapProductTypeToCategory(attrs.productType) : this.mapRawCategory(category);
+    const brand = (attrs.brand || 'nobrand').toLowerCase().replace(/\s+/g, '');
+    const tea = attrs.teaType || 'notea';
+    const size = attrs.volumeMl ? `${attrs.volumeMl}ml` : (attrs.weightGrams ? `${attrs.weightGrams}g` : 'nosize');
+    const pack = attrs.packageCount ? `${attrs.packageCount}pcs` : 'nopack';
+    const fat = attrs.fatPercent ? `${attrs.fatPercent}pct` : 'nofat';
+    const variant = attrs.breadType || attrs.flavorVariant || attrs.oilVariant || 'novariant';
+
+    return `${cat}|${brand}|${pType}|${tea}|${size}|${pack}|${fat}|${variant}`;
+  }
+
+  public canMatch(a: MatchCandidate, b: MatchCandidate): { match: boolean; confidence: number; method: 'barcode' | 'deterministic' | 'ai' } {
+    // 1. Strict Category check (canonical category)
+    const catA = a.attrs.productType ? this.mapProductTypeToCategory(a.attrs.productType) : this.mapRawCategory(a.raw.category);
+    const catB = b.attrs.productType ? this.mapProductTypeToCategory(b.attrs.productType) : this.mapRawCategory(b.raw.category);
+    if (catA && catB && catA !== 'other' && catB !== 'other' && catA !== catB) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 2. Exact Barcode Match
+    if (a.barcode && b.barcode && a.barcode === b.barcode) {
+      return { match: true, confidence: 1.0, method: 'barcode' };
+    }
+
+    // 3. Strict Product Type Rule: Different product types can NEVER match!
+    if (a.attrs.productType && b.attrs.productType && a.attrs.productType !== b.attrs.productType) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 4. Strict Tea Type check: Green tea and black tea cannot match!
+    if (a.attrs.teaType && b.attrs.teaType && a.attrs.teaType !== b.attrs.teaType) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 5. Strict Package Count check: Different pack sizes cannot match (e.g. 100 bags vs 25 bags, 10 eggs vs 20 eggs)
+    if (a.attrs.packageCount && b.attrs.packageCount && a.attrs.packageCount !== b.attrs.packageCount) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 6. Dimension Type Mismatch Guard: If one candidate has volumeMl and the other has weightGrams (without barcode)
+    if ((a.attrs.volumeMl != null && b.attrs.weightGrams != null) ||
+        (a.attrs.weightGrams != null && b.attrs.volumeMl != null)) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 7. Strict Size Rule: Different volume/weight cannot be the same SKU!
+    if (a.attrs.volumeMl && b.attrs.volumeMl && Math.abs(a.attrs.volumeMl - b.attrs.volumeMl) > 20) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+    if (a.attrs.weightGrams && b.attrs.weightGrams && Math.abs(a.attrs.weightGrams - b.attrs.weightGrams) > 25) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 8. Strict Fat % Rule: Different fat % cannot be the same SKU!
+    if (a.attrs.fatPercent && b.attrs.fatPercent && Math.abs(a.attrs.fatPercent - b.attrs.fatPercent) > 0.1) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 9. Flavor Variant Guard: Conflicting flavor variants (vanilla vs chocolate, or flavored vs classic/unflavored)
+    if (a.attrs.flavorVariant || b.attrs.flavorVariant) {
+      if (a.attrs.flavorVariant !== b.attrs.flavorVariant) {
+        return { match: false, confidence: 0, method: 'deterministic' };
+      }
+    }
+
+    // 10. Oil Variant Guard: Conflicting oil compositions (sunflower vs sunflower+olive mix)
+    if (a.attrs.oilVariant || b.attrs.oilVariant) {
+      if (a.attrs.oilVariant !== b.attrs.oilVariant) {
+        return { match: false, confidence: 0, method: 'deterministic' };
+      }
+    }
+
+    // 11. Bread Type Guard: Differing bread types cannot match (e.g. rye vs white)
+    if (a.attrs.breadType && b.attrs.breadType && a.attrs.breadType !== b.attrs.breadType) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 12. Brand check: If both brands are known and distinct -> no match
+    if (a.attrs.brand && b.attrs.brand && a.attrs.brand !== b.attrs.brand) {
+      return { match: false, confidence: 0, method: 'deterministic' };
+    }
+
+    // 13. Deterministic Fingerprint Match: Must have both known brand and known size!
+    if (a.fingerprint === b.fingerprint && !a.fingerprint.includes('nobrand') && !a.fingerprint.includes('nosize')) {
+      return { match: true, confidence: 0.98, method: 'deterministic' };
+    }
+
+    // 14. Token Similarity Match for Cleaned Names
+    const similarity = this.calculateTokenSimilarity(a.attrs.cleanedName, b.attrs.cleanedName);
+
+    // When same brand and same size are confirmed, similarity >= 0.65 indicates match
+    const sameBrand = a.attrs.brand && b.attrs.brand && a.attrs.brand === b.attrs.brand;
+    const sameSize = (a.attrs.volumeMl && b.attrs.volumeMl && a.attrs.volumeMl === b.attrs.volumeMl) ||
+                     (a.attrs.weightGrams && b.attrs.weightGrams && a.attrs.weightGrams === b.attrs.weightGrams);
+
+    if (sameBrand && sameSize && similarity >= 0.65) {
+      return { match: true, confidence: Math.max(0.95, similarity), method: 'deterministic' };
+    }
+
+    if (similarity >= 0.80 && (sameBrand || !a.attrs.brand || !b.attrs.brand)) {
+      return { match: true, confidence: similarity, method: 'deterministic' };
+    }
+
+    return { match: false, confidence: similarity, method: 'deterministic' };
+  }
+
+  public groupProducts(rawProducts: RawImportedProduct[]): MatchGroup[] {
+    const candidates = rawProducts.map(p => this.prepareCandidate(p));
+    const groups: MatchGroup[] = [];
+
+    for (const cand of candidates) {
+      let matchedGroup: MatchGroup | null = null;
+      let highestConfidence = 0;
+      let bestMethod: 'barcode' | 'deterministic' | 'ai' = 'deterministic';
+
+      for (const group of groups) {
+        const representative = group.members[0];
+        if (!representative) continue;
+
+        // A single store cannot offer two distinct products as the same canonical SKU
+        const storeAlreadyHasOffer = group.offers.some(o => o.storeCode === cand.raw.storeCode);
+        if (storeAlreadyHasOffer) {
+          const isBarcodeExact = cand.barcode && group.members.some(m => (m.rawProduct.rawPayload as any)?.barcode === cand.barcode);
+          if (!isBarcodeExact) {
+            continue;
+          }
+        }
+
+        const repCandidate = this.prepareCandidate(representative.rawProduct);
+        const { match, confidence, method } = this.canMatch(cand, repCandidate);
+
+        if (match && confidence > highestConfidence && confidence >= 0.80) {
+          matchedGroup = group;
+          highestConfidence = confidence;
+          bestMethod = method;
+        }
+      }
+
+      if (matchedGroup) {
+        matchedGroup.members.push({
+          rawProduct: cand.raw,
+          matchMethod: bestMethod,
+          matchConfidence: highestConfidence,
+          reviewStatus: highestConfidence >= 0.90 ? 'approved' : 'pending'
+        });
+
+        matchedGroup.offers.push({
+          storeCode: cand.raw.storeCode,
+          price: cand.raw.price,
+          oldPrice: cand.raw.oldPrice,
+          inStock: true
+        });
+
+        if (cand.raw.price < matchedGroup.minPrice) {
+          matchedGroup.minPrice = cand.raw.price;
+        }
+
+        if (!matchedGroup.imageUrl && cand.raw.imageUrl) {
+          matchedGroup.imageUrl = cand.raw.imageUrl;
+        }
+
+        if ((matchedGroup.attributes as any).packageCount == null && cand.attrs.packageCount != null) {
+          (matchedGroup.attributes as any).packageCount = cand.attrs.packageCount;
+        }
+        if ((matchedGroup.attributes as any).productType == null && cand.attrs.productType != null) {
+          (matchedGroup.attributes as any).productType = cand.attrs.productType;
+        }
+      } else {
+        const canonTitle = this.normalizer.buildCanonicalTitle(cand.raw.name, cand.attrs.brand, cand.attrs);
+        const canonCategory = cand.attrs.productType
+          ? this.mapProductTypeToCategory(cand.attrs.productType)
+          : this.mapRawCategory(cand.raw.category);
+
+        const newGroup: MatchGroup = {
+          id: `canon_${groups.length + 1}`,
+          canonicalName: canonTitle,
+          brand: cand.attrs.brand || null,
+          category: canonCategory,
+          imageUrl: cand.raw.imageUrl || null,
+          attributes: {
+            volumeMl: cand.attrs.volumeMl,
+            weightGrams: cand.attrs.weightGrams,
+            fatPercent: cand.attrs.fatPercent,
+            packageCount: cand.attrs.packageCount ?? null,
+            breadType: cand.attrs.breadType,
+            sliced: cand.attrs.sliced,
+            productType: cand.attrs.productType ?? null
+          },
+          members: [
+            {
+              rawProduct: cand.raw,
+              matchMethod: 'deterministic',
+              matchConfidence: 1.0,
+              reviewStatus: 'approved'
+            }
+          ],
+          minPrice: cand.raw.price,
+          offers: [
+            {
+              storeCode: cand.raw.storeCode,
+              price: cand.raw.price,
+              oldPrice: cand.raw.oldPrice,
+              inStock: true
+            }
+          ]
+        };
+        groups.push(newGroup);
+      }
+    }
+
+    for (const g of groups) {
+      g.offers.sort((a, b) => a.price - b.price);
+    }
+
+    return groups;
+  }
+
+  private calculateTokenSimilarity(s1: string, s2: string): number {
+    const cleanTokens = (str: string) =>
+      new Set(
+        str
+          .toLowerCase()
+          .replace(/["'«»„“\(\)\[\],\.\/\\:;]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length > 2)
+      );
+
+    const tokens1 = cleanTokens(s1);
+    const tokens2 = cleanTokens(s2);
+
+    if (tokens1.size === 0 || tokens2.size === 0) return 0;
+
+    let intersection = 0;
+    for (const t of tokens1) {
+      if (tokens2.has(t)) intersection++;
+    }
+
+    const jaccard = intersection / new Set([...tokens1, ...tokens2]).size;
+    const overlap = intersection / Math.min(tokens1.size, tokens2.size);
+
+    return 0.5 * jaccard + 0.5 * overlap;
+  }
+
+  public mapRawCategory(rawCategory?: string): string {
+    const cat = (rawCategory || 'other').toLowerCase().trim();
+    if (['milk', 'bread', 'eggs', 'sugar', 'oil'].includes(cat)) {
+      return cat;
+    }
+    return 'other';
+  }
+
+  public mapProductTypeToCategory(pType: string): string {
+    switch (pType) {
+      case 'milk':
+        return 'milk';
+      case 'bread':
+      case 'crispbread':
+        return 'bread';
+      case 'eggs':
+        return 'eggs';
+      case 'sugar':
+      case 'salt':
+        return 'sugar';
+      case 'vegetable_oil':
+        return 'oil';
+      default:
+        return 'other';
+    }
+  }
+}

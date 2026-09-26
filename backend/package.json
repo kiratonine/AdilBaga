@@ -1,0 +1,48 @@
+{
+  "name": "adilbaga-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:verify": "tsx scripts/verify_db.ts",
+    "import:dina": "tsx src/modules/import/scrapers/dina.scraper.ts",
+    "import:dana": "tsx src/modules/import/scrapers/dana.scraper.ts",
+    "import:fixprice": "tsx src/modules/import/scrapers/fixprice.loader.ts",
+    "data:pipeline": "tsx scripts/pipeline.ts",
+    "data:report": "tsx scripts/report.ts",
+    "test:matching": "tsx src/modules/matching/matcher.test.ts",
+    "test:audit": "tsx scripts/audit_suite.ts",
+    "test:gemini-keys": "tsx scripts/verify_gemini_keys.ts",
+    "test:live-api": "tsx scripts/test_live_api.ts",
+    "start": "node dist/src/main.js",
+    "start:prod": "node dist/src/main.js",
+    "test": "DATA_SOURCE=fixture node --test dist/test/*.test.js",
+    "archive:clean": "node ../scripts/create-clean-archive.mjs"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@prisma/client": "5.22.0",
+    "@upstash/redis": "^1.39.0",
+    "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "dotenv": "^16.4.7",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "prisma": "5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.0"
+  },
+  "packageManager": "pnpm@10.32.1"
+}
