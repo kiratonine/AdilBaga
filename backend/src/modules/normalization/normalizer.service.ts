@@ -128,11 +128,16 @@ export class NormalizerService {
       }
     }
 
-    // 5. Package count
+    const productType = this.detectProductType(clean);
+
+    // 5. Package count; DINA's /N notation is only meaningful for real eggs.
     let packageCount: number | null = null;
     const countMatch = clean.match(/(\d+)\s*(?:шт|пак|пакетик\w*)/);
     if (countMatch?.[1]) {
       packageCount = parseInt(countMatch[1], 10);
+    } else if (productType === 'eggs') {
+      const eggPackMatch = clean.match(/\/\s*(\d{1,2})(?=$|[\s(),.;])/);
+      if (eggPackMatch?.[1]) packageCount = parseInt(eggPackMatch[1], 10);
     }
 
     // 6. Bread attributes
@@ -164,9 +169,6 @@ export class NormalizerService {
         }
       }
     }
-
-    // 8. Product type detection
-    const productType = this.detectProductType(clean);
 
     // 9. Tea type detection
     let teaType: 'green' | 'black' | null = null;
@@ -270,8 +272,12 @@ export class NormalizerService {
     // 5. Oils
     if (clean.includes('подсолнечн') || clean.includes('растительн') || clean.includes('күнбағыс') || clean.includes('оливков')) return 'vegetable_oil';
 
-    // 6. Eggs
-    if (clean.includes('яйц') || clean.includes('жұмыртқ')) return 'eggs';
+    // 6. Eggs: confectionery with egg-shaped packaging is not a food egg.
+    if (/kinder|киндер|шоки[\s-]?токи/.test(clean)) return 'confectionery';
+    if (clean.includes('яйц') || clean.includes('жұмыртқ')) {
+      if (/шокол|chocolat|kinder|киндер|сюрприз|surprise|подар|десерт|шоки[\s-]?токи|шок\s+яйц|конфет|игруш/.test(clean)) return 'confectionery';
+      return 'eggs';
+    }
 
     // 7. Vegetables & Fruits
     if (clean.includes('картоф') || clean.includes('картоп')) return 'potato';

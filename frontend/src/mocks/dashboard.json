@@ -142,5 +142,91 @@
       "latitude": 43.6687,
       "longitude": 51.1602
     }
+  ],
+  "baskets": [
+    {
+      "storeCode": "DINA",
+      "storeName": "Dina Market",
+      "total": 1880,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молочные продукты",
+          "productId": "p0a1f000-0000-4000-8000-000000000006",
+          "name": "Молоко Адал 2,5% 1 л",
+          "price": 510
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар и соль",
+          "productId": "p0a1f000-0000-4000-8000-000000000022",
+          "name": "Сахар-песок 1 кг",
+          "price": 480
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Растительные масла",
+          "productId": "p0a1f000-0000-4000-8000-000000000026",
+          "name": "Масло подсолнечное рафинированное Шедевр 1 л",
+          "price": 890
+        }
+      ]
+    },
+    {
+      "storeCode": "DANA",
+      "storeName": "Dana Market",
+      "total": 2110,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молочные продукты",
+          "productId": "p0a1f000-0000-4000-8000-000000000001",
+          "name": "Молоко FoodMaster 3,2% 1 л",
+          "price": 660
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар и соль",
+          "productId": "p0a1f000-0000-4000-8000-000000000022",
+          "name": "Сахар-песок 1 кг",
+          "price": 630
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Растительные масла",
+          "productId": "p0a1f000-0000-4000-8000-000000000028",
+          "name": "Масло подсолнечное нерафинированное Алтын 1 л",
+          "price": 820
+        }
+      ]
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "storeName": "Fix Price",
+      "total": 2070,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молочные продукты",
+          "productId": "p0a1f000-0000-4000-8000-000000000006",
+          "name": "Молоко Адал 2,5% 1 л",
+          "price": 540
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар и соль",
+          "productId": "p0a1f000-0000-4000-8000-000000000022",
+          "name": "Сахар-песок 1 кг",
+          "price": 510
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Растительные масла",
+          "productId": "p0a1f000-0000-4000-8000-000000000026",
+          "name": "Масло подсолнечное рафинированное Шедевр 1 л",
+          "price": 1020
+        }
+      ]
+    }
   ]
 }

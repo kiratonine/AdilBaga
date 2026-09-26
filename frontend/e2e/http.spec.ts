@@ -39,7 +39,7 @@ test('home: categories and price spreads from the API', async ({ page, request }
   const categories = await api<CategoryDto[]>(request, '/categories')
   const dashboard = await api<DashboardDto>(request, '/dashboard')
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await expect(page.getByTestId('category-card')).toHaveCount(categories.length)
   await expect(page.getByTestId('product-card')).toHaveCount(Math.min(dashboard.priceSpreads.length, 8))
   expect(errors).toEqual([])
@@ -50,7 +50,7 @@ test('category: list, filter and min price match the API', async ({ page, reques
   const [category] = await api<CategoryDto[]>(request, '/categories')
   const products = await api<ProductCardDto[]>(request, `/products?category=${category.slug}&limit=${PAGE_SIZE}`)
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await page.getByTestId('category-card').filter({ hasText: category.name }).click()
   await expect(page).toHaveURL(new RegExp(`/collections/${category.slug}$`))
   await expectCards(page, products.length)
@@ -79,7 +79,7 @@ test('search while typing matches the API', async ({ page, request }) => {
   const query = product.name.split(/\s+/)[0].toLocaleLowerCase('ru')
   const found = await api<ProductCardDto[]>(request, `/products?search=${encodeURIComponent(query)}&limit=${PAGE_SIZE}`)
 
-  await page.goto('/')
+  await page.goto('/catalog')
   await page.getByTestId('search-input').pressSequentially(query)
   await expect(page).toHaveURL(/\/search\?q=/)
   await expectCards(page, found.length)
@@ -115,4 +115,21 @@ test('dashboard: summary, spreads and markers match the API', async ({ page, req
   await expect(page.getByTestId('price-spread')).toHaveCount(dashboard.priceSpreads.length)
   await expect(page.getByTestId('store-map').locator('path.store-marker')).toHaveCount(dashboard.locations.length)
   expect(errors).toEqual([])
+})
+
+test('dashboard: basket per chain and its total at every store point', async ({ page, request }) => {
+  const dashboard = await api<DashboardDto>(request, '/dashboard')
+  test.skip(!dashboard.baskets?.length, 'бэк не отдаёт baskets')
+  const baskets = dashboard.baskets ?? []
+
+  await page.goto('/dashboard')
+  await expect(page.getByTestId('basket')).toHaveCount(baskets.length)
+  // Пустая корзина (все позиции null) показывается как «Нет данных», а не 0 ₸
+  for (const basket of baskets) {
+    const card = page.getByTestId('basket').filter({ hasText: basket.storeName })
+    const empty = basket.items.every((i) => i.price === null)
+    await expect(card.getByTestId('basket-total')).toHaveText(empty ? 'Нет данных' : digits(basket.total))
+  }
+  const withBasket = dashboard.locations.filter((l) => baskets.some((b) => b.storeCode === l.storeCode))
+  await expect(page.getByTestId('store-map').locator('.basket-label')).toHaveCount(withBasket.length)
 })

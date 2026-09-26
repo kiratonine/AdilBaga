@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import { Outlet, ScrollRestoration } from 'react-router'
+import { Outlet, ScrollRestoration, useLocation } from 'react-router'
 import { Footer } from './Footer'
 import { Header } from './Header'
 
 export function Layout() {
   const { t } = useTranslation()
+  // Лендинг — самостоятельная страница: без шапки с поиском и навигацией, выбор языка — в самой странице
+  const isLanding = useLocation().pathname === '/'
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -15,7 +17,7 @@ export function Layout() {
       >
         {t('nav.skip')}
       </a>
-      <Header />
+      {!isLanding && <Header />}
       <main id="main" tabIndex={-1} className="container-page flex-1 pt-8 focus:outline-none">
         <Outlet />
       </main>

@@ -190,6 +190,17 @@ async function runAudit() {
     }
   }
   assert(nonApprovedFound.size === 0, `All canonical products belong strictly to the 6 approved categories (violations: ${Array.from(nonApprovedFound).join(', ')})`);
+  assert(new Set(snapshot.canonicalProducts.map((c: any) => c.category)).size === 6, 'All 6 approved categories remain populated');
+
+  // Targeted eggs data-quality regression on the rebuilt, offline snapshot.
+  const eggItems = snapshot.canonicalProducts.filter((p: any) => p.category === 'eggs');
+  const confectioneryEggs = eggItems.filter((p: any) => /шокол|chocolat|kinder|киндер|сюрприз|surprise|подар|десерт|шоки[\s-]?токи|шок\s+яйц|конфет|игруш/i.test(p.canonicalName));
+  assert(confectioneryEggs.length === 0, `Category eggs contains zero confectionery items (actual: ${confectioneryEggs.length})`);
+  const dinaEggs = eggItems.filter((p: any) => p.members.some((m: any) => m.rawProduct.storeCode === 'DINA'));
+  assert(dinaEggs.length >= 5, `Real DINA eggs remain in eggs (actual: ${dinaEggs.length})`);
+  const dinaTenPacks = dinaEggs.filter((p: any) => /\/10/.test(p.canonicalName));
+  assert(dinaTenPacks.length === 2 && dinaTenPacks.every((p: any) => p.attributes.packageCount === 10), 'Both DINA /10 eggs have packageCount 10');
+  assert(eggItems.some((p: any) => /перепел/i.test(p.canonicalName) && p.attributes.packageCount === 20), 'Quail eggs retain packageCount 20');
 
   // --- SUITE 7: MILK SEMANTICS & NO NON-MILK DAIRY IN MILK (Section 2) ---
   console.log('\n>>> 7. MILK SEMANTICS & SIRI FLOW INTEGRITY');
@@ -230,7 +241,7 @@ async function runAudit() {
   const multiStoreGroups = snapshot.canonicalProducts.filter((p: any) =>
     new Set(p.offers.map((o: any) => o.storeCode)).size >= 2
   );
-  assert(multiStoreGroups.length >= 10, `Multi-store matched groups count >= 10 (actual: ${multiStoreGroups.length})`);
+  assert(multiStoreGroups.length === 14, `Validated multi-store matched groups remain 14 (actual: ${multiStoreGroups.length})`);
 
   // Check no size mismatch across members
   let noSizeMismatch = true;

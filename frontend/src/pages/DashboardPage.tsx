@@ -3,7 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useDashboard } from '../api/queries'
 import type { DashboardDto, PriceSpreadDto, StoreLocationDto } from '../api/types'
+import { Baskets } from '../components/dashboard/Baskets'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { basketLine } from '../lib/basketText'
+import { summarizeBaskets, type BasketSummary } from '../lib/baskets'
 import { formatDate, formatPercent, formatPrice } from '../lib/format'
 import { groupByStore, locationKey, storeColor } from '../lib/stores'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
@@ -23,13 +26,22 @@ export function DashboardPage() {
 
       {dashboard.isPending && <LoadingState />}
       {dashboard.isError && <ErrorState onRetry={() => dashboard.refetch()} />}
-      {dashboard.data && (
-        <>
-          <Summary summary={dashboard.data.summary} />
-          <PriceSpreads spreads={dashboard.data.priceSpreads} />
-          <Stores locations={dashboard.data.locations} />
-        </>
-      )}
+      {dashboard.data && <Content data={dashboard.data} />}
+    </>
+  )
+}
+
+function Content({ data }: { data: DashboardDto }) {
+  // Корзин пока нет в контракте бэка: без поля блок и суммы на карте не показываем
+  const baskets = data.baskets?.length ? summarizeBaskets(data.baskets) : []
+
+  return (
+    <>
+      <Summary summary={data.summary} />
+      {baskets.length > 0 && <Baskets baskets={baskets} />}
+      {/* Карта сразу под корзиной: на ней подписаны суммы корзин сетей */}
+      <Stores locations={data.locations} baskets={baskets} />
+      <PriceSpreads spreads={data.priceSpreads} />
     </>
   )
 }
@@ -98,7 +110,7 @@ function PriceSpreads({ spreads }: { spreads: PriceSpreadDto[] }) {
   )
 }
 
-function Stores({ locations }: { locations: StoreLocationDto[] }) {
+function Stores({ locations, baskets }: { locations: StoreLocationDto[]; baskets: BasketSummary[] }) {
   const { t } = useTranslation()
   const groups = groupByStore(locations)
 
@@ -112,28 +124,36 @@ function Stores({ locations }: { locations: StoreLocationDto[] }) {
       <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="h-[320px] md:h-[460px]">
           <Suspense fallback={<div className="h-full rounded-[var(--radius-card)] bg-surface" />}>
-            <StoreMap locations={locations} label={t('dashboard.map')} />
+            <StoreMap locations={locations} baskets={baskets} label={t('dashboard.map')} />
           </Suspense>
         </div>
 
         {/* Легенда и текстовый список точек — карта без него недоступна для скринридеров */}
         <ul data-testid="store-list" className="flex flex-col gap-5">
-          {groups.map((group) => (
-            <li key={group.storeCode} data-testid="store-group">
-              <p className="flex items-center gap-2 font-semibold">
-                <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: storeColor(group.storeCode) }} />
-                {group.storeName}
-                <span className="font-normal text-muted tabular">· {t('dashboard.points', { count: group.locations.length })}</span>
-              </p>
-              <ul className="mt-1.5 flex flex-col gap-1 pl-5 text-[15px]">
-                {group.locations.map((location) => (
-                  <li key={locationKey(location)} className="text-muted">
-                    {location.address}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
+          {groups.map((group) => {
+            const basket = baskets.find((b) => b.storeCode === group.storeCode)
+            return (
+              <li key={group.storeCode} data-testid="store-group">
+                <p className="flex items-center gap-2 font-semibold">
+                  <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: storeColor(group.storeCode) }} />
+                  {group.storeName}
+                  <span className="font-normal text-muted tabular">· {t('dashboard.points', { count: group.locations.length })}</span>
+                </p>
+                {basket && (
+                  <p data-testid="store-basket" className="mt-0.5 pl-5 text-[15px] tabular">
+                    {basketLine(basket, t)}
+                  </p>
+                )}
+                <ul className="mt-1.5 flex flex-col gap-1 pl-5 text-[15px]">
+                  {group.locations.map((location) => (
+                    <li key={locationKey(location)} className="text-muted">
+                      {location.address}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            )
+          })}
         </ul>
       </div>
     </section>

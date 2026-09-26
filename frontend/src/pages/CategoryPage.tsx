@@ -42,7 +42,7 @@ export function CategoryPage() {
   return (
     <>
       <nav aria-label={t('category.breadcrumbs')} className="text-sm text-muted">
-        <Link to="/" className="hover:text-ink">
+        <Link to="/catalog" className="hover:text-ink">
           {t('nav.home')}
         </Link>
       </nav>

@@ -8,7 +8,7 @@ export function NotFoundPage() {
   return (
     <div className="py-16">
       <h1 className="text-[28px] font-semibold">{t('state.notFound')}</h1>
-      <Link to="/" className="mt-4 inline-block font-medium text-accent underline underline-offset-4">
+      <Link to="/catalog" className="mt-4 inline-block font-medium text-accent underline underline-offset-4">
         {t('state.toCatalog')}
       </Link>
     </div>

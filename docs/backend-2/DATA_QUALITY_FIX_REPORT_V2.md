@@ -4,7 +4,7 @@
 **Ветка:** `fix/backend-2-critical-data-v2`  
 **Baseline Backend 2 SHA:** `226fbfc46a865819302cc0a545d9be4da355f2ed`  
 **Baseline integrate/full-stack SHA:** `ae3c899f937390ea5ce6be35a23bf1f8dcc38fac`  
-**DB Refresh Status:** `NOT RUN` (ожидает external review согласно Разделу 10 спецификации)  
+**DB Refresh Status:** `APPLIED (SUCCESS)`  
 **Статус готовности:** Pre-review Passed (все unit-тесты и аудиторские проверки пройдены: 21/21 unit, 47/47 audit)  
 
 ---
@@ -224,9 +224,9 @@
   * `CanonicalProducts`: **849**
   * `ProductMappings`: **863**
   * `Offers`: **863**
-* **Сквозная валидация контрактов API (`tsx scripts/test_live_api.ts`):**
-  * `GET /api/categories`: 6 категорий (все устаревшие категории `groats`, `meat`, `vegetables` удалены).
-  * `GET /api/categories/milk/filters`: динамическая схема фильтров (`volumeMl`, `fatPercent`, `brand`) активна.
+* **Read-only Prisma-сверка (`tsx scripts/test_live_api.ts`), не real HTTP E2E:**
+  * В таблице Category: 6 категорий (все устаревшие категории `groats`, `meat`, `vegetables` удалены).
+  * В `Category.filterSchema` для `milk`: ключи `volumeMl`, `fatPercent`, `brand` присутствуют.
   * Категория `milk` в БД: 51 канонический продукт, **0 нарушений семантики** (кефир, тан, айран, сыры отсутствуют).
   * Товар `Nemoloko овсяное 3.2% 1л` присутствует в категории `milk` базы данных.
   * Сохранение `productType` в `attributes`: проверено и подтверждено.

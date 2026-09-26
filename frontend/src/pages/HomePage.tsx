@@ -11,7 +11,7 @@ const TOP_DEALS = 8
 export function HomePage() {
   const { t } = useTranslation()
   const categories = useCategories()
-  useDocumentTitle()
+  useDocumentTitle(t('nav.home'))
 
   return (
     <>

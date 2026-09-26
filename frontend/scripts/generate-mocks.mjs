@@ -166,6 +166,31 @@ const locations = [
   longitude,
 }))
 
+// Аналитическая корзина Stage 5: те же три точные позиции, что в Backend contract.
+// Состав в проде задаёт бэк (docs/context/08_FRONTEND_ANSWERS_BASKET.md).
+const basketRules = [
+  ['milk', 'Молочные продукты', 'volumeMl', 1000],
+  ['sugar', 'Сахар и соль', 'weightGrams', 1000],
+  ['oil', 'Растительные масла', 'volumeMl', 1000],
+]
+
+const baskets = Object.entries(STORES).map(([storeCode, storeName]) => {
+  const items = basketRules.map(([slug, categoryName, attributeKey, attributeValue]) => {
+    const best = products
+      .filter((p) => p.category.slug === slug && p.attributes[attributeKey] === attributeValue)
+      .flatMap((p) => p.offers.filter((o) => o.storeCode === storeCode && o.price > 0).map((o) => ({ product: p, price: o.price })))
+      .sort((a, b) => a.price - b.price)[0]
+    return {
+      categorySlug: slug,
+      categoryName,
+      productId: best?.product.id ?? null,
+      name: best?.product.name ?? null,
+      price: best?.price ?? null,
+    }
+  })
+  return { storeCode, storeName, total: items.reduce((sum, i) => sum + (i.price ?? 0), 0), items }
+})
+
 const dashboard = {
   summary: {
     canonicalProducts: products.length,
@@ -175,6 +200,7 @@ const dashboard = {
   },
   priceSpreads,
   locations,
+  baskets,
 }
 
 const write = (file, data) => writeFileSync(join(outDir, file), JSON.stringify(data, null, 2) + '\n')

@@ -34,7 +34,7 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
   return (
     <>
       <nav aria-label={t('category.breadcrumbs')} className="flex flex-wrap gap-x-2 text-sm text-muted">
-        <Link to="/" className="hover:text-ink">
+        <Link to="/catalog" className="hover:text-ink">
           {t('nav.home')}
         </Link>
         <span aria-hidden="true">/</span>

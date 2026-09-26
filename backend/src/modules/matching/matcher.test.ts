@@ -161,6 +161,19 @@ function runTests() {
   const res8 = matcher.canMatch(matcher.prepareCandidate(egg10), matcher.prepareCandidate(egg20));
   assert(res8.match === false, 'Package count mismatch (10 шт vs 20 шт) must NOT match');
 
+  // Egg-shaped sweets must not inherit a scraper's public eggs category or /N pack count.
+  const eggCase = (name: string): RawImportedProduct => ({
+    storeCode: 'DINA', sourceProductId: name, name, category: 'eggs', price: 500
+  });
+  assert(matcher.groupProducts([eggCase('Kinder Surprise 20г/36')])[0]?.category === 'other', 'Kinder Surprise is public other');
+  assert(matcher.groupProducts([eggCase('Шоколадное яйцо с подарком 20г/24')])[0]?.category === 'other', 'Chocolate egg is public other');
+  assert(matcher.groupProducts([eggCase('Яйцо куриное С1 10 шт')])[0]?.category === 'eggs', 'Chicken egg remains public eggs');
+  assert(matcher.prepareCandidate(quailEgg).attrs.packageCount === 20, 'Quail eggs 20ШТ have packageCount 20');
+  assert(matcher.prepareCandidate(eggCase('Яйцо Ramazan Extra/10')).attrs.packageCount === 10, 'Real DINA egg /10 has packageCount 10');
+  assert(matcher.prepareCandidate(eggCase('Яйцо куриное Ақкөл Құс С2/10(Упаковка входит в цену)')).attrs.packageCount === 10, 'Real DINA egg С2/10 before parenthesis has packageCount 10');
+  const chocolatePack = matcher.prepareCandidate(eggCase('Шоколадное яйцо 20г/24'));
+  assert(chocolatePack.attrs.productType === 'confectionery' && chocolatePack.attrs.packageCount == null, 'Chocolate 20г/24 is not eggs packageCount 24');
+
   // 9. Weighted price normalization in DinaScraper (0.7 -> 700 ₸)
   const { DinaScraper } = require('../import/scrapers/dina.scraper');
   const scraper = new DinaScraper();

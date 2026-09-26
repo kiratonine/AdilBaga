@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generatedAt": "2026-09-25T13:52:12.544Z",
+  "generatedAt": "2026-09-26T00:30:25.579Z",
   "city": "Aktau",
   "summary": {
     "totalRawProducts": 863,
@@ -12258,7 +12258,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": null
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -29328,7 +29328,7 @@
       "id": "canon_474",
       "canonicalName": "Шоколадное яйцо РОБЛОКСЕРЫ Шоки-Токи Двойное яйцо с подарком 20г/24 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": null,
       "attributes": {
         "volumeMl": null,
@@ -29337,7 +29337,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -29394,7 +29394,7 @@
         "volumeMl": null,
         "weightGrams": null,
         "fatPercent": null,
-        "packageCount": null,
+        "packageCount": 10,
         "breadType": null,
         "sliced": null,
         "productType": "eggs"
@@ -29572,7 +29572,7 @@
       "id": "canon_478",
       "canonicalName": "Шок Яйцо Kinder Surprise 20г/36 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": "https://backend.dinamarket.kz/public/product/preview/imported/80741251-1-1755262941841/80741251-1-1755262941841_300x300.jpg",
       "attributes": {
         "volumeMl": null,
@@ -29581,7 +29581,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -29636,7 +29636,7 @@
       "id": "canon_479",
       "canonicalName": "Шок Яйцо Kinder Surprise 20г/36 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": "https://backend.dinamarket.kz/public/product/preview/imported/80741244-1-1752616791245/80741244-1-1752616791245_300x300.jpg",
       "attributes": {
         "volumeMl": null,
@@ -29645,7 +29645,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -29760,7 +29760,7 @@
       "id": "canon_481",
       "canonicalName": "Шок яйцо Кидсбокс LOL Surprise 20г/16 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": null,
       "attributes": {
         "volumeMl": null,
@@ -29769,7 +29769,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -29820,7 +29820,7 @@
       "id": "canon_482",
       "canonicalName": "Шок Яйцо Kinder Surprise 20г/36 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": "https://backend.dinamarket.kz/public/product/preview/imported/40084107-1-1752616791245/40084107-1-1752616791245_300x300.jpg",
       "attributes": {
         "volumeMl": null,
@@ -29829,7 +29829,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -29884,7 +29884,7 @@
       "id": "canon_483",
       "canonicalName": "Шок яйцо МИ-МИ-МИШКИ Десерт с под 20г 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": null,
       "attributes": {
         "volumeMl": null,
@@ -29893,7 +29893,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -29944,7 +29944,7 @@
       "id": "canon_484",
       "canonicalName": "Шок Яйцо Kinder Joy стандарт 20г/24 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": "https://backend.dinamarket.kz/public/brand/1/product/preview/8fc40950-4df4-416a-a952-7b5ae17c3f0d_300x300.jpg",
       "attributes": {
         "volumeMl": null,
@@ -29953,7 +29953,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -30004,7 +30004,7 @@
       "id": "canon_485",
       "canonicalName": "KUROMI ШОКИ ТОКИ Двойное яйцо с подарком 6/24, 20г. 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": "https://backend.dinamarket.kz/public/product/preview/imported/46276254-1-1786078804059/46276254-1-1786078804059_300x300.jpg",
       "attributes": {
         "volumeMl": null,
@@ -30013,7 +30013,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -30192,7 +30192,7 @@
       "id": "canon_488",
       "canonicalName": "МИЛАНА ХАМЕТОВА Шоколадное яйцо с подарком 6/24, 20г. 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": null,
       "attributes": {
         "volumeMl": null,
@@ -30201,7 +30201,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -30258,7 +30258,7 @@
         "volumeMl": null,
         "weightGrams": null,
         "fatPercent": null,
-        "packageCount": null,
+        "packageCount": 10,
         "breadType": null,
         "sliced": null,
         "productType": "eggs"
@@ -30316,7 +30316,7 @@
       "id": "canon_490",
       "canonicalName": "Синий Трактор Шоки-Токи яйцо с сюрпризом из молоч.шокол. 6/24 20г. 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": null,
       "attributes": {
         "volumeMl": null,
@@ -30325,7 +30325,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
@@ -30376,7 +30376,7 @@
       "id": "canon_491",
       "canonicalName": "ТурбоЗавры Шоки-Токи яйцо с сюрпризом из молоч.шокол. 6/24 20г. 20 г",
       "brand": null,
-      "category": "eggs",
+      "category": "other",
       "imageUrl": null,
       "attributes": {
         "volumeMl": null,
@@ -30385,7 +30385,7 @@
         "packageCount": null,
         "breadType": null,
         "sliced": null,
-        "productType": "eggs"
+        "productType": "confectionery"
       },
       "members": [
         {
