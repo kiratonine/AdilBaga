@@ -127,7 +127,7 @@ Adil Bağa сокращает путь от поиска до конкретно
 
 <p align="center">
   <img
-    src="assets/screenshots/siri.png"
+    src="assets/screenshots/siri.PNG"
     alt="Интеграция Adil Bağa с Siri"
     height="560"
   />
