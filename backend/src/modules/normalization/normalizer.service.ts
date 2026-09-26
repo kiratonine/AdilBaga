@@ -234,6 +234,10 @@ export class NormalizerService {
   }
 
   public detectProductType(clean: string): string | null {
+    const isEgg = clean.includes('яйц') || clean.includes('жұмыртқ');
+    // Before dairy too: "яйцо из молочного шоколада" must not become milk.
+    const confectionery = /шокол|chocolat|kinder|киндер|сюрприз|surprise|подар|десерт|шоки[\s-]?токи|шок\s+яйц|kidsbox|кидсбокс|конфет|игруш/;
+    if (isEgg && confectionery.test(clean)) return 'confectionery';
     // 0. Condiments, Sauces & Confectionery
     if (clean.includes('майонез')) return 'mayonnaise';
     if (clean.includes('сушк') || clean.includes('печень') || clean.includes('пряник') || clean.includes('вафл') || clean.includes('торт') || clean.includes('пирог') || clean.includes('кекс')) return 'bakery_sweet';
@@ -273,11 +277,8 @@ export class NormalizerService {
     if (clean.includes('подсолнечн') || clean.includes('растительн') || clean.includes('күнбағыс') || clean.includes('оливков')) return 'vegetable_oil';
 
     // 6. Eggs: confectionery with egg-shaped packaging is not a food egg.
-    if (/kinder|киндер|шоки[\s-]?токи/.test(clean)) return 'confectionery';
-    if (clean.includes('яйц') || clean.includes('жұмыртқ')) {
-      if (/шокол|chocolat|kinder|киндер|сюрприз|surprise|подар|десерт|шоки[\s-]?токи|шок\s+яйц|конфет|игруш/.test(clean)) return 'confectionery';
-      return 'eggs';
-    }
+    if (/kinder|киндер|шоки[\s-]?токи|kidsbox|кидсбокс/.test(clean)) return 'confectionery';
+    if (isEgg) return 'eggs';
 
     // 7. Vegetables & Fruits
     if (clean.includes('картоф') || clean.includes('картоп')) return 'potato';

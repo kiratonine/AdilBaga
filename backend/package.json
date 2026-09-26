@@ -16,6 +16,7 @@
     "data:report": "tsx scripts/report.ts",
     "test:matching": "tsx src/modules/matching/matcher.test.ts",
     "test:audit": "tsx scripts/audit_suite.ts",
+    "test:gemini-keys": "tsx scripts/verify_gemini_keys.ts",
     "test:live-api": "tsx scripts/test_live_api.ts",
     "start": "node dist/src/main.js",
     "start:prod": "node dist/src/main.js",

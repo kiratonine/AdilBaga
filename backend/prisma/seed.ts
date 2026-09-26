@@ -123,7 +123,7 @@ async function seed() {
       name: 'Яйца',
       filterSchema: {
         filters: [
-          { key: 'packageCount', label: 'Количество', type: 'multi-select', options: [10, 15, 20, 30] }
+          { key: 'packageCount', label: 'Количество', type: 'multi-select', options: [1, 10, 20] }
         ]
       }
     },

@@ -2,16 +2,48 @@ import { Injectable } from '@nestjs/common';
 import type { NlpParseInput } from '../voice-types';
 
 const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+export const GEMINI_TIMEOUT_MS = 8_000;
+export const GEMINI_KEY_NAMES = ['GEMINI_API_KEY', 'GEMINI_API_KEY2', 'GEMINI_API_KEY3'] as const;
+
+export function configuredGeminiKeys(env: NodeJS.ProcessEnv = process.env): string[] {
+  return [...new Set(GEMINI_KEY_NAMES.map((name) => env[name]?.trim()).filter((key): key is string => Boolean(key)))];
+}
+
+// One body and one deadline for the entire chain. No provider errors or secrets escape.
+export async function requestGeminiWithFailover(
+  keys: readonly string[], url: string, body: string,
+  request: typeof fetch = fetch, timeoutMs = GEMINI_TIMEOUT_MS,
+): Promise<unknown> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  for (const apiKey of [...new Set(keys.map((key) => key.trim()).filter(Boolean))]) {
+    if (signal.aborted) break;
+    try {
+      const response = await request(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+        signal, body,
+      });
+      if (!response.ok) continue;
+      const text = extractResponseText(await response.json());
+      if (!text) continue;
+      const result: unknown = JSON.parse(text);
+      if (!signal.aborted) return result;
+    } catch {
+      // Provider/network/JSON failures retry the same NLP request with the next key.
+    }
+  }
+  throw new Error('Gemini request failed');
+}
 
 @Injectable()
 export class GeminiNlpParser {
   isConfigured(): boolean {
-    return Boolean(process.env.GEMINI_API_KEY);
+    return configuredGeminiKeys().length > 0;
   }
 
   async parse(input: NlpParseInput): Promise<unknown> {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('Gemini is not configured');
+    const keys = configuredGeminiKeys();
+    if (!keys.length) throw new Error('Gemini is not configured');
     const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
     const filterProperties = Object.fromEntries(
       input.schemas.flatMap((schema) =>
@@ -44,13 +76,10 @@ export class GeminiNlpParser {
       `Current category for a clarification, if any: ${input.currentCategory ?? 'none'}`,
       `User text: ${input.text}`,
     ].join('\n');
-    const response = await fetch(
+    return requestGeminiWithFailover(
+      keys,
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-        signal: AbortSignal.timeout(8_000),
-        body: JSON.stringify({
+      JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
@@ -79,14 +108,8 @@ export class GeminiNlpParser {
               additionalProperties: false,
             },
           },
-        }),
-      },
+      }),
     );
-    if (!response.ok) throw new Error('Gemini request failed');
-    const body: unknown = await response.json();
-    const text = extractResponseText(body);
-    if (!text) throw new Error('Gemini returned no JSON text');
-    return JSON.parse(text) as unknown;
   }
 }
 

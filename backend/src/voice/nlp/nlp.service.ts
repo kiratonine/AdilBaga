@@ -17,7 +17,7 @@ export class NlpService implements NlpParser {
         const parsed = validateNlpResult(await this.gemini.parse(input), input);
         if (parsed) return parsed;
       } catch {
-        // One bounded provider attempt; deterministic parser handles the demo vocabulary.
+        // One bounded provider chain; deterministic parser handles the demo vocabulary.
       }
     }
     return validateNlpResult(this.fallback.parse(input), input) ??

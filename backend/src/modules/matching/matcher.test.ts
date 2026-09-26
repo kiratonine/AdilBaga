@@ -173,6 +173,12 @@ function runTests() {
   assert(matcher.prepareCandidate(eggCase('Яйцо куриное Ақкөл Құс С2/10(Упаковка входит в цену)')).attrs.packageCount === 10, 'Real DINA egg С2/10 before parenthesis has packageCount 10');
   const chocolatePack = matcher.prepareCandidate(eggCase('Шоколадное яйцо 20г/24'));
   assert(chocolatePack.attrs.productType === 'confectionery' && chocolatePack.attrs.packageCount == null, 'Chocolate 20г/24 is not eggs packageCount 24');
+  for (const name of ['Kinder Joy 20г/24', 'Шоки-Токи яйцо с подарком 20г/24', 'яйцо с сюрпризом из молочного шоколада', 'Яйцо Кидсбокс 20г/24']) {
+    const product = eggCase(name);
+    assert(matcher.prepareCandidate(product).attrs.productType !== 'eggs' && matcher.groupProducts([product])[0]?.category === 'other', `Confectionery public other: ${name}`);
+  }
+  assert(matcher.prepareCandidate(eggCase('Kinder 20г/36')).attrs.packageCount == null, 'Kinder /36 is not egg packageCount');
+  assert(matcher.prepareCandidate(eggCase('ЯЙЦО КУРИНЫЕ С1 ШТ')).attrs.packageCount === 1, 'Real eggs С1 ШТ retain packageCount 1');
 
   // 9. Weighted price normalization in DinaScraper (0.7 -> 700 ₸)
   const { DinaScraper } = require('../import/scrapers/dina.scraper');

@@ -15,6 +15,8 @@ import type { NlpParseInput, VoiceSession } from '../src/voice/voice-types';
 
 // HTTP tests use the deterministic parser and in-memory sessions, regardless of developer env.
 process.env.GEMINI_API_KEY = '';
+process.env.GEMINI_API_KEY2 = '';
+process.env.GEMINI_API_KEY3 = '';
 process.env.UPSTASH_REDIS_REST_URL = '';
 process.env.UPSTASH_REDIS_REST_TOKEN = '';
 
