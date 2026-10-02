@@ -235,6 +235,12 @@
 
 **Дизайн D2. Карточка и полка** — написать план по спеке §4 (`docs/superpowers/specs/2026-10-02-design-system-design.md`) и выполнить. Дальше по спеке D3–D4; затем Next 5 (ниже).
 
+Перенесено из ревью D1 (учесть в планах):
+- D2: круглые ‹ › полки — `<Button size="icon" variant="ghost" aria-label=…>` (className не перебивает отступы `Button`, только `size`); вместо `rounded-[var(--radius-*)]` использовать родные `rounded-card`/`rounded-control`/`rounded-media`, `shadow-hover`; в `Button.test.tsx` опечатка в регэкспе `/(^|s)hover:/` (нужно `\s`) — проверка пустая.
+- D3: `Segmented` — сегменты `h-9` в дорожке 40px, на мобильном нужно ≥ 44px (`h-10 md:h-9`); для `env(safe-area-inset-bottom)` (таб-бар, шторка) в viewport нужен `viewport-fit=cover`; активный пункт навигации ещё зелёный — заменить на подчёркивание `ink`.
+- D4: `Sheet` — `onClose` вызывается только через событие `close` (Esc, кнопка, фон); проверить вручную Esc и блокировку прокрутки на iOS; `Chip` без стилей `disabled`; у `Button` в режиме ссылки нет `aria-*`/`onClick` — расширить, если понадобится.
+- Lint: `pnpm lint` переписывается хуком rtk на eslint — запускать `rtk proxy pnpm lint`.
+
 Отложено на после дизайна: **Next 5. e2e и переключение** (описание ниже).
 
 **Next 5. e2e и переключение** — шаги 9–10 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`: перенести из `frontend/e2e` то, что ещё не покрыто (`polish`, `http.spec.ts` — URL на `/ru/...`, порт :3100), прогнать e2e против моков и, если поднимется бэк, против http-режима; затем `frontend-next/` → `frontend/` отдельным коммитом, старый удалить, обновить README и этот журнал. По желанию до переключения: индикатор перехода (`useLinkStatus`) вместо убранных `loading.tsx`; регрессия — во вкладке поиска нет текста запроса. После деплоя (не наша зона, но напомнить): задать `NEXT_PUBLIC_SITE_URL`, Rich Results Test товара, sitemap в Search Console и Яндекс.Вебмастер.
