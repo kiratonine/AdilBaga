@@ -18,5 +18,7 @@ describe('Segmented', () => {
     expect(group.className).toContain('rounded-full')
     expect(screen.getByRole('link', { name: 'Рус' }).className).toContain('bg-card')
     expect(screen.getByRole('link', { name: 'Қаз' }).className).toContain('text-muted')
+    // Дорожка 44px на мобильном: сегмент 40px + отступы по 2px
+    expect(segmentClass(false).split(' ')).toEqual(expect.arrayContaining(['h-10', 'md:h-9']))
   })
 })

@@ -1,9 +1,10 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useEffectEvent, useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type InputHTMLAttributes, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useHref } from '../../lib/useLang'
+import { Icon } from '../ui/Icon'
 
 export const SEARCH_DEBOUNCE_MS = 350
 /** Короче — слишком много случайных совпадений, ждём Enter */
@@ -50,12 +51,22 @@ export function SearchBox() {
     return () => clearTimeout(timer)
   }, [liveQuery, shouldGo])
 
+  // Пришли на /search без запроса (таб «Поиск») — сразу в поле. Только при переходе внутри сайта:
+  // при первой загрузке клавиатуру без действия пользователя не открываем
+  const inputRef = useRef<HTMLInputElement>(null)
+  const previousPath = useRef(pathname)
+  useEffect(() => {
+    if (previousPath.current === pathname) return
+    previousPath.current = pathname
+    if (onSearchPage && !urlQuery) inputRef.current?.focus()
+  }, [pathname, onSearchPage, urlQuery])
+
   function submit(event: FormEvent) {
     event.preventDefault()
     if (liveQuery && liveQuery !== urlQuery) goTo(liveQuery)
   }
 
-  return <SearchField onSubmit={submit} value={value} onChange={(e) => setValue(e.target.value)} />
+  return <SearchField ref={inputRef} onSubmit={submit} value={value} onChange={(e) => setValue(e.target.value)} />
 }
 
 /**
@@ -68,9 +79,10 @@ export function SearchBoxFallback() {
 
 type FieldProps = Pick<InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'onChange'> & {
   onSubmit: (event: FormEvent) => void
+  ref?: Ref<HTMLInputElement>
 }
 
-function SearchField({ onSubmit, ...input }: FieldProps) {
+function SearchField({ onSubmit, ref, ...input }: FieldProps) {
   const { t } = useTranslation()
 
   return (
@@ -78,15 +90,9 @@ function SearchField({ onSubmit, ...input }: FieldProps) {
       <label htmlFor="site-search" className="sr-only">
         {t('search.label')}
       </label>
-      <svg
-        viewBox="0 0 20 20"
-        aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-3.5 size-[18px] -translate-y-1/2 text-muted"
-      >
-        <circle cx="8.5" cy="8.5" r="5.75" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <path d="m13 13 4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
+      <Icon name="search" size={20} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
       <input
+        ref={ref}
         id="site-search"
         data-testid="search-input"
         type="search"
@@ -94,7 +100,7 @@ function SearchField({ onSubmit, ...input }: FieldProps) {
         placeholder={t('search.placeholder')}
         autoComplete="off"
         enterKeyHint="search"
-        className="h-11 w-full rounded-[var(--radius-control)] bg-surface pr-4 pl-10 text-[15px] placeholder:text-muted focus:bg-card focus:outline-2 focus:outline-ink"
+        className="h-11 w-full rounded-control bg-surface pr-4 pl-10 text-[15px] placeholder:text-muted focus:bg-card focus:outline-2 focus:outline-ink"
       />
     </form>
   )

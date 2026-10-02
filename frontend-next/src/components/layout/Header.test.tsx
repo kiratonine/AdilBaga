@@ -19,6 +19,28 @@ describe('Header', () => {
     expect(screen.getByRole('link', { name: 'Adil Bağa' })).toHaveAttribute('href', '/kk')
   })
 
+  it('marks the catalog active on category and product pages too', () => {
+    renderPage(<Header />, '/ru/products/p1')
+    expect(screen.getByTestId('nav-catalog')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByTestId('nav-dashboard')).not.toHaveAttribute('aria-current')
+  })
+
+  it('focuses the search field after an in-app move to /search without a query, not on first load', () => {
+    renderPage(<Header />, '/ru/search')
+    const input = screen.getByTestId('search-input')
+    expect(input).not.toHaveFocus()
+
+    act(() => navigation.setUrl('/ru/catalog'))
+    act(() => navigation.setUrl('/ru/search'))
+    expect(input).toHaveFocus()
+  })
+
+  it('does not steal focus when arriving at /search with a query', () => {
+    renderPage(<Header />, '/ru/catalog')
+    act(() => navigation.setUrl('/ru/search?q=хлеб'))
+    expect(screen.getByTestId('search-input')).not.toHaveFocus()
+  })
+
   it('submits search to /<lang>/search?q=', async () => {
     renderPage(<Header />, '/ru/catalog')
     await userEvent.type(screen.getByTestId('search-input'), 'молоко{Enter}')

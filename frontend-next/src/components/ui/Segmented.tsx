@@ -9,8 +9,9 @@ export function Segmented({ label, className = '', children }: { label: string; 
   )
 }
 
+/** Сегмент 40px в дорожке 44px на мобильном (нажимаемая зона), 36px с md */
 export function segmentClass(active: boolean) {
-  return `flex h-9 items-center rounded-full px-3 text-sm font-medium transition-colors ${
+  return `flex h-10 items-center rounded-full px-3 text-sm md:h-9 font-medium transition-colors ${
     active ? 'bg-card text-ink shadow-[0_1px_2px_rgb(26_31_36/0.08)]' : 'text-muted hover:text-ink'
   }`
 }
