@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from './Button'
 
 /** С children — скелетон вместо текста; «Загружаем…» остаётся для скринридера */
 export function LoadingState({ children }: { children?: ReactNode }) {
@@ -26,7 +27,7 @@ export function ErrorState({ onRetry }: { onRetry?: () => void }) {
     <div role="alert" data-testid="error-state" className="flex flex-col items-start gap-4 py-16">
       <p className="max-w-[48ch]">{t('state.error')}</p>
       {onRetry && (
-        <Button onClick={onRetry} variant="solid">
+        <Button onClick={onRetry} variant="primary">
           {t('state.retry')}
         </Button>
       )}
@@ -50,26 +51,3 @@ export function EmptyState({ title, hint, action }: EmptyProps) {
   )
 }
 
-type ButtonProps = {
-  onClick: () => void
-  variant?: 'solid' | 'outline'
-  disabled?: boolean
-  children: ReactNode
-  testId?: string
-}
-
-export function Button({ onClick, variant = 'outline', disabled, children, testId }: ButtonProps) {
-  const look =
-    variant === 'solid' ? 'bg-ink text-card hover:bg-ink/85' : 'border border-line bg-card text-ink hover:border-ink'
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      data-testid={testId}
-      className={`h-10 rounded-[var(--radius-control)] px-4 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-60 ${look}`}
-    >
-      {children}
-    </button>
-  )
-}
