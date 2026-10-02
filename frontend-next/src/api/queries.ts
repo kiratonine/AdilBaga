@@ -80,8 +80,8 @@ export const useProduct = (id: string) => useQuery(productQuery(id))
 
 export const useDashboard = () => useQuery(dashboardQuery())
 
-/** Сколько товаров с наибольшим разбросом цен показывать в каталоге — выбор и порядок делает бэк */
+/** Товары с наибольшим разбросом цен в каталоге: по столько за раз («Показать ещё»). Выбор и порядок делает бэк */
 export const TOP_DEALS = 8
 
-export const topDealIds = (dashboard: DashboardDto | undefined): string[] =>
-  dashboard?.priceSpreads.slice(0, TOP_DEALS).map((s) => s.productId) ?? []
+export const topDealIds = (dashboard: DashboardDto | undefined, count = TOP_DEALS): string[] =>
+  dashboard?.priceSpreads.slice(0, count).map((s) => s.productId) ?? []

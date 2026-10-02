@@ -97,16 +97,6 @@ describe('ProductCard', () => {
     expect(screen.queryByTestId('more-offers')).not.toBeInTheDocument()
   })
 
-  it('compact variant: price, short saving and name, without stores and date', () => {
-    render(<ProductCard product={product} variant="compact" />)
-    expect(text(screen.getByTestId('min-price'))).toBe('570 ₸')
-    expect(screen.getByText(/^Выгоднее на/)).toHaveTextContent(/^Выгоднее на 80\s₸$/)
-    expect(screen.getByRole('link', { name: product.name })).toBeInTheDocument()
-    expect(screen.queryByTestId('offer-list')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('snapshot-date')).not.toBeInTheDocument()
-    expect(screen.queryByText('FoodMaster')).not.toBeInTheDocument()
-  })
-
   it('falls back to the placeholder when the image fails to load', async () => {
     renderCard({ ...product, imageUrl: 'https://example.invalid/broken.jpg' })
     fireEvent.error(screen.getByRole('img', { name: product.name }))

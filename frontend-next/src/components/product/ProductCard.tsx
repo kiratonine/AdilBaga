@@ -13,16 +13,9 @@ import { SavingLine } from './SavingLine'
 /** Сколько сетей видно в карточке; остальные — строкой «ещё N сетей» */
 const OFFERS_SHOWN = 3
 
-type Props = {
-  product: ProductCardDto
-  /** compact — для полки: без списка сетей и даты, фиксированная ширина */
-  variant?: 'default' | 'compact'
-}
-
-export function ProductCard({ product, variant = 'default' }: Props) {
+export function ProductCard({ product }: { product: ProductCardDto }) {
   const { t } = useTranslation()
   const href = useHref()
-  const compact = variant === 'compact'
   const { shown, hiddenCount, maxPrice } = topOffers(product.offers, OFFERS_SHOWN)
   const best = shown[0]
   const oldPrice = best?.oldPrice != null && best.oldPrice > best.price ? best.oldPrice : null
@@ -34,9 +27,7 @@ export function ProductCard({ product, variant = 'default' }: Props) {
   return (
     <article
       data-testid="product-card"
-      className={`relative flex flex-col rounded-card bg-card p-2 transition-shadow hover:shadow-hover md:p-3 ${
-        compact ? 'w-37.5 shrink-0 md:w-50' : ''
-      }`}
+      className="relative flex flex-col rounded-card bg-card p-2 transition-shadow hover:shadow-hover md:p-3"
     >
       <div className="relative">
         <ProductImage src={product.imageUrl} alt={product.name} className="aspect-square w-full rounded-media" />
@@ -54,51 +45,45 @@ export function ProductCard({ product, variant = 'default' }: Props) {
         </span>
         {oldPrice !== null && <s className="text-meta text-muted tabular">{formatPrice(oldPrice)}</s>}
       </p>
-      {saving && (
-        <SavingLine amount={saving.amount} store={compact ? undefined : saving.store} className="mt-1 text-meta" />
-      )}
+      {saving && <SavingLine amount={saving.amount} store={saving.store} className="mt-1 text-meta" />}
 
-      {!compact && product.brand && <p className="mt-1.5 truncate text-meta text-muted">{product.brand}</p>}
-      <h3 className={`line-clamp-2 text-card-title ${compact || !product.brand ? 'mt-1.5' : ''}`}>
+      {product.brand && <p className="mt-1.5 truncate text-meta text-muted">{product.brand}</p>}
+      <h3 className={`line-clamp-2 text-card-title ${product.brand ? '' : 'mt-1.5'}`}>
         {/* Растянутая ссылка: кликабельна вся карточка */}
         <Link href={href(`/products/${product.id}`)} className="after:absolute after:inset-0 after:rounded-card">
           {product.name}
         </Link>
       </h3>
 
-      {!compact && (
-        <>
-          <ul data-testid="offer-list" aria-label={t('card.offers')} className="mt-2 flex flex-col text-meta">
-            {shown.map((offer, index) => {
-              const isBest = compared && offer.price === product.minPrice
-              return (
-                <li
-                  key={`${offer.storeCode}-${index}`}
-                  data-best={isBest || undefined}
-                  className={`flex items-baseline justify-between gap-2 rounded-md px-1.5 py-0.75 ${
-                    isBest ? 'bg-accent-soft font-medium text-accent' : 'text-ink'
-                  }`}
-                >
-                  <span className="truncate">
-                    {offer.storeName}
-                    {isBest && <span className="sr-only">, {t('card.lowest')}</span>}
-                  </span>
-                  <span className="shrink-0 tabular">{formatPrice(offer.price)}</span>
-                </li>
-              )
-            })}
-          </ul>
-          {hiddenCount > 0 && (
-            <p data-testid="more-offers" className="mt-1 px-1.5 text-meta text-muted tabular">
-              {t('card.moreOffers', { count: hiddenCount, price: formatPrice(maxPrice) })}
-            </p>
-          )}
-
-          <p data-testid="snapshot-date" className="mt-auto pt-2 text-caption text-muted tabular">
-            {t('card.priceOn', { date: formatDate(product.snapshotAt) })}
-          </p>
-        </>
+      <ul data-testid="offer-list" aria-label={t('card.offers')} className="mt-2 flex flex-col text-meta">
+        {shown.map((offer, index) => {
+          const isBest = compared && offer.price === product.minPrice
+          return (
+            <li
+              key={`${offer.storeCode}-${index}`}
+              data-best={isBest || undefined}
+              className={`flex items-baseline justify-between gap-2 rounded-md px-1.5 py-0.75 ${
+                isBest ? 'bg-accent-soft font-medium text-accent' : 'text-ink'
+              }`}
+            >
+              <span className="truncate">
+                {offer.storeName}
+                {isBest && <span className="sr-only">, {t('card.lowest')}</span>}
+              </span>
+              <span className="shrink-0 tabular">{formatPrice(offer.price)}</span>
+            </li>
+          )
+        })}
+      </ul>
+      {hiddenCount > 0 && (
+        <p data-testid="more-offers" className="mt-1 px-1.5 text-meta text-muted tabular">
+          {t('card.moreOffers', { count: hiddenCount, price: formatPrice(maxPrice) })}
+        </p>
       )}
+
+      <p data-testid="snapshot-date" className="mt-auto pt-2 text-caption text-muted tabular">
+        {t('card.priceOn', { date: formatDate(product.snapshotAt) })}
+      </p>
     </article>
   )
 }

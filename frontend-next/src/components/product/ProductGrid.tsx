@@ -4,7 +4,7 @@ import { productGridClass } from './layout'
 
 type Props = {
   products: ProductCardDto[]
-  /** Без колонки фильтров места больше: 3 колонки с md, 4 с lg */
+  /** Без колонки фильтров места больше: 4 колонки с lg */
   wide?: boolean
 }
 

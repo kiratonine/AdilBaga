@@ -1,4 +1,5 @@
-import { SHELF_ROW, productGridClass } from '../product/layout'
+import { CATEGORY_TILES, TILE_SHAPE } from '../catalog/layout'
+import { productGridClass } from '../product/layout'
 
 /**
  * Скелетоны повторяют геометрию настоящих блоков, чтобы при подмене данными ничего не прыгало.
@@ -8,33 +9,26 @@ export function Skeleton({ className = '' }: { className?: string }) {
   return <span className={`block animate-pulse rounded-md bg-surface motion-reduce:animate-none ${className}`} />
 }
 
-/** Как ProductCard (вариант A): квадратное фото, цена, название, сети, дата. compact — как карточка полки */
-export function ProductCardSkeleton({ compact = false }: { compact?: boolean }) {
+/** Как ProductCard (вариант A): квадратное фото, цена, название, сети, дата */
+export function ProductCardSkeleton() {
   return (
-    <div
-      data-testid="product-card-skeleton"
-      className={`flex h-full flex-col rounded-card bg-card p-2 md:p-3 ${compact ? 'w-37.5 shrink-0 md:w-50' : ''}`}
-    >
+    <div data-testid="product-card-skeleton" className="flex h-full flex-col rounded-card bg-card p-2 md:p-3">
       <Skeleton className="aspect-square w-full rounded-media" />
       <Skeleton className="mt-2.5 h-[18px] w-20 md:h-[22px]" />
       <Skeleton className="mt-2 h-3.5 w-3/4" />
       <Skeleton className="mt-2 h-4 w-full" />
       <Skeleton className="mt-1 h-4 w-2/3" />
-      {!compact && (
-        <>
-          <div className="mt-2.5 flex flex-col gap-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex justify-between gap-2 px-1.5">
-                <Skeleton className="h-3 w-14" />
-                <Skeleton className="h-3 w-10" />
-              </div>
-            ))}
+      <div className="mt-2.5 flex flex-col gap-2">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex justify-between gap-2 px-1.5">
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-3 w-10" />
           </div>
-          <div className="mt-auto pt-2">
-            <Skeleton className="h-3 w-24" />
-          </div>
-        </>
-      )}
+        ))}
+      </div>
+      <div className="mt-auto pt-2">
+        <Skeleton className="h-3 w-24" />
+      </div>
     </div>
   )
 }
@@ -52,38 +46,30 @@ export function ProductGridSkeleton({ count = 4, wide = false }: { count?: numbe
   )
 }
 
-/** Ряд полки: компактные карточки, лишние уходят за край, как у настоящей полки */
-export function ShelfSkeleton({ count = 8 }: { count?: number }) {
+/** Плитки категорий: та же сетка и высота, название — полоской */
+export function CategoryTilesSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <ul className={`${SHELF_ROW} overflow-hidden pb-2`}>
+    <ul className={CATEGORY_TILES}>
       {Array.from({ length: count }, (_, i) => (
         <li key={i} className="flex">
-          <ProductCardSkeleton compact />
+          <div className={`${TILE_SHAPE} animate-pulse bg-surface motion-reduce:animate-none`}>
+            <span className="block h-3.5 w-2/3 rounded-md bg-card/70" />
+          </div>
         </li>
       ))}
     </ul>
   )
 }
 
-/** Чипы категорий: разной ширины, как настоящие названия */
-const CHIP_WIDTHS = ['w-24', 'w-16', 'w-20', 'w-28', 'w-36']
-
-export function ChipsSkeleton() {
-  return (
-    <div className="mt-4 flex flex-wrap gap-2">
-      {CHIP_WIDTHS.map((width) => (
-        <Skeleton key={width} className={`h-11 rounded-full ${width}`} />
-      ))}
-    </div>
-  )
-}
-
-/** Крошки + h1, как в шапке страниц категории и товара */
-function TitleSkeleton({ crumbs = 'w-20' }: { crumbs?: string }) {
+/** «Назад» + крошки и h1, как в шапке страницы категории */
+function TitleSkeleton() {
   return (
     <>
-      <Skeleton className={`h-4 ${crumbs}`} />
-      <Skeleton className="mt-2 h-8 w-2/3 max-w-md md:h-10" />
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-8 w-20 rounded-control" />
+        <Skeleton className="h-4 w-16" />
+      </div>
+      <Skeleton className="mt-3 h-8 w-2/3 max-w-md md:h-10" />
     </>
   )
 }
@@ -113,15 +99,15 @@ export function ProductPageSkeleton() {
   )
 }
 
-/** Как страница категории: колонка фильтров на desktop, над товарами — сортировка */
+/** Как страница категории: с lg — колонка карточек-фильтров, над товарами — строка управления */
 export function CategoryPageSkeleton() {
   return (
     <div data-testid="category-page-skeleton">
       <TitleSkeleton />
-      <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[232px_minmax(0,1fr)] md:gap-x-10">
-        <div className="hidden flex-col gap-6 md:flex">
+      <div className="mt-6 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-8">
+        <div className="hidden flex-col gap-2 lg:flex">
           {[0, 1, 2].map((i) => (
-            <div key={i}>
+            <div key={i} className="rounded-card bg-card p-4">
               <Skeleton className="h-4 w-24" />
               <div className="mt-3 flex flex-wrap gap-2">
                 <Skeleton className="h-9 w-16 rounded-full" />
@@ -132,19 +118,23 @@ export function CategoryPageSkeleton() {
           ))}
         </div>
         <div>
-          <ProductListSkeleton />
+          <ProductListSkeleton filters />
         </div>
       </div>
     </div>
   )
 }
 
-/** Над сеткой — место под кнопку фильтров и сортировку, чтобы сетка не прыгала */
-export function ProductListSkeleton({ wide = false }: { wide?: boolean }) {
+/**
+ * Над сеткой — место под строку управления, чтобы сетка не прыгала:
+ * на мобильном чипы «Фильтры» и сортировки слева, с md — сортировка справа
+ */
+export function ProductListSkeleton({ wide = false, filters = false }: { wide?: boolean; filters?: boolean }) {
   return (
     <>
-      <div className="mb-4 flex justify-end">
-        <Skeleton className="h-9 w-44" />
+      <div className="mb-4 flex items-center gap-2">
+        {filters && <Skeleton className="h-10 w-28 rounded-full md:h-9 lg:hidden" />}
+        <Skeleton className="h-10 w-40 rounded-full md:ml-auto md:h-9 md:w-60" />
       </div>
       <ProductGridSkeleton count={wide ? 8 : 6} wide={wide} />
     </>
