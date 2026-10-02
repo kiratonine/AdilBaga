@@ -44,7 +44,7 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* Белый фон до D3: серый page включит layout группы (site) */
+  /* Белый — для лендинга; страницы сайта красит в page обёртка SitePage */
   body {
     @apply bg-card text-ink font-sans antialiased;
     font-size: 15px;
@@ -64,6 +64,13 @@
     *::after {
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
+    }
+  }
+
+  /* Таб-бар фиксирован снизу (только < md): контент и футер не должны уходить под него */
+  @media (width < 48rem) {
+    body:has([data-tab-bar]) {
+      padding-bottom: calc(64px + env(safe-area-inset-bottom));
     }
   }
 
@@ -164,10 +171,11 @@
   width: 100%;
   max-width: 1200px;
   margin-inline: auto;
-  padding-inline: 16px;
+  /* С viewport-fit=cover в альбомной ориентации iPhone отступ не меньше выреза */
+  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
 
   @media (width >= 48rem) {
-    padding-inline: 24px;
+    padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right));
   }
 }
 

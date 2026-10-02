@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import { Footer } from '../../components/layout/Footer'
 import { SkipLink } from '../../components/layout/Main'
@@ -6,6 +6,9 @@ import { Providers } from '../../components/Providers'
 import { getI18n, isLanguage, LANGUAGES } from '../../i18n'
 import { SITE_URL } from '../../lib/site'
 import '../globals.css'
+
+// cover — чтобы env(safe-area-inset-*) работал: таб-бар над полоской «домой» iPhone
+export const viewport: Viewport = { viewportFit: 'cover' }
 
 export const generateStaticParams = () => LANGUAGES.map((lang) => ({ lang }))
 
