@@ -78,20 +78,31 @@ function TitleSkeleton() {
 export function ProductPageSkeleton() {
   return (
     <div data-testid="product-page-skeleton">
-      <Skeleton className="h-4 w-44" />
-      <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-12">
-        <Skeleton className="aspect-[4/3] w-full rounded-[var(--radius-card)] md:aspect-square" />
-        <div className="min-w-0">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="mt-2 h-8 w-full md:h-10" />
-          <Skeleton className="mt-2 h-8 w-1/2 md:h-10" />
-          <Skeleton className="mt-6 h-4 w-32" />
-          <Skeleton className="mt-2 h-9 w-40 md:h-11" />
-          <Skeleton className="mt-10 h-5 w-36" />
-          <div className="mt-3 flex flex-col gap-1">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-[66px] w-full rounded-[var(--radius-control)]" />
-            ))}
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-8 w-20 rounded-control" />
+        <Skeleton className="h-4 w-44" />
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-8">
+        <div className="rounded-card bg-card p-3">
+          <Skeleton className="aspect-[4/3] w-full rounded-media md:aspect-square" />
+        </div>
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="order-2 md:order-1">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="mt-2 h-7 w-full md:h-9" />
+            <Skeleton className="mt-2 h-7 w-1/2 md:h-9" />
+          </div>
+          <div className="order-1 md:order-2 md:mt-1">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1.5 h-7 w-40 md:h-9" />
+          </div>
+          <div className="order-3 rounded-card bg-card p-3 md:p-4">
+            <Skeleton className="mx-1 h-5 w-36" />
+            <div className="mt-2 flex flex-col gap-1">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-[62px] w-full rounded-control" />
+              ))}
+            </div>
           </div>
         </div>
       </div>

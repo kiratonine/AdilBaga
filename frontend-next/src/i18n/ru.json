@@ -40,7 +40,8 @@
     "cheapest": "Дешевле всего",
     "onlyStore": "Только в этой сети",
     "moreExpensive": "дороже на {{amount}}",
-    "attributes": "Характеристики"
+    "attributes": "Характеристики",
+    "showAll": "Показать все {{count}}"
   },
   "footer": {
     "about": "Сравниваем цены на продукты в сетях Актау.",

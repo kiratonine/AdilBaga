@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { catalogApi } from '../api/catalogApi'
 import ProductRoute from '../app/[lang]/(site)/products/[id]/page'
 import { resetInAppHistory } from '../lib/inAppHistory'
 import { renderPage } from '../test/render'
@@ -10,6 +11,8 @@ import { ProductPage } from './ProductPage'
 const MILK_ID = 'p0a1f000-0000-4000-8000-000000000001'
 
 describe('ProductPage', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   it('shows the product with offers sorted by price and the cheapest highlighted', async () => {
     renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)
     expect(await screen.findByRole('heading', { level: 1, name: 'Молоко FoodMaster 3,2% 1 л' })).toBeInTheDocument()
@@ -25,6 +28,42 @@ describe('ProductPage', () => {
     expect(offers[0]).toHaveAttribute('data-best')
     expect(offers[1]).not.toHaveAttribute('data-best')
     expect(screen.getByTestId('snapshot-date')).toHaveTextContent('Цена на 24.09.2026')
+  })
+
+  it('marks every store with its colour dot and the cheapest with a badge', async () => {
+    renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)
+    const offers = within(await screen.findByTestId('offer-list')).getAllByRole('listitem')
+    expect(offers.every((li) => li.querySelector('[data-store-dot]'))).toBe(true)
+    expect(within(offers[0]).getByText('Дешевле всего')).toBeInTheDocument()
+    expect(screen.queryByTestId('show-all-offers')).not.toBeInTheDocument()
+  })
+
+  it('shows five offers and reveals the rest with «Показать все N»', async () => {
+    const milk = await catalogApi.getProduct(MILK_ID)
+    const offers = Array.from({ length: 7 }, (_, i) => ({ ...milk.offers[0], storeName: `Сеть ${i + 1}`, price: 500 + i * 10, oldPrice: null }))
+    vi.spyOn(catalogApi, 'getProduct').mockResolvedValue({ ...milk, offers, minPrice: 500 })
+    renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)
+
+    const list = await screen.findByTestId('offer-list')
+    expect(within(list).getAllByRole('listitem')).toHaveLength(5)
+    await userEvent.click(screen.getByTestId('show-all-offers'))
+    const all = within(list).getAllByRole('listitem')
+    expect(all).toHaveLength(7)
+    expect(all[6]).toHaveTextContent(/Сеть 7.*дороже на 60/)
+    expect(screen.queryByTestId('show-all-offers')).not.toBeInTheDocument()
+    expect(all[5]).toHaveFocus()
+  })
+
+  it('shows a single offer without green, with the «only in this store» badge', async () => {
+    const milk = await catalogApi.getProduct(MILK_ID)
+    vi.spyOn(catalogApi, 'getProduct').mockResolvedValue({ ...milk, offers: [milk.offers[0]], minPrice: milk.offers[0].price })
+    renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)
+
+    const [offer] = within(await screen.findByTestId('offer-list')).getAllByRole('listitem')
+    expect(offer).not.toHaveAttribute('data-best')
+    expect(within(offer).getByText('Только в этой сети')).toBeInTheDocument()
+    expect(screen.getByText('Цена')).toBeInTheDocument()
+    expect(screen.queryByText('Дешевле всего')).not.toBeInTheDocument()
   })
 
   it('shows a page-shaped skeleton while loading', async () => {
