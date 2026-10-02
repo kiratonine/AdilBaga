@@ -59,7 +59,7 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
         <ProductImage
           src={product.imageUrl}
           alt={product.name}
-          className="aspect-[4/3] w-full md:sticky md:top-24 md:aspect-square md:self-start"
+          className="aspect-[4/3] w-full rounded-control md:sticky md:top-24 md:aspect-square md:self-start"
         />
 
         <div className="min-w-0">

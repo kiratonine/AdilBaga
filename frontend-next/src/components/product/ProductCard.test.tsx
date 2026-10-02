@@ -65,6 +65,48 @@ describe('ProductCard', () => {
     expect(text(row)).toBe('Dina570 ₸')
   })
 
+  it('shows a rounded-down discount badge for the best offer', () => {
+    renderCard(product)
+    // 570 при старой 660 — 13,6% → 13
+    const badge = screen.getByText('−13%').parentElement!
+    expect(badge).toHaveTextContent('Скидка 13%')
+    expect(badge).toHaveClass('bg-accent')
+  })
+
+  it('has no discount badge without an old price', () => {
+    renderCard({ ...product, offers: product.offers.map((o) => ({ ...o, oldPrice: null })) })
+    expect(screen.queryByText(/^−\d+%$/)).not.toBeInTheDocument()
+  })
+
+  it('shows the three cheapest stores and sums up the rest', () => {
+    renderCard({
+      ...product,
+      offers: [
+        ...product.offers,
+        { storeCode: 'DINA', storeName: 'Magnum', price: 700, oldPrice: null },
+        { storeCode: 'DANA', storeName: 'Small', price: 900, oldPrice: null },
+      ],
+    })
+    const rows = within(screen.getByTestId('offer-list')).getAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    expect(text(screen.getByTestId('more-offers'))).toBe('ещё 2 сети · до 900 ₸')
+  })
+
+  it('has no "more offers" line with three stores or fewer', () => {
+    renderCard(product)
+    expect(screen.queryByTestId('more-offers')).not.toBeInTheDocument()
+  })
+
+  it('compact variant: price, short saving and name, without stores and date', () => {
+    render(<ProductCard product={product} variant="compact" />)
+    expect(text(screen.getByTestId('min-price'))).toBe('570 ₸')
+    expect(screen.getByText(/^Выгоднее на/)).toHaveTextContent(/^Выгоднее на 80\s₸$/)
+    expect(screen.getByRole('link', { name: product.name })).toBeInTheDocument()
+    expect(screen.queryByTestId('offer-list')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('snapshot-date')).not.toBeInTheDocument()
+    expect(screen.queryByText('FoodMaster')).not.toBeInTheDocument()
+  })
+
   it('falls back to the placeholder when the image fails to load', async () => {
     renderCard({ ...product, imageUrl: 'https://example.invalid/broken.jpg' })
     fireEvent.error(screen.getByRole('img', { name: product.name }))

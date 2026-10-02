@@ -5,7 +5,9 @@
     "tagline": "Ақтау дүкендеріндегі азық-түлік бағаларын салыстыру"
   },
   "common": {
-    "close": "Жабу"
+    "close": "Жабу",
+    "scrollBack": "Артқа айналдыру",
+    "scrollForward": "Алға айналдыру"
   },
   "nav": {
     "skip": "Негізгі мазмұнға өту",
@@ -72,7 +74,11 @@
     "offers": "Дүкендердегі бағалар",
     "lowest": "ең төмен баға",
     "saving": "{{store}} дүкенінен <price>{{amount}}</price> арзан",
-    "priceOn": "{{date}} күнгі баға"
+    "priceOn": "{{date}} күнгі баға",
+    "savingShort": "<price>{{amount}}</price> тиімдірек",
+    "discount": "{{percent}}% жеңілдік",
+    "moreOffers_one": "тағы {{count}} желі · {{price}} дейін",
+    "moreOffers_other": "тағы {{count}} желі · {{price}} дейін"
   },
   "category": {
     "breadcrumbs": "Навигация",

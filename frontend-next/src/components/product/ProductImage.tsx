@@ -8,13 +8,13 @@ type Props = {
   className?: string
 }
 
-/** Картинка товара с плейсхолдером: нет URL или картинка не загрузилась */
+/** Картинка товара с плейсхолдером: нет URL или картинка не загрузилась. Скругление задаёт вызывающий */
 export function ProductImage({ src, alt, className = '' }: Props) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const showImage = src !== null && src !== failedSrc
 
   return (
-    <div className={`flex items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-surface ${className}`}>
+    <div className={`flex items-center justify-center overflow-hidden bg-surface ${className}`}>
       {showImage ? (
         <img
           src={src}

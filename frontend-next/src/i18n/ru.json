@@ -5,7 +5,9 @@
     "tagline": "Сравнение цен на продукты в магазинах Актау"
   },
   "common": {
-    "close": "Закрыть"
+    "close": "Закрыть",
+    "scrollBack": "Прокрутить назад",
+    "scrollForward": "Прокрутить вперёд"
   },
   "nav": {
     "skip": "Перейти к содержимому",
@@ -72,7 +74,13 @@
     "offers": "Цены в магазинах",
     "lowest": "самая низкая цена",
     "saving": "На <price>{{amount}}</price> дешевле, чем в {{store}}",
-    "priceOn": "Цена на {{date}}"
+    "priceOn": "Цена на {{date}}",
+    "savingShort": "Выгоднее на <price>{{amount}}</price>",
+    "discount": "Скидка {{percent}}%",
+    "moreOffers_one": "ещё {{count}} сеть · до {{price}}",
+    "moreOffers_few": "ещё {{count}} сети · до {{price}}",
+    "moreOffers_many": "ещё {{count}} сетей · до {{price}}",
+    "moreOffers_other": "ещё {{count}} сети · до {{price}}"
   },
   "category": {
     "breadcrumbs": "Навигация",
