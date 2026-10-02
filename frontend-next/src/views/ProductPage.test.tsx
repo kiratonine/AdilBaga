@@ -1,6 +1,9 @@
 import { screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { useRouter } from 'next/navigation'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import ProductRoute from '../app/[lang]/(site)/products/[id]/page'
+import { resetInAppHistory } from '../lib/inAppHistory'
 import { renderPage } from '../test/render'
 import { ProductPage } from './ProductPage'
 
@@ -51,6 +54,29 @@ describe('ProductPage', () => {
   it('shows not found for an unknown product', async () => {
     renderPage(<ProductPage id="nope" />, '/ru/products/nope')
     expect(await screen.findByText('Такой страницы нет')).toBeInTheDocument()
+  })
+})
+
+describe('ProductPage back link', () => {
+  const back = vi.mocked(useRouter().back)
+  afterEach(() => {
+    resetInAppHistory()
+    back.mockClear()
+  })
+
+  it('leads to the product category when the visitor came from outside the site', async () => {
+    renderPage(<ProductPage id={MILK_ID} />, `/kk/products/${MILK_ID}`)
+    const link = await screen.findByRole('link', { name: 'Артқа' })
+    expect(link).toHaveAttribute('href', '/kk/collections/milk')
+    await userEvent.click(link)
+    expect(back).not.toHaveBeenCalled()
+  })
+
+  it('steps back in history after navigating within the site, keeping the previous page as it was', async () => {
+    resetInAppHistory(true)
+    renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)
+    await userEvent.click(await screen.findByRole('link', { name: 'Назад' }))
+    expect(back).toHaveBeenCalledOnce()
   })
 })
 

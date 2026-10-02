@@ -5,10 +5,12 @@ import { useState, type ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { createQueryClient } from '../api/queryClient'
 import { getI18n, type Language } from '../i18n'
+import { useTrackInAppNavigation } from '../lib/inAppHistory'
 
 export function Providers({ lang, children }: { lang: Language; children: ReactNode }) {
   // Свой QueryClient на каждый запрос (SSR) и один на всю жизнь вкладки
   const [queryClient] = useState(createQueryClient)
+  useTrackInAppNavigation()
   // Смена языка = переход на другой префикс URL: layout перерисуется с новым lang и другим экземпляром
   return (
     <QueryClientProvider client={queryClient}>

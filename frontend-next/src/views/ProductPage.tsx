@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 import { useCategoryFilters, useProduct } from '../api/queries'
 import { ApiError, type FilterDto, type ProductCardDto } from '../api/types'
+import { BackLink } from '../components/layout/BackLink'
 import { ProductImage } from '../components/product/ProductImage'
 import { SavingLine } from '../components/product/SavingLine'
 import { ProductPageSkeleton } from '../components/ui/Skeleton'
@@ -41,15 +42,18 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
 
   return (
     <>
-      <nav aria-label={t('category.breadcrumbs')} className="flex flex-wrap gap-x-2 text-sm text-muted">
-        <Link href={href('/catalog')} className="hover:text-ink">
-          {t('nav.home')}
-        </Link>
-        <span aria-hidden="true">/</span>
-        <Link href={href(`/collections/${product.category.slug}`)} className="hover:text-ink">
-          {product.category.name}
-        </Link>
-      </nav>
+      <div className="flex items-center gap-4">
+        <BackLink fallbackHref={href(`/collections/${product.category.slug}`)} />
+        <nav aria-label={t('category.breadcrumbs')} className="flex min-w-0 flex-wrap gap-x-2 text-sm text-muted">
+          <Link href={href('/catalog')} className="hover:text-ink">
+            {t('nav.home')}
+          </Link>
+          <span aria-hidden="true">/</span>
+          <Link href={href(`/collections/${product.category.slug}`)} className="hover:text-ink">
+            {product.category.name}
+          </Link>
+        </nav>
+      </div>
 
       <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-12">
         <ProductImage

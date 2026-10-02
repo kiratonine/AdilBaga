@@ -103,3 +103,17 @@ test('dashboard draws the store map in the browser', async ({ page }) => {
   await expect(page.getByTestId('store-group')).toHaveCount(3)
   expect(errors).toEqual([])
 })
+
+test('"Back" on a product returns to the filtered category; opened directly, it leads to the category', async ({ page }) => {
+  await page.goto('/ru/collections/milk?volumeMl=500')
+  await expect(page.getByTestId('product-card')).toHaveCount(2)
+  await page.getByTestId('product-card').first().getByRole('link').click()
+  await expect(page).toHaveURL(/\/ru\/products\//)
+  await page.getByRole('link', { name: 'Назад' }).click()
+  await expect(page).toHaveURL(/\/ru\/collections\/milk\?volumeMl=500$/)
+  await expect(page.getByTestId('product-card')).toHaveCount(2)
+
+  await page.goto(`/kk/products/${MILK_ID}`)
+  await page.getByRole('link', { name: 'Артқа' }).click()
+  await expect(page).toHaveURL(/\/kk\/collections\/milk$/)
+})
