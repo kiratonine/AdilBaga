@@ -2,7 +2,12 @@ import type { NextConfig } from "next";
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Заголовок X-Powered-By: Next.js — лишняя информация о стеке
+  poweredByHeader: false,
+  experimental: {
+    // CSS (~8 КБ gzip) — прямо в HTML: без отдельного запроса, который блокирует первую отрисовку
+    inlineCss: true,
+  },
 };
 
 export default function config(phase: string): NextConfig {

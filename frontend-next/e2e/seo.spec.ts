@@ -45,6 +45,21 @@ test.describe('SEO', () => {
     }
   })
 
+  test('catalog is the home page: brand title, site name markup, large image previews', async ({ request }) => {
+    const html = await (await request.get('/ru/catalog')).text()
+    expect(html).toContain('<title>Adil Bağa — сравнение цен в Актау</title>')
+    expect(html).toContain('<meta name="googlebot" content="max-video-preview:-1, max-image-preview:large, max-snippet:-1"/>')
+    const graph = jsonLd(html)[0]['@graph'] as Array<Record<string, unknown>>
+    expect(graph.map((node) => node['@type'])).toEqual(['Organization', 'WebSite'])
+    expect(graph[1]).toMatchObject({ name: 'Adil Bağa', inLanguage: 'ru' })
+  })
+
+  test('search is noindex and shows the query in the tab title', async ({ request }) => {
+    const html = await (await request.get('/ru/search?q=молоко')).text()
+    expect(html).toContain('<meta name="robots" content="noindex, follow"/>')
+    expect(html).toContain('<title>Поиск: «молоко» — Adil Bağa</title>')
+  })
+
   test('sitemap lists pages in both languages, robots points to it', async ({ request }) => {
     const sitemap = await (await request.get('/sitemap.xml')).text()
     expect(sitemap).toMatch(/<loc>https?:\/\/[^<]+\/kk\/products\/p0a1f000-0000-4000-8000-000000000001<\/loc>/)

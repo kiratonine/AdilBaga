@@ -105,7 +105,11 @@ export function CategoryPage({ slug }: { slug: string }) {
               <SortSelect value={sort} onChange={(next) => update(withSort(params, next))} className="md:ml-auto" />
             </div>
 
-            <section aria-label={t('category.results')}>
+            {/* Скрытый h2: у карточек h3, без него после h1 уровень заголовков перескакивает */}
+            <section aria-labelledby="results-title">
+              <h2 id="results-title" className="sr-only">
+                {t('category.results')}
+              </h2>
               {products.isPending && (
                 <LoadingState>
                   <ProductGridSkeleton count={hasFilters ? 6 : 8} wide={!hasFilters} />

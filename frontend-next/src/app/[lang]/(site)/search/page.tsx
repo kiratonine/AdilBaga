@@ -1,23 +1,24 @@
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
+import { toSearchParams } from '../../../../api/server'
 import { getI18n, isLanguage } from '../../../../i18n'
-import { SearchPage, SearchPageFallback } from '../../../../views/SearchPage'
+import { SearchPage } from '../../../../views/SearchPage'
 
-// Результаты поиска в индекс не нужны (бесконечное число URL), страница — статичная оболочка.
-// Запрос сервер не видит, поэтому во вкладке просто «Поиск»
-export async function generateMetadata({ params }: PageProps<'/[lang]/search'>): Promise<Metadata> {
+// Результаты поиска в индекс не нужны (бесконечное число URL): noindex, но ссылки на товары — follow.
+// Страница динамическая: запрос из URL известен серверу — во вкладке «Поиск: «…»», а HTML сразу в нужном
+// состоянии (подсказка или скелетон), без скачка вёрстки. Сами результаты грузит клиент
+export async function generateMetadata({ params, searchParams }: PageProps<'/[lang]/search'>): Promise<Metadata> {
   const { lang } = await params
+  if (!isLanguage(lang)) return {}
+  const { t } = getI18n(lang)
+  const q = (toSearchParams(await searchParams).get('q') ?? '').trim()
   return {
-    title: isLanguage(lang) ? getI18n(lang).t('search.title') : undefined,
+    title: q ? t('search.titleFor', { query: q }) : t('search.title'),
     robots: { index: false, follow: true },
   }
 }
 
-// Запрос читается из URL на клиенте (useSearchParams), поэтому в HTML — только оболочка со скелетоном
-export default function Page() {
-  return (
-    <Suspense fallback={<SearchPageFallback />}>
-      <SearchPage />
-    </Suspense>
-  )
+export default async function Page({ searchParams }: PageProps<'/[lang]/search'>) {
+  // Чтение searchParams делает рендер динамическим — useSearchParams на сервере видит запрос
+  await searchParams
+  return <SearchPage />
 }

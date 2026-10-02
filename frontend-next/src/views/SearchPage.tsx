@@ -37,7 +37,11 @@ export function SearchPage() {
       )}
 
       {q && (
-        <section aria-label={t('category.results')} className="mt-6">
+        <section aria-labelledby="results-title" className="mt-6">
+          {/* Скрытый h2: у карточек h3, без него после h1 уровень заголовков перескакивает */}
+          <h2 id="results-title" className="sr-only">
+            {t('category.results')}
+          </h2>
           {items.length > 0 && (
             <div className="mb-4 flex justify-end">
               <SortSelect value={sort} onChange={(next) => replaceQuery(pathname, withSort(params, next))} />
@@ -82,21 +86,6 @@ export function SearchPage() {
           )}
         </section>
       )}
-    </>
-  )
-}
-
-/** Пока не известен запрос из URL (статичная оболочка /search): заголовок и сетка-скелетон */
-export function SearchPageFallback() {
-  const { t } = useTranslation()
-  return (
-    <>
-      <h1 className="text-h1">{t('search.title')}</h1>
-      <div className="mt-6">
-        <LoadingState>
-          <ProductGridSkeleton count={8} wide />
-        </LoadingState>
-      </div>
     </>
   )
 }

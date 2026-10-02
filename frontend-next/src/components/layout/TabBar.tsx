@@ -33,6 +33,10 @@ export function TabBar() {
             <li key={tab.section}>
               <Link
                 href={href(tab.path)}
+                // Поиск динамический (запрос во вкладке): заранее загруженный /search без q Next потом
+                // переиспользует при переходе на /search?q=… — и во вкладке остаётся «Поиск». Страница
+                // лёгкая, результаты всё равно грузит клиент, prefetch ей не нужен
+                prefetch={tab.section === 'search' ? false : undefined}
                 data-testid={`tab-${tab.section}`}
                 aria-current={isActive ? 'page' : undefined}
                 className={`flex h-16 flex-col items-center justify-center gap-1 text-[11px] leading-none ${

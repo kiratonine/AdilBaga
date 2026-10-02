@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProductCardDto } from '../api/types'
-import { breadcrumbJsonLd, productJsonLd, serializeJsonLd } from './structuredData'
+import { breadcrumbJsonLd, productJsonLd, serializeJsonLd, siteJsonLd } from './structuredData'
 
 const product: ProductCardDto = {
   id: 'p1',
@@ -23,6 +23,7 @@ describe('structuredData', () => {
     expect(data).toMatchObject({
       '@type': 'Product',
       '@id': 'http://localhost:3000/kk/products/p1',
+      url: 'http://localhost:3000/kk/products/p1',
       name: 'Молоко 3,2% 1 л',
       image: ['https://cdn.example/milk.jpg'],
       brand: { '@type': 'Brand', name: 'FoodMaster' },
@@ -55,6 +56,28 @@ describe('structuredData', () => {
     ).toEqual([
       { '@type': 'ListItem', position: 1, name: 'Каталог', item: 'http://localhost:3000/kk/catalog' },
       { '@type': 'ListItem', position: 2, name: 'Молоко', item: 'http://localhost:3000/kk/collections/milk' },
+    ])
+  })
+
+  it('publishes the site name as WebSite by the Organization, on the catalog of the page language', () => {
+    const data = siteJsonLd('kk', { name: 'Adil Bağa', description: 'Бағаларды салыстыру' })
+    expect(data['@graph']).toEqual([
+      {
+        '@type': 'Organization',
+        '@id': 'http://localhost:3000/#organization',
+        name: 'Adil Bağa',
+        url: 'http://localhost:3000/',
+        logo: 'http://localhost:3000/icon.svg',
+      },
+      {
+        '@type': 'WebSite',
+        '@id': 'http://localhost:3000/kk#website',
+        name: 'Adil Bağa',
+        description: 'Бағаларды салыстыру',
+        url: 'http://localhost:3000/kk/catalog',
+        inLanguage: 'kk',
+        publisher: { '@id': 'http://localhost:3000/#organization' },
+      },
     ])
   })
 

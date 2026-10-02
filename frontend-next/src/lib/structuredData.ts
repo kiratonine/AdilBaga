@@ -7,6 +7,35 @@ import { absoluteUrl } from './site'
 
 type Crumb = { name: string; path: string }
 
+/**
+ * WebSite + Organization для главной (каталога): по ним Google показывает в выдаче название сайта
+ * вместо домена. Один @graph — организация публикует сайт
+ */
+export function siteJsonLd(lang: Language, { name, description }: { name: string; description: string }) {
+  const organizationId = absoluteUrl('/#organization')
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': organizationId,
+        name,
+        url: absoluteUrl('/'),
+        logo: absoluteUrl('/icon.svg'),
+      },
+      {
+        '@type': 'WebSite',
+        '@id': absoluteUrl(`${localePath(lang, '/')}#website`),
+        name,
+        description,
+        url: absoluteUrl(localePath(lang, '/catalog')),
+        inLanguage: lang,
+        publisher: { '@id': organizationId },
+      },
+    ],
+  }
+}
+
 /** BreadcrumbList: путь без префикса языка, URL — абсолютные на языке страницы */
 export function breadcrumbJsonLd(lang: Language, crumbs: Crumb[]) {
   return {
@@ -24,10 +53,12 @@ export function breadcrumbJsonLd(lang: Language, crumbs: Crumb[]) {
 /** Product + AggregateOffer: диапазон цен по сетям и предложение каждой сети */
 export function productJsonLd(lang: Language, product: ProductCardDto) {
   const prices = product.offers.map((offer) => offer.price)
+  const url = absoluteUrl(localePath(lang, `/products/${product.id}`))
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
-    '@id': absoluteUrl(localePath(lang, `/products/${product.id}`)),
+    '@id': url,
+    url,
     sku: product.id,
     name: product.name,
     ...(product.imageUrl && { image: [product.imageUrl] }),

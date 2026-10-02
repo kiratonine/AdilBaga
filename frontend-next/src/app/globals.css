@@ -1,5 +1,3 @@
-@import '@fontsource-variable/golos-text';
-@import '@fontsource-variable/montserrat';
 @import 'tailwindcss';
 
 /*
@@ -26,9 +24,10 @@
   --color-tile-4: #fbeae2;
   --color-tile-5: #fbf4d9;
 
-  --font-sans: 'Golos Text Variable', system-ui, sans-serif;
+  /* Переменные шрифтов задаёт next/font (app/fonts.ts) на <html> */
+  --font-sans: var(--font-golos), system-ui, sans-serif;
   /* Выразительный геометричный гротеск — для цен и логотипа */
-  --font-display: 'Montserrat Variable', 'Golos Text Variable', sans-serif;
+  --font-display: var(--font-montserrat), var(--font-golos), sans-serif;
 
   --radius-card: 12px;
   --radius-media: 8px;

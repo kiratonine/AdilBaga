@@ -28,7 +28,7 @@ test('old URLs without a language prefix redirect permanently', async ({ request
 test('server HTML of the catalog already contains categories and product cards with prices', async ({ request }) => {
   const html = await (await request.get('/kk/catalog')).text()
   expect(html).toContain('<html lang="kk"')
-  expect(html).toContain('<title>Каталог — Adil Bağa</title>')
+  expect(html).toContain('<title>Adil Bağa — Ақтаудағы бағаларды салыстыру</title>')
   expect(html).toContain('href="/kk/collections/')
   expect(html).toContain('data-testid="product-card"')
   expect(html).toMatch(/data-testid="min-price"[^>]*>\d[\d\s]*₸/)

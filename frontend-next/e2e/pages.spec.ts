@@ -94,7 +94,8 @@ test('search from the header and sort keep the query', async ({ page, isMobile }
   await page.getByTestId('search-input').fill('сахар')
   await expect(page).toHaveURL(/\/kk\/search\?q=/)
   await expect(page.getByTestId('product-card')).toHaveCount(4)
-  await expect(page).toHaveTitle('Іздеу — Adil Bağa')
+  // Запрос известен серверу — он во вкладке
+  await expect(page).toHaveTitle('Іздеу: «сахар» — Adil Bağa')
 
   // На мобильном сортировка — чип и шторка с вариантами
   if (isMobile) {

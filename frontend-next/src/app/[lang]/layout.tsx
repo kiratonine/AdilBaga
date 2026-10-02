@@ -5,6 +5,7 @@ import { SkipLink } from '../../components/layout/Main'
 import { Providers } from '../../components/Providers'
 import { getI18n, isLanguage, LANGUAGES } from '../../i18n'
 import { SITE_URL } from '../../lib/site'
+import { golos, montserrat } from '../fonts'
 import '../globals.css'
 
 // cover — чтобы env(safe-area-inset-*) работал: таб-бар над полоской «домой» iPhone
@@ -22,6 +23,10 @@ export async function generateMetadata({ params }: LayoutProps<'/[lang]'>): Prom
     // Страницы задают только своё название, бренд дописывает шаблон
     title: { default: t('brand.title'), template: `%s — ${t('brand.name')}` },
     description: t('brand.tagline'),
+    // Разрешаем Google крупное превью картинок (Discover, выдача) и сниппет любой длины.
+    // index/follow не пишем — это и так поведение по умолчанию, а на 404 Next сам ставит noindex.
+    // Поиск задаёт robots сам — поле целиком заменяется
+    robots: { googleBot: { 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 } },
     // Картинку и тексты карточки X берёт из Open Graph страницы
     twitter: { card: 'summary_large_image' },
   }
@@ -33,7 +38,7 @@ export default async function RootLayout({ children, params }: LayoutProps<'/[la
   if (!isLanguage(lang)) notFound()
 
   return (
-    <html lang={lang}>
+    <html lang={lang} className={`${golos.variable} ${montserrat.variable}`}>
       <body className="flex min-h-dvh flex-col">
         <Providers lang={lang}>
           <SkipLink />
