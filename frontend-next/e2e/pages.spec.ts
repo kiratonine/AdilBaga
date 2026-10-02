@@ -53,7 +53,7 @@ test.describe('server HTML', () => {
   })
 })
 
-test('catalog → category → filter → product → back, without console errors', async ({ page }) => {
+test('catalog → category → filter → product → back, without console errors', async ({ page, isMobile }) => {
   const errors = collectErrors(page)
   await page.goto('/ru/catalog')
   await page.getByTestId('category-card').filter({ hasText: 'Молоко' }).click()
@@ -64,10 +64,17 @@ test('catalog → category → filter → product → back, without console erro
   // Фильтр меняет URL через history API — сервер Next страницу заново не строит
   const serverRenders: string[] = []
   page.on('request', (request) => request.url().includes('/ru/collections/milk') && serverRenders.push(request.url()))
-  const filters = page.getByTestId('filter-volumeMl')
-  if (!(await filters.isVisible())) await page.getByRole('button', { name: /Фильтры/ }).click()
+  // На мобильном фильтры — в шторке, с lg — колонка слева
+  const sheet = page.getByTestId('filters-sheet')
+  if (isMobile) await page.getByTestId('filters-toggle').click()
+  const filters = (isMobile ? sheet : page).getByTestId('filter-volumeMl')
   await filters.getByRole('button', { name: /^500/ }).click()
   await expect(page).toHaveURL(/\/ru\/collections\/milk\?volumeMl=500$/)
+  if (isMobile) {
+    await sheet.getByRole('button', { name: 'Показать' }).click()
+    await expect(sheet).toBeHidden()
+    await expect(page.getByTestId('filters-toggle')).toContainText('· 1')
+  }
   await expect(page.getByTestId('product-card')).toHaveCount(2)
   expect(serverRenders).toEqual([])
 
@@ -80,7 +87,7 @@ test('catalog → category → filter → product → back, without console erro
   expect(errors).toEqual([])
 })
 
-test('search from the header and sort keep the query', async ({ page }) => {
+test('search from the header and sort keep the query', async ({ page, isMobile }) => {
   const errors = collectErrors(page)
   // Статичная страница видна до гидрации — ждём, пока поле начнёт работать
   await page.goto('/kk/catalog', { waitUntil: 'networkidle' })
@@ -89,7 +96,14 @@ test('search from the header and sort keep the query', async ({ page }) => {
   await expect(page.getByTestId('product-card')).toHaveCount(4)
   await expect(page).toHaveTitle('Іздеу — Adil Bağa')
 
-  await page.getByTestId('sort-select').selectOption('name_asc')
+  // На мобильном сортировка — чип и шторка с вариантами
+  if (isMobile) {
+    await page.getByTestId('sort-chip').click()
+    await page.getByTestId('sort-sheet').getByRole('radio', { name: 'Атауы бойынша' }).check()
+    await expect(page.getByTestId('sort-sheet')).toBeHidden()
+  } else {
+    await page.getByTestId('sort-select').selectOption('name_asc')
+  }
   await expect(page).toHaveURL(/q=%D1%81%D0%B0%D1%85%D0%B0%D1%80&sort=name_asc$/)
   await expect(page.getByTestId('product-card').first()).toContainText('Сахар рафинад 1 кг')
   expect(errors).toEqual([])

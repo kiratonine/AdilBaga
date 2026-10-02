@@ -18,6 +18,8 @@ describe('CategoryPage', () => {
     expect(await screen.findAllByTestId('product-card')).toHaveLength(10)
     expect(cardNames()[0]).toBe('Молоко Emil 1% 500 мл')
     expect(screen.getByRole('link', { name: 'Каталог' })).toHaveAttribute('href', '/ru/catalog')
+    // Пришли извне — «Назад» ведёт в каталог
+    expect(screen.getByRole('link', { name: 'Назад' })).toHaveAttribute('href', '/ru/catalog')
   })
 
   it('shows a page-shaped skeleton while the filter schema loads', async () => {
@@ -34,6 +36,40 @@ describe('CategoryPage', () => {
     expect(navigation.history).toEqual([{ method: 'replace', url: '/ru/collections/milk?volumeMl=500' }])
     await screen.findByText('Молоко Emil 3,2% 500 мл')
     await expect.poll(() => screen.getAllByTestId('product-card')).toHaveLength(2)
+  })
+
+  it('filters sheet applies filters at once, resets them and closes on "show"', async () => {
+    renderPage(<CategoryPage slug="milk" />, '/ru/collections/milk')
+    await screen.findAllByTestId('product-card')
+    const sheet = screen.getByTestId('filters-sheet')
+    // Закрытая шторка пуста: в DOM только фильтры сайдбара
+    expect(within(sheet).queryByTestId('filter-volumeMl')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByTestId('filters-toggle'))
+    expect(sheet).toHaveAttribute('open')
+    await userEvent.click(within(within(sheet).getByTestId('filter-volumeMl')).getByRole('button', { name: /^500/ }))
+    expect(navigation.url).toBe('/ru/collections/milk?volumeMl=500')
+    expect(screen.getByTestId('filters-toggle')).toHaveTextContent('Фильтры· 1')
+
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Сбросить' }))
+    expect(navigation.url).toBe('/ru/collections/milk')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Показать' }))
+    expect(sheet).not.toHaveAttribute('open')
+  })
+
+  it('mobile sort chip opens a sheet; picking an option sorts and closes it', async () => {
+    renderPage(<CategoryPage slug="milk" />, '/ru/collections/milk')
+    await screen.findAllByTestId('product-card')
+    const chip = screen.getByTestId('sort-chip')
+    expect(chip).toHaveTextContent('Сначала дешёвые')
+
+    await userEvent.click(chip)
+    const sheet = screen.getByTestId('sort-sheet')
+    expect(sheet).toHaveAttribute('open')
+    await userEvent.click(within(sheet).getByRole('radio', { name: 'Сначала дорогие' }))
+    expect(navigation.url).toBe('/ru/collections/milk?sort=price_desc')
+    expect(sheet).not.toHaveAttribute('open')
+    expect(screen.getByTestId('sort-chip')).toHaveTextContent('Сначала дорогие')
   })
 
   it('reads filters and sort from the URL', async () => {
