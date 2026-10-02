@@ -6,7 +6,7 @@ import { Icon } from './Icon'
 
 type SheetProps = {
   open: boolean
-  /** Esc, клик по затемнению, кнопка «Закрыть» — родитель ставит open=false */
+  /** Единственный путь — событие close у <dialog> (Esc, затемнение, «Закрыть»): родитель ставит open=false */
   onClose: () => void
   title: string
   children: ReactNode
@@ -36,7 +36,7 @@ export function Sheet({ open, onClose, title, children, footer, testId }: SheetP
       // close приходит и от Esc — так родитель узнаёт, что шторка закрыта
       onClose={onClose}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) ref.current?.close()
       }}
       className="mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-full flex-col rounded-t-2xl bg-card p-0 text-ink shadow-sheet backdrop:bg-ink/40 open:flex"
     >
@@ -46,7 +46,7 @@ export function Sheet({ open, onClose, title, children, footer, testId }: SheetP
         </h2>
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => ref.current?.close()}
           aria-label={t('common.close')}
           className="flex size-11 items-center justify-center rounded-full text-ink hover:bg-surface"
         >

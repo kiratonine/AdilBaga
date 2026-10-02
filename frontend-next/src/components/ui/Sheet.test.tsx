@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Sheet } from './Sheet'
 
 function Harness() {
@@ -54,6 +54,45 @@ describe('Sheet', () => {
     expect(sheet().open).toBe(true)
     // Клик по затемнению приходит на сам <dialog>
     fireEvent.click(sheet())
+    expect(sheet().open).toBe(false)
+  })
+
+  it('calls onClose exactly once for close button and backdrop', () => {
+    const onClose = vi.fn()
+    function Counted() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Фильтры
+          </button>
+          <Sheet
+            open={open}
+            onClose={() => {
+              onClose()
+              setOpen(false)
+            }}
+            title="Фильтры"
+            testId="filters-sheet"
+          >
+            <p>Тело шторки</p>
+          </Sheet>
+        </>
+      )
+    }
+    render(<Counted />)
+    fireEvent.click(screen.getByRole('button', { name: 'Фильтры' }))
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    })
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(sheet().open).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Фильтры', hidden: true }))
+    expect(sheet().open).toBe(true)
+    act(() => {
+      fireEvent.click(sheet())
+    })
+    expect(onClose).toHaveBeenCalledTimes(2)
     expect(sheet().open).toBe(false)
   })
 })

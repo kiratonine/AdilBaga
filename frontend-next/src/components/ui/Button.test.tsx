@@ -53,4 +53,29 @@ describe('Button', () => {
     expect(buttonClass('ghost')).not.toContain('bg-card')
     expect(buttonClass('ghost', 'w-full')).toContain('w-full')
   })
+
+  it('icon size is a round 44px button without horizontal padding', () => {
+    const cls = buttonClass('ghost', '', 'icon')
+    expect(cls).toContain('size-11')
+    expect(cls).toContain('rounded-full')
+    expect(cls).toContain('p-0')
+    expect(cls).not.toContain('px-[18px]')
+    expect(buttonClass('ghost')).toContain('h-11')
+    expect(buttonClass('ghost')).toContain('px-[18px]')
+  })
+
+  it('renders an icon button with an accessible name', () => {
+    render(
+      <Button size="icon" variant="ghost" aria-label="Вперёд">
+        ›
+      </Button>,
+    )
+    const button = screen.getByRole('button', { name: 'Вперёд' })
+    expect(button.className).toContain('size-11')
+  })
+
+  it('hover styles are not applied while disabled', () => {
+    expect(buttonClass('primary')).toContain('not-disabled:hover:bg-ink/85')
+    expect(buttonClass('primary')).not.toMatch(/(^|s)hover:/)
+  })
 })
