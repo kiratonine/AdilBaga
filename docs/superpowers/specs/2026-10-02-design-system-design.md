@@ -40,7 +40,7 @@
 | `--color-danger` | `#B42318` | ошибки |
 | `--color-tile-1…5` | `#F6EEE3`, `#E6F0F8`, `#EFEAF7`, `#FBEAE2`, `#FBF4D9` | **новые**: плитки категорий, по индексу `i % 5`; зелёной пастели нет |
 
-Лендинг (`[lang]/page.tsx`) остаётся на `card` (белый). Серый `page` — только `(site)` и `not-found`.
+Серый `page` — страницы `(site)` и `not-found` (лендинга больше нет, D4a).
 
 Проверенный контраст (WCAG AA ≥ 4.5): `muted`/`page` 4.54, `muted`/`card` 4.96, `muted`/`surface` 4.53, `accent`/`accent-soft` 5.01, `accent`/`card` 5.78, белый/`accent` 5.78. Новые пары цветов добавлять только после такой же проверки.
 
@@ -147,10 +147,10 @@ Golos Text — весь UI. Montserrat — цены и логотип. Шриф�
 
 ### Категория (`views/CategoryPage.tsx`)
 
-- Крошки, h1, строка управления: (мобильный) чип «Фильтры · n» + чип сортировки; (≥ md) сортировка справа над сеткой.
+- «Назад» (`BackLink`, без истории — в каталог; добавлено по просьбе пользователя в D4a) + крошки, h1, строка управления: (мобильный) чип «Фильтры · n» + чип сортировки; (≥ md) сортировка справа над сеткой.
 - **≥ lg:** две колонки — фильтры слева 260px (каждый фильтр — белая карточка с заголовком и чипами, boolean — один чип), сетка справа (3 колонки).
 - **< lg:** «Фильтры · n» открывает `Sheet` (testid `filters-sheet`) с теми же блоками `DynamicFilters`; футер шторки — «Сбросить» (`secondary`) и «Показать» (`primary`, закрывает шторку). Фильтры применяются сразу (как сейчас, через `replaceQuery`), «Показать» лишь закрывает.
-- Сортировка на мобильном — чип с текущим вариантом, открывает `Sheet` со списком (radio-кнопки). `sort-select` testid остаётся на управляющем элементе (на ≥ md — нативный `<select>` в новом стиле, на мобильном — чип; e2e iphone переходит на взаимодействие через шторку).
+- Сортировка на мобильном — чип с текущим вариантом, открывает `Sheet` со списком (radio-кнопки). `sort-select` — только у нативного `<select>` (≥ md); мобильный чип — `sort-chip`, шторка — `sort-sheet` (два элемента с одним testid ломают strict-режим Playwright; решение D4a). Кнопка фильтров — `filters-toggle`.
 - «Показать ещё» — `Button secondary` на всю ширину на мобильном, по центру на ≥ md.
 
 ### Товар (`views/ProductPage.tsx`)
@@ -168,7 +168,9 @@ Golos Text — весь UI. Montserrat — цены и логотип. Шриф�
 
 Порядок и логика без изменений (сводка → корзина → карта → разброс). Каждый блок — белая карточка на `page`. Плитки сводки — 2 колонки (мобильный) / 4. Карта — в карточке, `radius-card`, `overflow-hidden`.
 
-### Лендинг (`views/LandingPage.tsx`)
+### Лендинг (`views/LandingPage.tsx`) — удалён пользователем в D4a
+
+> `/ru`, `/kk` — 308 на каталог, `/` — 307 сразу в каталог на языке пользователя. Ниже — история.
 
 Тексты не трогаем. Фон белый. Обновляются: кнопки (`Button primary/secondary`), скругления, шкала шрифтов, карточка-пример в hero — в стиле карточки варианта A (цена первой, список сетей с подсвеченной лучшей).
 
@@ -178,7 +180,7 @@ Golos Text — весь UI. Montserrat — цены и логотип. Шриф�
 
 ## 7. Состояния
 
-- Скелетоны (`components/ui/Skeleton.tsx`) — под новую геометрию: `ProductCardSkeleton` (вертикальная карточка A), `CategoryTilesSkeleton`, `ShelfSkeleton`; страничные скелетоны обновить. `animate-pulse bg-surface`, `motion-reduce:animate-none` — как сейчас.
+- Скелетоны (`components/ui/Skeleton.tsx`) — под новую геометрию: `ProductCardSkeleton` (вертикальная карточка A), `CategoryTilesSkeleton`; страничные скелетоны обновить. `animate-pulse bg-surface`, `motion-reduce:animate-none` — как сейчас.
 - Ошибка / пусто / «Что ищем?» (`components/ui/States.tsx`) — белая карточка по центру: иконка 32px `muted`, текст, при ошибке — `Button secondary` «Повторить». Testid `error-state`, `empty-state`, `loading-state` сохраняются.
 
 ## 8. Доступность
@@ -187,12 +189,11 @@ Golos Text — весь UI. Montserrat — цены и логотип. Шриф�
 - Нажимаемые зоны ≥ 44px на мобильном (таб-бар, чипы 40px + отступы → зона ≥ 44, кнопки 44). Чипы фильтров ≥ md — 36px.
 - Таб-бар: `nav` с `aria-label`, `aria-current="page"`; подписи видимые (не только иконки).
 - `Sheet`: `<dialog>` + `aria-labelledby` на заголовок; кнопка закрытия с `aria-label`.
-- Полка: обычный Tab по карточкам; кнопки ‹ › с `aria-label`, `aria-controls` на ряд.
 - Skip-link, `main#main`, `prefers-reduced-motion` — как сейчас.
 
 ## 9. Тестирование
 
-- Все существующие testid сохраняются. Новые: `tab-bar`, `tab-catalog`, `tab-search`, `tab-dashboard`, `filters-sheet`, `shelf`, `more-offers`, `show-all-offers`.
+- Все существующие testid сохраняются. Новые: `tab-bar`, `tab-catalog`, `tab-search`, `tab-dashboard`, `filters-sheet`, `filters-toggle`, `sort-chip`, `sort-sheet`, `more-offers`, `show-all-offers`.
 - Unit (Vitest + Testing Library):
   - `lib/offers.ts` `topOffers`: ≤ 3 предложения, > 3 (hiddenCount, maxPrice), одно предложение.
   - `lib/categoryIcons.ts`: известный слаг → своя иконка, неизвестный → запасная.
