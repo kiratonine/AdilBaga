@@ -64,6 +64,7 @@
 | Карточка (D2) | Вариант A: фото квадрат (`rounded-media`, бейдж «−X%» по лучшему предложению — `discountPercent`, вниз, < 1% не показываем) → цена `text-price-card` + старая → `SavingLine` → бренд → название → **топ-3 сетей** (`topOffers` в `lib/offers.ts`) → `more-offers` «ещё N сетей · до X ₸» (плюралы `card.moreOffers_*`) → дата. Без рамки, `hover:shadow-hover`. `ProductImage` больше не скругляет сам — радиус передаёт вызывающий |
 | Оболочка (D3) | Раздел навигации — `navSection(pathname)` в `lib/paths.ts` (`catalog` — также `/collections/*`, `/products/*`). Шапка: `card`, без blur; мобильный — лого + RU/KZ, вторая строка поиск; разделы `hidden md:flex`, активный — `ink` + подчёркивание 2px (`after:`), прочие `muted`. `TabBar` (`components/layout/TabBar.tsx`, `< md`): `nav` `nav.main`, testid `tab-bar`/`tab-catalog`/`tab-search`/`tab-dashboard`, иконки `grid`/`search`/`chart`, активный `ink` 600 + `aria-current="page"`. Отступ под таб-бар — у `body` через `body:has([data-tab-bar])` в `globals.css` (футер идёт после `Main`, поэтому не `Main`). Серый фон — обёртка `SitePage` (`bg-page`) в layout `(site)` и `not-found`; лендинг белый. Отступ до футера — `Main` `pb-12 md:pb-20` (у `Footer` больше нет `mt-20`; футер `bg-card`). `viewport-fit=cover` (`export const viewport`), `container-page` — `max(16px, env(safe-area-inset-*))`. `SearchBox` ставит фокус в поле при клиентском переходе на `/search` без `q` (при первой загрузке — нет). `Segmented` — сегменты `h-10 md:h-9`. e2e `e2e/shell.spec.ts`: таб-бар на iphone, его нет на desktop, нет горизонтального скролла на 320/360/390 |
 | Сетка (D2→D4a) | Классы раскладки — `components/product/layout.ts` (`productGridClass(wide)`: 2 колонки, с md — 3, `wide` → с lg 4) и `components/catalog/layout.ts` (`CATEGORY_TILES`, `TILE_SHAPE`), общие со скелетонами. Скелетоны: `ProductCardSkeleton`, `CategoryTilesSkeleton` (вместо `ChipsSkeleton`), `CategoryPageSkeleton`/`ProductListSkeleton({filters})` под новую раскладку. Полка (`Shelf`, `ShelfSkeleton`, `SHELF_ROW`, compact-карточка, `card.savingShort`) удалена в D4a |
+| Страницы (D4b) | **Товар:** фото в белой карточке (sticky ≥ md), плейсхолдер — иконка категории (`ProductImage icon`, `muted`; в сетке — прежний ценник). На мобильном цена **над** h1 через `order` (в DOM h1 первый). `text-price-page` + `Badge discount` + старая цена, `SavingLine`. «Цены в магазинах» (текст `card.offers` не меняли) — белая карточка: точка цвета сети (`data-store-dot`), лучшая строка `accent-soft` + `Badge best` белой таблеткой (`bg-card!` — на `accent-soft` бейдж сливался), остальные «дороже на X», одно предложение — `Badge neutral`. Видны 5 (`OFFERS_VISIBLE`), больше — `Button ghost` «Показать все N» (`show-all-offers`, `product.showAll`), после клика фокус на 6-ю строку. Характеристики — карточка, `dl` в 2 колонки с md. **Состояния:** `StateCard` (`ui/States.tsx`) — белая карточка по центру, иконка 32px `muted`; `ErrorState` (`alert`, «Повторить» `secondary`), `EmptyState` (проп `icon`, по умолчанию `search`; категория — `sliders`/`basket`), 404 — та же карточка с h1 и `Button primary` в каталог; ссылки в каталог из пустого поиска — `Button secondary`. **Аналитика:** h1 `text-h1`, секции `text-h2`, отступы 32/48; сводка и корзины на `card` (лучшая — `accent-soft`), карта + список точек — одна карточка, разброс — список в карточке. Скелетон «Аналитики» — белые `CardSkeleton` (surface на сером `page` не виден). `ProductImage` при монтировании проверяет `complete && naturalWidth === 0` (картинка упала до гидрации). `Chip` — `disabled:opacity-50`, hover только `not-disabled`. `rounded-[var(--radius-*)]` в коде больше нет |
 
 Моки и типы приведены к **подтверждённому** контракту Backend 1 (см. `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`).
 
@@ -88,8 +89,8 @@
 | 12 | **Next 2. Язык и роутинг** (шаги 4–5): `/ru`, `/kk`, middleware, Layout, Landing + Catalog | ✅ (+ скелетоны загрузки) |
 | 13 | **Next 3. Страницы с SSR** (шаги 6, 8): Category, Product, Search, Dashboard (+ скелетоны) | ✅ (без `loading.tsx` — ради статуса 404) |
 | 14 | **Next 4. SEO** (шаг 7): metadata, hreflang, JSON-LD, sitemap, robots, OG | ✅ (адрес сайта — env, домена пока нет) |
-| 15 | **Next 5. e2e и переключение** (шаги 9–10): `frontend-next/` → `frontend/` | ⏳ следующая |
-| 16 | **Дизайн D1–D4** (спека `docs/superpowers/specs/2026-10-02-design-system-design.md`): D1 токены, D2 карточка, D3 оболочка, D4a каталог + категория | ✅ D1–D4a; D4b — следующая |
+| 15 | **Next 5. e2e и переключение** (шаги 9–10): `frontend-next/` → `frontend/` | ⏳ следующая (после D4b) |
+| 16 | **Дизайн D1–D4** (спека `docs/superpowers/specs/2026-10-02-design-system-design.md`): D1 токены, D2 карточка, D3 оболочка, D4a каталог + категория, D4b товар/поиск/аналитика/состояния | ✅ |
 
 ---
 
@@ -102,6 +103,13 @@
 ---
 
 ## Журнал
+
+### Сессия 18 — 2026-10-02 (Дизайн D4b. Товар, поиск, аналитика, состояния)
+- План — `docs/superpowers/plans/2026-10-02-design-system-d4b-pages.md`. Детали — строка «Страницы (D4b)» в таблице решений. Закрыты хвосты ревью D1–D3: радиусы-токены, иконка категории вместо плейсхолдера фото (на странице товара), картинка, упавшая до гидрации, `Chip disabled`.
+- Коммиты: 5707197 states/404; 458fb69 ProductImage; 53078f2 product page; 0803414 dashboard, chip, radii; 201e3b3 white pill badge.
+- Тесты: `States.test` (3), `ProductImage.test` (4), ProductPage +3 (точки и бейдж, 7 предложений → «Показать все 7» + фокус, одно предложение без зелёного), 404 — ссылка в каталог, Chip disabled.
+- Проверено: typecheck, `rtk proxy pnpm lint` 0, 164 unit (33 файла), `next build`, e2e 43 passed + 3 skipped. Скриншоты prod :3100 (скрипт Playwright из `frontend-next/`, импорт из `@playwright/test`) — товар 320/390/1280, поиск (пустой и без результатов), «Аналитика» 390/1280, 404: по спеке, горизонтального скролла нет.
+- Отступление от спеки: заголовок блока — прежний «Цены в магазинах» (`card.offers`), а не «Цены в сетях» — тексты не трогали.
 
 ### Сессия 17 — 2026-10-02 (Дизайн D4a. Каталог и категория)
 - План — `docs/superpowers/plans/2026-10-02-design-system-d4a-catalog-category.md`. Полка удалена (решение после D3), в каталоге плитки категорий с иконками и сетка «Самая большая разница в цене» со «Показать ещё»; категория — сайдбар-карточки на ≥ lg, шторки фильтров и сортировки на мобильном. Детали — строки «Каталог», «Категория», «Сетка» в таблице решений.
@@ -255,14 +263,12 @@
 
 ## Следующий шаг
 
-**Дизайн D4b. Страницы** — написать план по спеке §6–§7 и выполнить: товар (блок «Цены в сетях» в белой карточке, точка цвета сети, `Badge best`/`neutral`, «Показать все N» — `show-all-offers`, характеристики карточкой, `price-page` + `Badge discount`), поиск (подсказка «Что ищем?» в карточке состояния; сортировка уже новая — `SortSelect`), аналитика (белые карточки, карта в карточке), состояния (`States.tsx` — белая карточка, иконка 32px, «Повторить» `secondary`), 404. Лендинга больше нет. Затем Next 5 (ниже).
+**Next 5. e2e и переключение** (описание ниже) — дизайн D1–D4 закончен.
 
-Перенесено из ревью D1–D3 (сделано в D4a — e2e iphone через шторки, «Фильтры · n», чипы категорий → плитки, блокировка прокрутки под шторкой уже была в `globals.css`):
-- D4: в старых местах ещё `rounded-[var(--radius-*)]` (страница товара, скелетоны страниц, дашборд) — менять на `rounded-card`/`rounded-control`; иконка категории вместо плейсхолдера фото (`lib/categoryIcons.ts`); плейсхолдер для картинки, упавшей до гидрации.
-- D4: `Sheet` — `onClose` вызывается только через событие `close` (Esc, кнопка, фон); проверить вручную Esc и блокировку прокрутки на iOS; `Chip` без стилей `disabled`; у `Button` в режиме ссылки нет `aria-*`/`onClick` — расширить, если понадобится.
+Хвосты дизайна (по желанию, мелочи):
+- `Sheet` — проверить вручную Esc и блокировку прокрутки на iOS; у `Button` в режиме ссылки нет `aria-*`/`onClick` — расширить, если понадобится.
+- Плейсхолдер-иконка категории в карточке сетки (сейчас только на странице товара) — если пользователь захочет.
 - Lint: `pnpm lint` переписывается хуком rtk на eslint — запускать `rtk proxy pnpm lint`.
-
-Отложено на после дизайна: **Next 5. e2e и переключение** (описание ниже).
 
 **Next 5. e2e и переключение** — шаги 9–10 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`: перенести из `frontend/e2e` то, что ещё не покрыто (`polish`, `http.spec.ts` — URL на `/ru/...`, порт :3100), прогнать e2e против моков и, если поднимется бэк, против http-режима; затем `frontend-next/` → `frontend/` отдельным коммитом, старый удалить, обновить README и этот журнал. По желанию до переключения: индикатор перехода (`useLinkStatus`) вместо убранных `loading.tsx`; регрессия — во вкладке поиска нет текста запроса. После деплоя (не наша зона, но напомнить): задать `NEXT_PUBLIC_SITE_URL`, Rich Results Test товара, sitemap в Search Console и Яндекс.Вебмастер.
 
