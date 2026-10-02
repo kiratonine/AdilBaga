@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { localePath, stripLanguage, switchLanguagePath } from './paths'
+import { localePath, navSection, stripLanguage, switchLanguagePath } from './paths'
 
 describe('paths', () => {
   it('prefixes a path with the language', () => {
@@ -17,5 +17,16 @@ describe('paths', () => {
   it('leaves paths without a language prefix as they are', () => {
     expect(stripLanguage('/catalog')).toBe('/catalog')
     expect(stripLanguage('/ru/catalog')).toBe('/catalog')
+  })
+
+  it('maps a page to its navigation section', () => {
+    expect(navSection('/ru/catalog')).toBe('catalog')
+    expect(navSection('/kk/collections/milk')).toBe('catalog')
+    expect(navSection('/ru/products/p1')).toBe('catalog')
+    expect(navSection('/ru/search')).toBe('search')
+    expect(navSection('/kk/dashboard')).toBe('dashboard')
+    expect(navSection('/ru')).toBeNull()
+    expect(navSection('/ru/unknown')).toBeNull()
+    expect(navSection('/ru/catalogue')).toBeNull()
   })
 })

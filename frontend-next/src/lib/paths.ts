@@ -16,3 +16,13 @@ export function stripLanguage(pathname: string): string {
   if (!isLanguage(first)) return pathname
   return `/${rest.join('/')}`
 }
+
+export type NavSection = 'catalog' | 'search' | 'dashboard'
+
+/** Раздел навигации страницы. Категории и товары — часть каталога */
+export function navSection(pathname: string): NavSection | null {
+  const [, first] = stripLanguage(pathname).split('/')
+  if (first === 'catalog' || first === 'collections' || first === 'products') return 'catalog'
+  if (first === 'search' || first === 'dashboard') return first
+  return null
+}
