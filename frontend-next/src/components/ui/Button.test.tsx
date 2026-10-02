@@ -76,6 +76,6 @@ describe('Button', () => {
 
   it('hover styles are not applied while disabled', () => {
     expect(buttonClass('primary')).toContain('not-disabled:hover:bg-ink/85')
-    expect(buttonClass('primary')).not.toMatch(/(^|s)hover:/)
+    expect(buttonClass('primary')).not.toMatch(/(^|\s)hover:/)
   })
 })
