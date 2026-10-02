@@ -3,12 +3,14 @@
 @import 'tailwindcss';
 
 /*
-  Adil Bağa — дизайн-токены.
-  Нейтральная база, один акцент: зелёный = «здесь дешевле».
-  Акцент используется только для минимальной цены и выгоды, не для декора.
+  Adil Bağa — дизайн-токены (docs/superpowers/specs/2026-10-02-design-system-design.md).
+  Нейтральная база, один акцент: зелёный = «здесь выгоднее».
+  Акцент — только минимальная цена и выгода, не кнопки, не фокус, не декор.
 */
 @theme {
-  --color-page: #ffffff;
+  /* page — серый фон страниц сайта (включается в D3), card — белые блоки */
+  --color-page: #f4f5f6;
+  --color-card: #ffffff;
   --color-surface: #f3f5f4;
   --color-line: #e2e6e4;
   --color-ink: #1a1f24;
@@ -17,12 +19,23 @@
   --color-accent-soft: #e5f2ea;
   --color-danger: #b42318;
 
+  /* Пастель плиток категорий, по индексу i % 5. Зелёной нет — зелёный занят выгодой */
+  --color-tile-1: #f6eee3;
+  --color-tile-2: #e6f0f8;
+  --color-tile-3: #efeaf7;
+  --color-tile-4: #fbeae2;
+  --color-tile-5: #fbf4d9;
+
   --font-sans: 'Golos Text Variable', system-ui, sans-serif;
-  /* Выразительный геометричный гротеск — для цен, заголовков и логотипа */
+  /* Выразительный геометричный гротеск — для цен и логотипа */
   --font-display: 'Montserrat Variable', 'Golos Text Variable', sans-serif;
 
-  --radius-card: 14px;
-  --radius-control: 10px;
+  --radius-card: 12px;
+  --radius-media: 8px;
+  --radius-control: 12px;
+
+  --shadow-hover: 0 4px 16px rgb(26 31 36 / 0.08);
+  --shadow-sheet: 0 -8px 32px rgb(26 31 36 / 0.12);
 }
 
 @layer base {
@@ -31,14 +44,16 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* Белый фон до D3: серый page включит layout группы (site) */
   body {
-    @apply bg-page text-ink font-sans antialiased;
-    font-size: 16px;
-    line-height: 1.5;
+    @apply bg-card text-ink font-sans antialiased;
+    font-size: 15px;
+    line-height: 1.47;
   }
 
+  /* Фокус — графит: зелёный оставляем только для выгоды */
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -54,6 +69,89 @@
 }
 
 @utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Шкала шрифтов дизайн-кода. Мобильный → с md (48rem) */
+@utility text-caption {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+@utility text-meta {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@utility text-card-title {
+  font-size: 14px;
+  line-height: 19px;
+
+  @media (width >= 48rem) {
+    font-size: 15px;
+    line-height: 20px;
+  }
+}
+
+@utility text-h3 {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+@utility text-h2 {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+
+  @media (width >= 48rem) {
+    font-size: 22px;
+    line-height: 28px;
+  }
+}
+
+@utility text-h1 {
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+
+  @media (width >= 48rem) {
+    font-size: 32px;
+    line-height: 38px;
+  }
+}
+
+@utility text-price-card {
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+
+  @media (width >= 48rem) {
+    font-size: 22px;
+  }
+}
+
+@utility text-price-page {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+
+  @media (width >= 48rem) {
+    font-size: 36px;
+  }
+}
+
+@utility text-price-row {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 

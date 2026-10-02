@@ -11,7 +11,7 @@ export function ProductCardSkeleton() {
   return (
     <div
       data-testid="product-card-skeleton"
-      className="flex h-full gap-4 rounded-[var(--radius-card)] border border-line bg-page p-3 sm:flex-col sm:p-4"
+      className="flex h-full gap-4 rounded-[var(--radius-card)] border border-line bg-card p-3 sm:flex-col sm:p-4"
     >
       <Skeleton className="size-24 shrink-0 rounded-[var(--radius-control)] sm:aspect-[16/10] sm:size-auto sm:w-full" />
       <div className="flex min-w-0 flex-1 flex-col">

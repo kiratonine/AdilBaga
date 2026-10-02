@@ -60,7 +60,7 @@ type ButtonProps = {
 
 export function Button({ onClick, variant = 'outline', disabled, children, testId }: ButtonProps) {
   const look =
-    variant === 'solid' ? 'bg-ink text-page hover:bg-ink/85' : 'border border-line bg-page text-ink hover:border-ink'
+    variant === 'solid' ? 'bg-ink text-card hover:bg-ink/85' : 'border border-line bg-card text-ink hover:border-ink'
   return (
     <button
       type="button"

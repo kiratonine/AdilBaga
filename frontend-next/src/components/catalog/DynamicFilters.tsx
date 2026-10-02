@@ -67,7 +67,7 @@ function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
       aria-pressed={pressed}
       onClick={onClick}
       className={`flex h-9 items-center rounded-full border px-3.5 text-sm tabular transition-colors ${
-        pressed ? 'border-ink bg-ink text-page' : 'border-line text-ink hover:border-ink/50'
+        pressed ? 'border-ink bg-ink text-card' : 'border-line text-ink hover:border-ink/50'
       }`}
     >
       {children}

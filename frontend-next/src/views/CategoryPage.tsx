@@ -75,7 +75,7 @@ export function CategoryPage({ slug }: { slug: string }) {
               >
                 {t('category.filters')}
                 {activeCount > 0 && (
-                  <span className="flex size-5 items-center justify-center rounded-full bg-ink text-xs text-page tabular">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-ink text-xs text-card tabular">
                     {activeCount}
                   </span>
                 )}

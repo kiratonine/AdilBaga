@@ -19,7 +19,7 @@ const EXAMPLE_OFFERS = [
 ]
 
 const primaryLink =
-  'inline-flex h-12 items-center rounded-[var(--radius-control)] bg-ink px-5 font-medium text-page transition-colors hover:bg-ink/85'
+  'inline-flex h-12 items-center rounded-[var(--radius-control)] bg-ink px-5 font-medium text-card transition-colors hover:bg-ink/85'
 const secondaryLink =
   'inline-flex h-12 items-center rounded-[var(--radius-control)] border border-line px-5 font-medium transition-colors hover:border-ink'
 
@@ -164,7 +164,7 @@ function SiriSection() {
               <li key={i} className={`flex ${line.from === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <p
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
-                    line.from === 'user' ? 'rounded-br-md bg-ink text-page' : 'rounded-bl-md bg-page text-ink'
+                    line.from === 'user' ? 'rounded-br-md bg-ink text-card' : 'rounded-bl-md bg-card text-ink'
                   }`}
                 >
                   <span className="sr-only">{line.from === 'user' ? t('landing.you') : t('landing.siri')}: </span>

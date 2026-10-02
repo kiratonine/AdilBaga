@@ -20,7 +20,7 @@ export function ProductCard({ product }: { product: ProductCardDto }) {
   return (
     <article
       data-testid="product-card"
-      className="relative flex gap-4 rounded-[var(--radius-card)] border border-line bg-page p-3 transition-colors hover:border-ink/40 sm:flex-col sm:p-4"
+      className="relative flex gap-4 rounded-[var(--radius-card)] border border-line bg-card p-3 transition-colors hover:border-ink/40 sm:flex-col sm:p-4"
     >
       <ProductImage src={product.imageUrl} alt={product.name} className="size-24 shrink-0 sm:aspect-[16/10] sm:size-auto sm:w-full" />
 

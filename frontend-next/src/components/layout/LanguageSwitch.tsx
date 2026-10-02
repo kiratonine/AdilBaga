@@ -49,7 +49,7 @@ export function LanguageSwitch() {
             aria-current={active ? 'true' : undefined}
             onClick={(event) => choose(event, lang, href)}
             className={`flex h-9 items-center rounded-[8px] px-2.5 text-sm font-medium transition-colors ${
-              active ? 'bg-page text-ink shadow-[0_1px_2px_rgb(26_31_36/0.08)]' : 'text-muted hover:text-ink'
+              active ? 'bg-card text-ink shadow-[0_1px_2px_rgb(26_31_36/0.08)]' : 'text-muted hover:text-ink'
             }`}
           >
             {LABELS[lang]}

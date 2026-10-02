@@ -94,7 +94,7 @@ function SearchField({ onSubmit, ...input }: FieldProps) {
         placeholder={t('search.placeholder')}
         autoComplete="off"
         enterKeyHint="search"
-        className="h-11 w-full rounded-[var(--radius-control)] bg-surface pr-4 pl-10 text-[15px] placeholder:text-muted focus:bg-page focus:outline-2 focus:outline-accent"
+        className="h-11 w-full rounded-[var(--radius-control)] bg-surface pr-4 pl-10 text-[15px] placeholder:text-muted focus:bg-card focus:outline-2 focus:outline-ink"
       />
     </form>
   )

@@ -13,7 +13,7 @@ export function SortSelect({ value, onChange }: { value: SortValue; onChange: (v
         data-testid="sort-select"
         value={value}
         onChange={(e) => onChange(e.target.value as SortValue)}
-        className="h-9 cursor-pointer rounded-[var(--radius-control)] border border-line bg-page pr-8 pl-3 font-medium"
+        className="h-9 cursor-pointer rounded-[var(--radius-control)] border border-line bg-card pr-8 pl-3 font-medium"
       >
         {SORT_VALUES.map((sort) => (
           <option key={sort} value={sort}>
