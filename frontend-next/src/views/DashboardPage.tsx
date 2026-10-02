@@ -18,7 +18,7 @@ import { useHref } from '../lib/useLang'
 // Пока грузится — серая подложка того же размера
 const StoreMap = dynamic(() => import('../components/dashboard/StoreMap'), {
   ssr: false,
-  loading: () => <div className="h-full rounded-[var(--radius-card)] bg-surface" />,
+  loading: () => <div className="h-full rounded-card bg-surface" />,
 })
 
 export function DashboardPage() {
@@ -27,7 +27,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em] md:text-[34px]">{t('dashboard.title')}</h1>
+      <h1 className="text-h1">{t('dashboard.title')}</h1>
       <p className="mt-2 max-w-[60ch] text-muted">{t('dashboard.lead')}</p>
 
       {dashboard.isPending && (
@@ -72,14 +72,14 @@ function Summary({ summary }: { summary: DashboardDto['summary'] }) {
   ]
 
   return (
-    <dl className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+    <dl className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
       {tiles.map((tile) => (
-        <div key={tile.key} data-testid="summary-card" className="flex flex-col rounded-[var(--radius-card)] bg-surface px-4 py-4 md:px-5">
+        <div key={tile.key} data-testid="summary-card" className="flex flex-col rounded-card bg-card px-4 py-4 md:px-5">
           <dt className="text-sm text-muted">{tile.label}</dt>
           <dd className="order-first font-display text-[22px] leading-tight font-bold tracking-[-0.02em] tabular sm:text-[26px] md:text-[32px]">
             {tile.value}
           </dd>
-          {tile.hint && <dd className="mt-1 text-[13px] text-muted">{tile.hint}</dd>}
+          {tile.hint && <dd className="mt-1 text-meta text-muted">{tile.hint}</dd>}
         </div>
       ))}
     </dl>
@@ -91,15 +91,15 @@ function PriceSpreads({ spreads }: { spreads: PriceSpreadDto[] }) {
   const href = useHref()
 
   return (
-    <section aria-labelledby="spreads-title" className="mt-12">
-      <h2 id="spreads-title" className="text-lg font-semibold">
+    <section aria-labelledby="spreads-title" className="mt-8 md:mt-12">
+      <h2 id="spreads-title" className="text-h2">
         {t('dashboard.spreads')}
       </h2>
       <p className="mt-1 text-sm text-muted">{t('dashboard.spreadsHint')}</p>
       {spreads.length === 0 ? (
-        <p className="mt-4 text-muted">{t('dashboard.spreadsEmpty')}</p>
+        <p className="mt-4 rounded-card bg-card px-4 py-6 text-muted md:px-5">{t('dashboard.spreadsEmpty')}</p>
       ) : (
-        <ol className="mt-4 divide-y divide-line border-y border-line">
+        <ol className="mt-4 divide-y divide-line rounded-card bg-card px-4 md:px-5">
           {spreads.map((spread) => (
             <li
               key={spread.productId}
@@ -126,19 +126,19 @@ function Stores({ locations, baskets }: { locations: StoreLocationDto[]; baskets
   const groups = groupByStore(locations)
 
   return (
-    <section aria-labelledby="stores-title" className="mt-12">
-      <h2 id="stores-title" className="text-lg font-semibold">
+    <section aria-labelledby="stores-title" className="mt-8 md:mt-12">
+      <h2 id="stores-title" className="text-h2">
         {t('dashboard.map')}
       </h2>
       <p className="mt-1 text-sm text-muted">{t('dashboard.mapHint')}</p>
 
-      <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <div className="mt-4 grid grid-cols-1 gap-5 rounded-card bg-card p-3 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:gap-6 md:p-4">
         <div className="h-[320px] md:h-[460px]">
           <StoreMap locations={locations} baskets={baskets} label={t('dashboard.map')} />
         </div>
 
         {/* Легенда и текстовый список точек — карта без него недоступна для скринридеров */}
-        <ul data-testid="store-list" className="flex flex-col gap-5">
+        <ul data-testid="store-list" className="flex flex-col gap-5 px-1 pb-1 md:py-1">
           {groups.map((group) => {
             const basket = baskets.find((b) => b.storeCode === group.storeCode)
             return (

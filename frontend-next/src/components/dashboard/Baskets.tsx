@@ -13,8 +13,8 @@ export function Baskets({ baskets }: { baskets: BasketSummary[] }) {
   const href = useHref()
 
   return (
-    <section aria-labelledby="baskets-title" className="mt-12">
-      <h2 id="baskets-title" className="text-lg font-semibold">
+    <section aria-labelledby="baskets-title" className="mt-8 md:mt-12">
+      <h2 id="baskets-title" className="text-h2">
         {t('dashboard.basket')}
       </h2>
       <p className="mt-1 text-sm text-muted">{t('dashboard.basketHint')}</p>
@@ -26,7 +26,7 @@ export function Baskets({ baskets }: { baskets: BasketSummary[] }) {
             key={basket.storeCode}
             data-testid="basket"
             data-best={basket.best || undefined}
-            className={`flex flex-col rounded-[var(--radius-card)] px-4 py-4 md:px-5 ${basket.best ? 'bg-accent-soft' : 'bg-surface'}`}
+            className={`flex flex-col rounded-card px-4 py-4 md:px-5 ${basket.best ? 'bg-accent-soft' : 'bg-card'}`}
           >
             <p className="flex items-center gap-2 font-semibold">
               <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: storeColor(basket.storeCode) }} />

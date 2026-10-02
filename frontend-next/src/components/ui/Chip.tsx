@@ -4,8 +4,8 @@ import type { ButtonHTMLAttributes } from 'react'
 export function chipClass(pressed = false, className = '') {
   const look = pressed
     ? 'bg-ink text-card'
-    : 'bg-card text-ink shadow-[inset_0_0_0_1px_var(--color-line)] hover:shadow-[inset_0_0_0_1px_rgb(26_31_36/0.5)]'
-  return `inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors md:h-9 ${look} ${className}`.trim()
+    : 'bg-card text-ink shadow-[inset_0_0_0_1px_var(--color-line)] not-disabled:hover:shadow-[inset_0_0_0_1px_rgb(26_31_36/0.5)]'
+  return `inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50 md:h-9 ${look} ${className}`.trim()
 }
 
 type ChipProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> & {

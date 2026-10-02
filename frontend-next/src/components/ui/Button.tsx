@@ -9,7 +9,7 @@ const BASE =
 
 // Размер: icon — круглая кнопка 44px под иконку (нужен aria-label)
 const SIZE: Record<ButtonSize, string> = {
-  md: 'h-11 px-[18px] rounded-[var(--radius-control)]',
+  md: 'h-11 px-[18px] rounded-control',
   icon: 'size-11 rounded-full p-0',
 }
 

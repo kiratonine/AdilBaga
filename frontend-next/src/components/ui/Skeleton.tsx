@@ -152,23 +152,28 @@ export function ProductListSkeleton({ wide = false, filters = false }: { wide?: 
   )
 }
 
+/** Белая карточка-заглушка: на сером фоне страницы surface-скелетон почти не виден */
+function CardSkeleton({ className = '' }: { className?: string }) {
+  return <span className={`block animate-pulse rounded-card bg-card motion-reduce:animate-none ${className}`} />
+}
+
 /** Как «Аналитика»: 4 плитки сводки, карточки корзин, карта со списком точек */
 export function DashboardSkeleton() {
   return (
     <div data-testid="dashboard-skeleton">
-      <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[92px] rounded-[var(--radius-card)] md:h-[104px]" />
+          <CardSkeleton key={i} className="h-[92px] md:h-[104px]" />
         ))}
       </div>
-      <Skeleton className="mt-12 h-5 w-48" />
+      <Skeleton className="mt-8 h-6 w-48 md:mt-12 md:h-7" />
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-[132px] rounded-[var(--radius-card)]" />
+          <CardSkeleton key={i} className="h-[132px]" />
         ))}
       </div>
-      <Skeleton className="mt-12 h-5 w-40" />
-      <Skeleton className="mt-4 h-[320px] rounded-[var(--radius-card)] md:h-[460px]" />
+      <Skeleton className="mt-8 h-6 w-40 md:mt-12 md:h-7" />
+      <CardSkeleton className="mt-4 h-[344px] md:h-[492px]" />
     </div>
   )
 }
