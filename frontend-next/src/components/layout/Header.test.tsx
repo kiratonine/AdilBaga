@@ -16,7 +16,7 @@ describe('Header', () => {
     expect(screen.getByTestId('nav-catalog')).toHaveAttribute('aria-current', 'page')
     expect(screen.getByTestId('nav-dashboard')).toHaveAttribute('href', '/kk/dashboard')
     expect(screen.getByTestId('nav-dashboard')).toHaveTextContent('Талдау')
-    expect(screen.getByRole('link', { name: 'Adil Bağa' })).toHaveAttribute('href', '/kk')
+    expect(screen.getByRole('link', { name: 'Adil Bağa' })).toHaveAttribute('href', '/kk/catalog')
   })
 
   it('marks the catalog active on category and product pages too', () => {

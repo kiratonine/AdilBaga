@@ -1,6 +1,6 @@
 // Картинки для соцсетей (Open Graph, 1200×630) на каждый язык → public/og/<lang>.png.
 // Рисует Playwright: next/og не читает woff2, а кириллица Golos/Montserrat есть только в woff2 из fontsource.
-// Запуск: pnpm og (после правки текстов brand/landing в словарях). PW_CHANNEL=chrome — через установленный Chrome
+// Запуск: pnpm og (после правки `brand` в словарях или текстов ниже). PW_CHANNEL=chrome — через установленный Chrome
 import { chromium } from '@playwright/test'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -11,7 +11,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const fontCss = (pkg) => pathToFileURL(join(root, 'node_modules', '@fontsource-variable', pkg, 'index.css')).href
 const languages = ['ru', 'kk']
 
-// Пример — как в hero лендинга: одна позиция, самая низкая цена выделена
+// Заголовок и пример (одна позиция, самая низкая цена выделена) — тексты бывшего лендинга, в словарях их больше нет
+const texts = {
+  ru: { title: 'Где продукты в Актау выгоднее', exampleProduct: 'Молоко 3,2%, 1 л', exampleCheapest: 'Выгоднее всего' },
+  kk: { title: 'Ақтауда азық-түлік қай жерде тиімді', exampleProduct: 'Сүт 3,2%, 1 л', exampleCheapest: 'Ең тиімді' },
+}
+
 const offers = [
   { store: 'Dina', color: '#2a78d6', price: '570 ₸', best: true },
   { store: 'Dana', color: '#eb6834', price: '610 ₸' },
@@ -20,7 +25,7 @@ const offers = [
 
 const logo = `<svg viewBox="0 0 32 32" width="64" height="64"><path d="M11.2 6H26a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H11.2a2 2 0 0 1-1.5-.7l-6-8a2 2 0 0 1 0-2.6l6-8a2 2 0 0 1 1.5-.7Z" fill="#17744a"/><circle cx="10.6" cy="16" r="1.9" fill="#fff"/><path d="M16 13.2h8M16 18.8h8" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`
 
-const html = (t) => `<!doctype html>
+const html = (t, og) => `<!doctype html>
 <html><head><meta charset="utf-8">
 <link rel="stylesheet" href="${fontCss('golos-text')}">
 <link rel="stylesheet" href="${fontCss('montserrat')}">
@@ -46,17 +51,17 @@ const html = (t) => `<!doctype html>
 <body>
   <div>
     <div class="brand display">${logo}${t.brand.name}</div>
-    <h1 class="display">${t.landing.title}</h1>
+    <h1 class="display">${og.title}</h1>
     <p class="tagline">${t.brand.tagline}</p>
   </div>
   <div class="card">
-    <p class="product">${t.landing.exampleProduct}</p>
+    <p class="product">${og.exampleProduct}</p>
     ${offers
       .map(
         (o) => `<div class="row${o.best ? ' best' : ''}"><span class="store"><span class="dot" style="background:${o.color}"></span>${o.store}</span><span class="price display">${o.price}</span></div>`,
       )
       .join('')}
-    <p class="label">${t.landing.exampleCheapest}</p>
+    <p class="label">${og.exampleCheapest}</p>
   </div>
 </body></html>`
 
@@ -69,7 +74,7 @@ try {
   for (const lang of languages) {
     const t = JSON.parse(readFileSync(join(root, 'src', 'i18n', `${lang}.json`), 'utf8'))
     const file = join(tmp, `${lang}.html`)
-    writeFileSync(file, html(t))
+    writeFileSync(file, html(t, texts[lang]))
     await page.goto(pathToFileURL(file).href)
     await page.evaluate(() => document.fonts.ready)
     await page.screenshot({ path: join(outDir, `${lang}.png`) })

@@ -24,22 +24,22 @@ describe('languageFromHeader', () => {
 })
 
 describe('proxy', () => {
-  it('sends / to the language from Accept-Language with a temporary redirect', () => {
+  it('sends / to the catalog in the language from Accept-Language with a temporary redirect', () => {
     const response = proxy(request('/', { 'accept-language': 'kk-KZ,ru;q=0.5' }))
     expect(response.status).toBe(307)
-    expect(location(response)).toBe('https://adilbaga.kz/kk')
+    expect(location(response)).toBe('https://adilbaga.kz/kk/catalog')
   })
 
   it('defaults to Russian', () => {
-    expect(location(proxy(request('/')))).toBe('https://adilbaga.kz/ru')
-    expect(location(proxy(request('/', { 'accept-language': 'en' })))).toBe('https://adilbaga.kz/ru')
+    expect(location(proxy(request('/')))).toBe('https://adilbaga.kz/ru/catalog')
+    expect(location(proxy(request('/', { 'accept-language': 'en' })))).toBe('https://adilbaga.kz/ru/catalog')
   })
 
   it('prefers the remembered choice over Accept-Language', () => {
     const response = proxy(request('/', { 'accept-language': 'ru', cookie: 'lang=kk' }))
-    expect(location(response)).toBe('https://adilbaga.kz/kk')
+    expect(location(response)).toBe('https://adilbaga.kz/kk/catalog')
     // Мусор в cookie игнорируется
-    expect(location(proxy(request('/', { 'accept-language': 'kk', cookie: 'lang=en' })))).toBe('https://adilbaga.kz/kk')
+    expect(location(proxy(request('/', { 'accept-language': 'kk', cookie: 'lang=en' })))).toBe('https://adilbaga.kz/kk/catalog')
   })
 
   it('permanently redirects old SPA URLs keeping the query', () => {

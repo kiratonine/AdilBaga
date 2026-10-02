@@ -37,8 +37,8 @@ test.describe('SEO', () => {
     expect(jsonLd(html)[0]).toMatchObject({ '@type': 'BreadcrumbList' })
   })
 
-  test('landing, catalog and dashboard have descriptions and canonicals', async ({ request }) => {
-    for (const path of ['/ru', '/kk/catalog', '/ru/dashboard']) {
+  test('catalog and dashboard have descriptions and canonicals', async ({ request }) => {
+    for (const path of ['/ru/catalog', '/kk/catalog', '/ru/dashboard']) {
       const html = await (await request.get(path)).text()
       expect(html, path).toMatch(/<meta name="description" content="[^"]{60,}"/)
       expect(html, path).toMatch(link('canonical', path))

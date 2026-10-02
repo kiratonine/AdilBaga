@@ -1,19 +1,10 @@
-import type { Metadata } from 'next'
-import { Main } from '../../components/layout/Main'
-import { getI18n, isLanguage } from '../../i18n'
-import { pageMetadata } from '../../lib/seo'
-import { LandingPage } from '../../views/LandingPage'
+import { notFound, permanentRedirect } from 'next/navigation'
+import { isLanguage } from '../../i18n'
+import { localePath } from '../../lib/paths'
 
-export async function generateMetadata({ params }: PageProps<'/[lang]'>): Promise<Metadata> {
+// Лендинга больше нет: главная языка — каталог. `/` proxy ведёт туда сразу, сюда попадают старые ссылки на /ru, /kk
+export default async function Page({ params }: PageProps<'/[lang]'>) {
   const { lang } = await params
-  return isLanguage(lang) ? pageMetadata({ lang, path: '/', description: getI18n(lang).t('meta.landing') }) : {}
-}
-
-// Лендинг — без шапки сайта (она в группе (site)), выбор языка — в самой странице. Тексты статичные, API не нужен
-export default function Page() {
-  return (
-    <Main>
-      <LandingPage />
-    </Main>
-  )
+  if (!isLanguage(lang)) notFound()
+  permanentRedirect(localePath(lang, '/catalog'))
 }

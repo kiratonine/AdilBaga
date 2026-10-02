@@ -39,8 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const snapshot = dashboard.summary.snapshotAt
 
   return [
-    ...localized('/', { lastModified: snapshot, priority: 1 }),
-    ...localized('/catalog', { lastModified: snapshot, changeFrequency: 'daily', priority: 0.9 }),
+    // /ru и /kk — редирект на каталог, в sitemap им не место
+    ...localized('/catalog', { lastModified: snapshot, changeFrequency: 'daily', priority: 1 }),
     ...localized('/dashboard', { lastModified: snapshot, changeFrequency: 'daily', priority: 0.6 }),
     ...categories.flatMap((category) =>
       localized(`/collections/${category.slug}`, { lastModified: snapshot, changeFrequency: 'daily', priority: 0.8 }),

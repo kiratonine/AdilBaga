@@ -23,8 +23,8 @@ export function preferredLanguage(request: NextRequest): Language {
 }
 
 /**
- * Все страницы живут под /ru и /kk. `/` ведёт на язык пользователя (временный редирект — ответ зависит от него),
- * старые адреса без префикса (/catalog, /products/1 из SPA) — постоянный редирект, query сохраняется
+ * Все страницы живут под /ru и /kk. `/` ведёт в каталог на языке пользователя (временный редирект — ответ зависит
+ * от него), старые адреса без префикса (/catalog, /products/1 из SPA) — постоянный редирект, query сохраняется
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -33,7 +33,7 @@ export function proxy(request: NextRequest) {
 
   const url = request.nextUrl.clone()
   const lang = preferredLanguage(request)
-  url.pathname = pathname === '/' ? `/${lang}` : `/${lang}${pathname}`
+  url.pathname = pathname === '/' ? `/${lang}/catalog` : `/${lang}${pathname}`
   return NextResponse.redirect(url, pathname === '/' ? 307 : 308)
 }
 

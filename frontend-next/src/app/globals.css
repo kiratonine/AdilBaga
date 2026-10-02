@@ -44,7 +44,7 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* Белый — для лендинга; страницы сайта красит в page обёртка SitePage */
+  /* Белый — под футером; страницы сайта красит в page обёртка SitePage */
   body {
     @apply bg-card text-ink font-sans antialiased;
     font-size: 15px;

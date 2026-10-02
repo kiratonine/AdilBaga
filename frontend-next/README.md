@@ -32,7 +32,7 @@ pnpm dev                     # http://localhost:3000
 | title, description, canonical, hreflang (ru/kk/x-default), Open Graph | `pageMetadata` в `src/lib/seo.ts`, вызывается из `generateMetadata` страниц; тексты — `meta.*` в словарях |
 | JSON-LD: `Product` + `AggregateOffer`, `BreadcrumbList` | `src/lib/structuredData.ts`, компонент `src/components/seo/JsonLd.tsx` |
 | `/sitemap.xml`, `/robots.txt` | `src/app/sitemap.ts` (страницы, категории, товары из API на обоих языках), `src/app/robots.ts` |
-| Картинка для соцсетей | `public/og/{ru,kk}.png`, генерирует `pnpm og` (Playwright, шрифты сайта) — перезапустить после правки текстов `brand`/`landing` |
+| Картинка для соцсетей | `public/og/{ru,kk}.png`, генерирует `pnpm og` (Playwright, шрифты сайта) — перезапустить после правки `brand` в словарях или текстов в самом скрипте |
 
 Поиск — `noindex, follow`, в sitemap не входит. После деплоя: Rich Results Test для страницы товара, sitemap — в Google Search Console и Яндекс.Вебмастер.
 

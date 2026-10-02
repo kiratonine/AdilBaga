@@ -16,7 +16,7 @@ export function SkipLink() {
   )
 }
 
-/** Цель skip-link. Общая для страниц с шапкой и лендинга без неё. Нижний отступ — до футера */
+/** Цель skip-link. Общая для страниц сайта и 404. Нижний отступ — до футера */
 export function Main({ children }: { children: ReactNode }) {
   return (
     <main id="main" tabIndex={-1} className="container-page flex-1 pt-8 pb-12 focus:outline-none md:pb-20">
