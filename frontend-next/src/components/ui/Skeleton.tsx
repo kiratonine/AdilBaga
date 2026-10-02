@@ -1,3 +1,5 @@
+import { SHELF_ROW, productGridClass } from '../product/layout'
+
 /**
  * Скелетоны повторяют геометрию настоящих блоков, чтобы при подмене данными ничего не прыгало.
  * Только форма, без текста: для скринридера состояние объявляет LoadingState
@@ -6,29 +8,33 @@ export function Skeleton({ className = '' }: { className?: string }) {
   return <span className={`block animate-pulse rounded-md bg-surface motion-reduce:animate-none ${className}`} />
 }
 
-/** Как ProductCard: на мобильном картинка слева, с sm — сверху */
-export function ProductCardSkeleton() {
+/** Как ProductCard (вариант A): квадратное фото, цена, название, сети, дата. compact — как карточка полки */
+export function ProductCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div
       data-testid="product-card-skeleton"
-      className="flex h-full gap-4 rounded-[var(--radius-card)] border border-line bg-card p-3 sm:flex-col sm:p-4"
+      className={`flex h-full flex-col rounded-card bg-card p-2 md:p-3 ${compact ? 'w-37.5 shrink-0 md:w-50' : ''}`}
     >
-      <Skeleton className="size-24 shrink-0 rounded-[var(--radius-control)] sm:aspect-[16/10] sm:size-auto sm:w-full" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Skeleton className="h-3 w-1/3" />
-        <Skeleton className="mt-2 h-4 w-full" />
-        <Skeleton className="mt-1.5 h-4 w-2/3" />
-        <Skeleton className="mt-3 h-[22px] w-24" />
-        <div className="mt-4 flex flex-col gap-2">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="flex justify-between gap-3 px-2">
-              <Skeleton className="h-3.5 w-16" />
-              <Skeleton className="h-3.5 w-12" />
-            </div>
-          ))}
-        </div>
-        <Skeleton className="mt-4 h-3 w-28" />
-      </div>
+      <Skeleton className="aspect-square w-full rounded-media" />
+      <Skeleton className="mt-2.5 h-[18px] w-20 md:h-[22px]" />
+      <Skeleton className="mt-2 h-3.5 w-3/4" />
+      <Skeleton className="mt-2 h-4 w-full" />
+      <Skeleton className="mt-1 h-4 w-2/3" />
+      {!compact && (
+        <>
+          <div className="mt-2.5 flex flex-col gap-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex justify-between gap-2 px-1.5">
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-3 w-10" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-auto pt-2">
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -36,10 +42,23 @@ export function ProductCardSkeleton() {
 /** Сетка как у ProductGrid. count по умолчанию — один ряд на широком экране */
 export function ProductGridSkeleton({ count = 4, wide = false }: { count?: number; wide?: boolean }) {
   return (
-    <ul className={`grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 ${wide ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+    <ul className={productGridClass(wide)}>
       {Array.from({ length: count }, (_, i) => (
         <li key={i}>
           <ProductCardSkeleton />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Ряд полки: компактные карточки, лишние уходят за край, как у настоящей полки */
+export function ShelfSkeleton({ count = 8 }: { count?: number }) {
+  return (
+    <ul className={`${SHELF_ROW} overflow-hidden pb-2`}>
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className="flex">
+          <ProductCardSkeleton compact />
         </li>
       ))}
     </ul>
