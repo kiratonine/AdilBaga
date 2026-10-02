@@ -14,7 +14,7 @@
 | Тесты | Vitest + Testing Library (unit), Playwright (E2E) |
 | Карта | Leaflet + OpenStreetMap (react-leaflet), без ключей |
 | Языки UI | **ru** (default) + **kk**, i18n через `react-i18next`. Данные товаров остаются как с бэка (ru) |
-| Дизайн | Минималистично, **без мотивов флага**. Белый фон, графит `ink #1A1F24`, серый `surface #F3F5F4`, один акцент — зелёный `accent #17744A` = «здесь дешевле» (только min price / выгода). Шрифты: Golos Text (UI) + **Montserrat** (цены — bold, логотип — extrabold; выбран пользователем в сессии 6 из сравнения 9 шрифтов, до этого Unbounded → Onest). Шрифты без казахских букв (Manrope, Jost) не подходят, self-host через `@fontsource-variable`. Лого: зелёный ценник со знаком «=». Токены — `@theme` в `src/index.css` |
+| Дизайн | Минималистично, **без мотивов флага**. Белый фон, графит `ink #1A1F24`, серый `surface #F3F5F4`, один акцент — зелёный `accent #17744A` = «здесь дешевле» (только min price / выгода). Шрифты: Golos Text (UI) + **Montserrat** (цены — bold, логотип — extrabold; выбран пользователем в сессии 6 из сравнения 9 шрифтов, до этого Unbounded → Onest). Шрифты без казахских букв (Manrope, Jost) не подходят, self-host через `@fontsource-variable`. Лого: зелёный ценник со знаком «=». Токены — `@theme` в `src/index.css` Дизайн-код — `docs/superpowers/specs/2026-10-02-design-system-design.md` (токены `page`/`card`, шкала `text-*`, примитивы `components/ui/`: Button, Chip, Badge, Segmented, Icon, Sheet). Фокус — графит, не зелёный. Base 15px |
 | Деплой | **Не наша зона** — фронтенд деплой не делает (решение пользователя, сессия 6) |
 | Репо | `https://github.com/kiratonine/AdilBaga`, ветка `feat/frontend`, код в `frontend/**` |
 | Роуты | `/` — лендинг (сессия 7), `/catalog` — каталог (категории + товары с наибольшей экономией), `/collections/:slug` — категория, `/search?q=` — поиск по всем категориям, `/products/:id` — страница товара, `/dashboard` |
@@ -98,6 +98,12 @@
 ---
 
 ## Журнал
+
+### Сессия 15 — 2026-10-02 (Дизайн D1. Токены и примитивы)
+- Токены (`page`/`card`/`surface`/`line`/`ink`/`muted`/`accent`/`danger`/`tile-1…5`, радиусы, тени, шкала `text-*`, base 15px) и примитивы `components/ui/`: Button (primary/secondary/ghost, 44px), Chip, Badge, Segmented (RU/KZ — таблетка), Icon (линейный набор), Sheet (нижняя шторка на нативном `<dialog>`). Фон `body` в D1 остаётся белым (`bg-card`), серый `page` включается в D3. Фокус — графитовая рамка 2px.
+- Коммиты: e7ca6c8 design tokens — card/page split, type scale, radii; 43798e6 logo glyph uses card token; 188c614 Button primitive; 766314f allow class-helper exports in lint; dff4840 Chip and Badge; 7348123 Segmented, pill language switch; 676f88f line icon set; 537d7ca bottom Sheet on native dialog.
+- Заметки: lint разрешает экспорт class-helper'ов (`buttonClass`, `chipClass`, `segmentClass` в `.oxlintrc.json` → `allowExportNames`); в `test/setup.ts` — заглушка `<dialog>` для jsdom; i18n-ключ `common.close`.
+- Проверено: typecheck, `rtk proxy pnpm lint` 0, 127 unit (29 файлов), `next build`. Скриншоты `/ru`, `/ru/catalog`, товар на 390 и 1280 (prod, :3100): фон белый, шапка и карточки белые, фокус по Tab — графитовая рамка, RU/KZ — таблетка, серых «дыр» нет. Блокировку прокрутки под шторкой проверить в D4 (потребителей пока нет).
 
 ### Сессия 14 — 2026-10-02 (Next 4. SEO)
 - Metadata всех индексируемых страниц (description, canonical, hreflang ru/kk/x-default, Open Graph, Twitter card), JSON-LD `Product` + `AggregateOffer` и `BreadcrumbList`, `sitemap.xml`, `robots.txt`, OG-картинки на оба языка. Детали — строки «Next: metadata / SEO-адрес / JSON-LD / sitemap/robots / OG-картинка» в таблице решений.
@@ -226,6 +232,10 @@
 ---
 
 ## Следующий шаг
+
+**Дизайн D2. Карточка и полка** — написать план по спеке §4 (`docs/superpowers/specs/2026-10-02-design-system-design.md`) и выполнить. Дальше по спеке D3–D4; затем Next 5 (ниже).
+
+Отложено на после дизайна: **Next 5. e2e и переключение** (описание ниже).
 
 **Next 5. e2e и переключение** — шаги 9–10 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`: перенести из `frontend/e2e` то, что ещё не покрыто (`polish`, `http.spec.ts` — URL на `/ru/...`, порт :3100), прогнать e2e против моков и, если поднимется бэк, против http-режима; затем `frontend-next/` → `frontend/` отдельным коммитом, старый удалить, обновить README и этот журнал. По желанию до переключения: индикатор перехода (`useLinkStatus`) вместо убранных `loading.tsx`; регрессия — во вкладке поиска нет текста запроса. После деплоя (не наша зона, но напомнить): задать `NEXT_PUBLIC_SITE_URL`, Rich Results Test товара, sitemap в Search Console и Яндекс.Вебмастер.
 
