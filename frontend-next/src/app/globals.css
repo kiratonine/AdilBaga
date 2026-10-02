@@ -66,6 +66,11 @@
       animation-duration: 0.01ms !important;
     }
   }
+
+  /* Под открытой шторкой страница не прокручивается */
+  body:has(dialog[open]) {
+    overflow: hidden;
+  }
 }
 
 @utility tabular {
