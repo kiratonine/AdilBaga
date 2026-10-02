@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { LANGUAGE_COOKIE, LANGUAGES, type Language } from '../../i18n'
 import { switchLanguagePath } from '../../lib/paths'
 import { useLang } from '../../lib/useLang'
+import { Segmented, segmentClass } from '../ui/Segmented'
 
 const LABELS: Record<Language, string> = { ru: 'Рус', kk: 'Қаз' }
 const YEAR_SECONDS = 60 * 60 * 24 * 365
@@ -34,7 +35,7 @@ export function LanguageSwitch() {
   }
 
   return (
-    <div role="group" aria-label={t('nav.language')} className="flex rounded-[var(--radius-control)] bg-surface p-0.5">
+    <Segmented label={t('nav.language')}>
       {LANGUAGES.map((lang) => {
         const active = lang === current
         const href = switchLanguagePath(pathname, lang)
@@ -48,14 +49,12 @@ export function LanguageSwitch() {
             prefetch={false}
             aria-current={active ? 'true' : undefined}
             onClick={(event) => choose(event, lang, href)}
-            className={`flex h-9 items-center rounded-[8px] px-2.5 text-sm font-medium transition-colors ${
-              active ? 'bg-card text-ink shadow-[0_1px_2px_rgb(26_31_36/0.08)]' : 'text-muted hover:text-ink'
-            }`}
+            className={segmentClass(active)}
           >
             {LABELS[lang]}
           </Link>
         )
       })}
-    </div>
+    </Segmented>
   )
 }
