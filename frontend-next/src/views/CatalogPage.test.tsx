@@ -4,14 +4,17 @@ import { renderPage } from '../test/render'
 import { CatalogPage } from './CatalogPage'
 
 describe('CatalogPage', () => {
-  it('shows top price spreads with the snapshot date', async () => {
+  it('shows top price spreads on a shelf of compact cards', async () => {
     renderPage(<CatalogPage />, '/ru/catalog')
     const cards = await screen.findAllByTestId('product-card', {}, { timeout: 3000 })
     expect(cards).toHaveLength(8)
     const link = within(cards[0]).getByRole('link')
     expect(link).toHaveTextContent('Молоко Lactel безлактозное 1% 900 мл')
     expect(link.getAttribute('href')).toMatch(/^\/ru\/products\//)
-    expect(within(cards[0]).getByTestId('snapshot-date')).toHaveTextContent('Цена на 24.09.2026')
+    expect(within(screen.getByTestId('shelf')).getAllByTestId('product-card')).toHaveLength(8)
+    expect(screen.getByRole('heading', { level: 2, name: 'Самая большая разница в цене' })).toBeInTheDocument()
+    // Компактная карточка — без списка сетей и даты
+    expect(within(cards[0]).queryByTestId('offer-list')).not.toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/реальном времени/i)
   })
 

@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 import { TOP_DEALS, topDealIds, useCategories, useDashboard, useProductsByIds } from '../api/queries'
-import { ProductGrid } from '../components/product/ProductGrid'
-import { ChipsSkeleton, ProductGridSkeleton } from '../components/ui/Skeleton'
+import { Shelf } from '../components/product/Shelf'
+import { ChipsSkeleton, ShelfSkeleton } from '../components/ui/Skeleton'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { useHref } from '../lib/useLang'
 
@@ -58,20 +58,16 @@ function TopDeals() {
   const loading = dashboard.isPending || (ids.length > 0 && products.isPending)
 
   return (
-    <section aria-labelledby="deals-title" className="mt-12">
-      <h2 id="deals-title" className="text-lg font-semibold">
-        {t('home.deals')}
-      </h2>
-      <div className="mt-4">
+    <div className="mt-12">
+      <Shelf title={t('home.deals')} products={loading ? undefined : products.data}>
         {loading && (
           <LoadingState>
-            <ProductGridSkeleton count={TOP_DEALS} wide />
+            <ShelfSkeleton count={TOP_DEALS} />
           </LoadingState>
         )}
         {dashboard.isError && <ErrorState onRetry={() => dashboard.refetch()} />}
         {products.isError && <ErrorState onRetry={products.refetch} />}
-        {!loading && products.data.length > 0 && <ProductGrid products={products.data} wide />}
-      </div>
-    </section>
+      </Shelf>
+    </div>
   )
 }
