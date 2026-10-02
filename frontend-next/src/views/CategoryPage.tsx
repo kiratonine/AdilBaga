@@ -116,6 +116,7 @@ export function CategoryPage({ slug }: { slug: string }) {
                 <EmptyState
                   title={t(activeCount > 0 ? 'category.emptyFiltered' : 'category.empty')}
                   hint={activeCount > 0 ? t('category.emptyFilteredHint') : undefined}
+                  icon={activeCount > 0 ? 'sliders' : 'basket'}
                   action={activeCount > 0 && <Button onClick={resetFilters}>{t('category.reset')}</Button>}
                 />
               )}

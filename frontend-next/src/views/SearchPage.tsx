@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { useProductPages } from '../api/queries'
@@ -27,7 +26,7 @@ export function SearchPage() {
 
   return (
     <>
-      <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em] break-words md:text-[34px]">
+      <h1 className="text-h1 break-words">
         {title}
       </h1>
 
@@ -56,9 +55,9 @@ export function SearchPage() {
               title={t('search.empty', { query: q })}
               hint={t('search.emptyHint')}
               action={
-                <Link href={href('/catalog')} className="font-medium text-accent underline underline-offset-4">
+                <Button href={href('/catalog')} variant="secondary">
                   {t('state.toCatalog')}
-                </Link>
+                </Button>
               }
             />
           )}
@@ -92,7 +91,7 @@ export function SearchPageFallback() {
   const { t } = useTranslation()
   return (
     <>
-      <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em] md:text-[34px]">{t('search.title')}</h1>
+      <h1 className="text-h1">{t('search.title')}</h1>
       <div className="mt-6">
         <LoadingState>
           <ProductGridSkeleton count={8} wide />

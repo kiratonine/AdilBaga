@@ -53,7 +53,8 @@ describe('ProductPage', () => {
 
   it('shows not found for an unknown product', async () => {
     renderPage(<ProductPage id="nope" />, '/ru/products/nope')
-    expect(await screen.findByText('Такой страницы нет')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Такой страницы нет' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Перейти в каталог' })).toHaveAttribute('href', '/ru/catalog')
   })
 })
 

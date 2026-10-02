@@ -1,19 +1,20 @@
 'use client'
 
-import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
+import { Button } from '../components/ui/Button'
+import { StateCard } from '../components/ui/States'
 import { useHref } from '../lib/useLang'
 
 export function NotFoundPage() {
   const { t } = useTranslation()
   const href = useHref()
   return (
-    <div className="py-16">
+    <StateCard icon="search">
       <title>{`${t('state.notFound')} — ${t('brand.name')}`}</title>
-      <h1 className="text-[28px] font-semibold">{t('state.notFound')}</h1>
-      <Link href={href('/catalog')} className="mt-4 inline-block font-medium text-accent underline underline-offset-4">
+      <h1 className="text-h1">{t('state.notFound')}</h1>
+      <Button href={href('/catalog')} variant="primary" className="mt-1">
         {t('state.toCatalog')}
-      </Link>
-    </div>
+      </Button>
+    </StateCard>
   )
 }
