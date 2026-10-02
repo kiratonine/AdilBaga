@@ -42,6 +42,7 @@
 | Одно предложение | Если у товара одна цена (в датасете backend-2 так у большинства) — **без зелёной подсветки** и без «Дешевле всего»: на странице товара «Цена» вместо «Самая низкая цена» и подпись «Только в этой сети». Ключ offer — `storeCode-index` |
 | Фактический DTO бэка | `attributes` — значения могут быть `null` (не показываем); `FilterDto.options` у multi-select необязательны и бывают boolean (фильтр без options скрыт, boolean → «Да/Нет») |
 | E2E http | `E2E_API=http PW_CHANNEL=chrome pnpm test:e2e` → только `e2e/http.spec.ts`, preview на **:4174**, ожидания берутся из API (data-agnostic). Обычный прогон этот spec игнорирует |
+| Next (`frontend-next/`) | Next **16.3** (App Router, Turbopack), `src/`-раскладка: `src/app` — только роуты, остальное (`api`, `lib`, `components`, `i18n`, `mocks`) — как в старом фронте, относительные импорты. Env: `NEXT_PUBLIC_API_MODE`, `NEXT_PUBLIC_API_BASE_URL` (браузер, подставляются при сборке), `API_BASE_URL` (сервер, внутренний адрес; не задан — публичный) — `createCatalogApi` в `api/catalogApi.ts`. Шрифты — по-прежнему fontsource в `globals.css` (офлайн-сборка, unicode-range с казахскими буквами). `Providers.tsx` — QueryClient + i18n. Компоненты с хуками — `'use client'`. В Next 16 middleware называется **`src/proxy.ts`**. `typecheck` = `next typegen && tsc` (глобальные `LayoutProps`/`PageProps`). Unit-тесты: `next/link` в jsdom работает без моков. E2E на :3100 |
 | Цвета сетей | `lib/stores.ts`: DINA `#2a78d6`, DANA `#eb6834`, FIX_PRICE `#4a3aa7` (прошли валидатор dataviz: CVD/контраст), неизвестная сеть — `#697178`. Зелёный для сетей не используем |
 
 Моки и типы приведены к **подтверждённому** контракту Backend 1 (см. `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`).
@@ -63,8 +64,8 @@
 | 8 | Лендинг на `/` | ✅ (тексты — за пользователем) |
 | 9 | Корзина на «Аналитике» | ✅ контракт согласован (08), проверено против бэка на фикстурах |
 | 10 | План переезда на Next.js (ради SEO) — `08_NEXTJS_MIGRATION_PLAN.md` | ✅ |
-| 11 | **Next 1. Каркас и перенос** (шаги 1–3): `frontend-next/`, lib/api/components, unit-тесты зелёные | ⏳ следующая |
-| 12 | **Next 2. Язык и роутинг** (шаги 4–5): `/ru`, `/kk`, middleware, Layout, Landing + Catalog | — |
+| 11 | **Next 1. Каркас и перенос** (шаги 1–3): `frontend-next/`, lib/api/components, unit-тесты зелёные | ✅ |
+| 12 | **Next 2. Язык и роутинг** (шаги 4–5): `/ru`, `/kk`, middleware, Layout, Landing + Catalog | ⏳ следующая |
 | 13 | **Next 3. Страницы с SSR** (шаги 6, 8): Category, Product, Search, Dashboard, NotFound | — |
 | 14 | **Next 4. SEO** (шаг 7): metadata, hreflang, JSON-LD, sitemap, robots, OG | — |
 | 15 | **Next 5. e2e и переключение** (шаги 9–10): `frontend-next/` → `frontend/` | — |
@@ -80,6 +81,15 @@
 ---
 
 ## Журнал
+
+### Сессия 11 — 2026-10-02 (Next 1. Каркас и перенос)
+- `frontend-next/` через `create-next-app@16.3.8` (TS, Tailwind 4, App Router, `src/`), версии зависимостей — как в `frontend/` (TS 6, Vitest 5, oxlint, Playwright). `pnpm-workspace.yaml` от шаблона удалён (pnpm падал на пустом `packages`). `AGENTS.md`/`CLAUDE.md` шаблона оставлены — `next dev` их пересоздаёт.
+- Перенесены без изменений логики: `api/*`, `lib/*` (кроме `useDocumentTitle` — заменит `generateMetadata`), `mocks/`, `scripts/generate-mocks.mjs`, `i18n` (ru/kk), компоненты `catalog`, `dashboard` (Baskets, StoreMap), `product`, `ui`, `layout/Logo` и `Footer`, `index.css` → `app/globals.css`, favicon → `app/icon.svg`. `react-router` `Link to` → `next/link` `href` (ProductCard, Baskets, Logo; ссылки пока без префикса языка).
+- **Не перенесены (сессия Next 2):** Header, Layout, LanguageSwitch, SearchBox, все pages, `test/render.tsx`. i18n временно с фиксированным `ru`, без localStorage.
+- `catalogApi`: `createCatalogApi(env, isServer)` + тест (3). Временные `app/layout.tsx` (html lang=ru, Providers, Footer) и `app/page.tsx` (async server component: топ-8 разброса из `catalogApi` → `ProductGrid`) — проверка, что карточки с ценами приходят в HTML.
+- oxlint (1.86) новое правило `react/purity` на `new Date()` в Footer — отключено комментарием; `only-export-components` разрешает `metadata`/`generateMetadata`/`viewport`/`revalidate`.
+- Проверено: typecheck, oxlint 0 предупреждений, 44 unit-теста (lib, api, DynamicFilters, ProductCard), `next build`, `curl` — 8 карточек с ценами и ссылками в HTML, E2E `e2e/smoke.spec.ts` 4 passed (desktop+iPhone: SSR-HTML, гидрация без ошибок консоли), скриншот 1280 — вёрстка и шрифты как в старом фронте.
+- Заметка: `python` в этой среде — заглушка Windows Store (молча ничего не делает), скрипты — через `node -e`.
 
 ### Сессия 10 — 2026-10-02
 - Проект выиграл конкурс, покупается домен → нужно SEO. Решено переехать с Vite SPA на **Next.js (App Router)**. Бэк переезжает на Go — не наша зона, контракт по-прежнему через Backend 1; для фронта это смена адреса API в `catalogApi`.
@@ -175,7 +185,7 @@
 
 ## Следующий шаг
 
-**Next 1. Каркас и перенос** — шаги 1–3 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`. В начале сессии прочитать этот файл и план.
+**Next 2. Язык и роутинг** — шаги 4–5 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`. В начале сессии прочитать этот файл и план. Сделать: `src/proxy.ts` (не middleware — Next 16) с редиректом `/` → `/ru|/kk` по cookie/Accept-Language и 301 со старых URL без префикса; `app/[lang]/layout.tsx` (перенести туда `<html lang>`, Providers, Footer из временного `app/layout.tsx`); хелпер `href(lang, path)` и префикс во всех ссылках (ProductCard, Baskets, Logo уже на `next/link`); i18n из `params.lang`; перенести Header, Layout (skip-link), LanguageSwitch (меняет префикс + cookie), SearchBox (`next/navigation`), LandingPage и HomePage (каталог); удалить временный `app/page.tsx`; `test/render.tsx` с моками `next/navigation` и перенос Layout/Landing-тестов.
 
 Старое (до решения о переезде): **фронт по плану закончен.** Осталась одна задача, и она ждёт бэк: когда Backend 1 подключит к API датасет backend-2 (или ветки смёржат в `main`), поднять бэк, прогнать `E2E_API=http PW_CHANNEL=chrome pnpm test:e2e` и посмотреть вёрстку на 1280/390: длинные названия капсом, много товаров с одной ценой, мало `priceSpreads` (на главной может быть < 8 карточек), реальные картинки и точки. По желанию: моки из `final_dataset.json`, Lighthouse, маркеры карты с клавиатуры. Деплой — не наша зона.
 
