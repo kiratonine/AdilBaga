@@ -4,6 +4,9 @@ import { categoriesQuery, dashboardQuery, productQuery, topDealIds } from '../..
 import { getI18n, isLanguage } from '../../../../i18n'
 import { CatalogPage } from '../../../../views/CatalogPage'
 
+// Статика с ISR, как «Аналитика»: топ разброса цен берётся из дашборда
+export const revalidate = 3600
+
 export async function generateMetadata({ params }: PageProps<'/[lang]/catalog'>): Promise<Metadata> {
   const { lang } = await params
   return isLanguage(lang) ? { title: getI18n(lang).t('nav.home') } : {}

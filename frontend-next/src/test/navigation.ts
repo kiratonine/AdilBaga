@@ -6,6 +6,8 @@ import { vi } from 'vitest'
  */
 const state = { pathname: '/ru', search: '' }
 const listeners = new Set<() => void>()
+// Настоящий history jsdom: window.location тоже показывает текущий URL (его читает LanguageSwitch)
+const nativeReplace = typeof window === 'undefined' ? undefined : window.history.replaceState.bind(window.history)
 
 export const navigation = {
   /** Задать URL перед рендером: setUrl('/ru/search?q=молоко') */
@@ -13,6 +15,7 @@ export const navigation = {
     const [pathname, search = ''] = url.split('?')
     state.pathname = pathname
     state.search = search
+    nativeReplace?.(null, '', url)
     listeners.forEach((notify) => notify())
   },
   get url() {
@@ -38,6 +41,17 @@ const router = {
   forward: vi.fn(),
   refresh: vi.fn(),
   prefetch: vi.fn(),
+}
+
+/** history.replaceState (lib/urlState) — Next синхронизирует с ним useSearchParams, здесь делаем так же */
+export function installHistory() {
+  if (typeof window === 'undefined') return
+  window.history.replaceState = (_data, _unused, url) => {
+    if (url == null) return
+    const next = String(url)
+    navigation.history.push({ method: 'replace', url: next })
+    navigation.setUrl(next)
+  }
 }
 
 export async function mockNextNavigation() {

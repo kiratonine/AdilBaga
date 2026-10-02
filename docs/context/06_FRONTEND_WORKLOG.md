@@ -52,6 +52,10 @@
 | Next: metadata | Пока минимум: в layout `title.default = brand.title`, `template = '%s — Adil Bağa'`, страницы задают своё название (`generateMetadata` + `getI18n(lang).t`). 404 — `<title>` прямо в `NotFoundPage` (React 19 поднимает в head). Полный SEO — сессия Next 4 |
 | Next: тесты | `test/navigation.ts` — подмена `next/navigation` в памяти (`navigation.setUrl`, `navigation.history` с push/replace), подключена в `setup.ts`; там же `setI18n(getI18n('ru'))` для компонентов без провайдера. `test/render.tsx` → `renderPage(ui, '/kk/...')` (язык из префикса, QueryClient без ретраев). Клик по `next/link` в jsdom пишет «Not implemented: navigation» — безвредно. `proxy.test.ts` — `// @vitest-environment node`, `new NextRequest(...)` |
 | Скелетоны | По просьбе пользователя (сессия 12): `components/ui/Skeleton.tsx` — `Skeleton`, `ProductCardSkeleton` (геометрия `ProductCard`, testid `product-card-skeleton`), `ProductGridSkeleton({count, wide})` (сетка `ProductGrid`), `ChipsSkeleton` (категории). `animate-pulse bg-surface`, `motion-reduce:animate-none`. `LoadingState` с children — скелетон под `aria-hidden`, «Загружаем…» — `sr-only`, testid `loading-state` прежний. Использованы в каталоге; в сессии Next 3 — скелетоны страниц товара/категории/поиска/дашборда и `loading.tsx` для динамических роутов |
+| Next: страницы с данными | Товар `products/[id]` — **ISR**: `revalidate = 3600`, `generateStaticParams = () => []` (при сборке не строится и в API не ходит, строится при первом заходе). Категория `collections/[slug]` — **динамическая** (`searchParams` → в HTML уже отфильтрованный список). Каталог и «Аналитика» — статика + `revalidate = 3600` (**в http-режиме `next build` ходит за ними в API** — учесть при деплое). Поиск — статичная оболочка, `SearchPage` в `Suspense` (fallback — скелетон), `noindex, follow`, во вкладке просто «Поиск» (запрос сервер не видит, а клиентский `<title>`/`document.title` перебивает metadata Next). Серверные геттеры — `api/server.ts` (React `cache`: metadata и страница делят запрос) и `notFoundOn404` (404 API → `notFound()`, прочие ошибки пробрасываются — ISR оставит прежнюю версию; UI — `(site)/error.tsx`, проп **`retry`**, не `reset`). Данные кладутся `setQueryData` по ключам из `queries.ts` (`categoryFiltersQuery`, `productPagesQuery` — `infiniteQueryOptions`, общий для хука и `fetchInfiniteQuery`). Views получают `id`/`slug` пропом |
+| Next: без `loading.tsx` | Сознательно: `loading.tsx` включает стриминг, статус 200 уходит раньше `notFound()` → несуществующий товар/категория отдают **200 + noindex** вместо 404, а HTML начинается со скелетона. Без него — честный 404 и контент сразу. Скелетоны по форме страниц (`ProductPageSkeleton`, `CategoryPageSkeleton`, `ProductListSkeleton`, `DashboardSkeleton`) — для клиентских загрузок внутри views. Цена: переход на категорию (динамика, без prefetch) ждёт сервер без индикатора — можно добавить `useLinkStatus` |
+| Next: фильтры/сортировка | URL меняют через `lib/urlState.ts` `replaceQuery` → `window.history.replaceState` (Next синхронизирует `useSearchParams`), а не `router.replace` — иначе динамическая категория перестраивалась бы на сервере на каждый клик. В тестах `installHistory()` (`test/navigation.ts`) пишет replaceState в `navigation.history`; `setUrl` синхронизирует и `window.location` jsdom. LanguageSwitch — `prefetch={false}` (иначе предзагрузка страницы на втором языке при каждом показе) |
+| Next: карта | `StoreMap` — `next/dynamic(..., { ssr: false, loading })` в `views/DashboardPage.tsx`; в unit-тестах `vi.mock` модуля работает и через dynamic |
 | Цвета сетей | `lib/stores.ts`: DINA `#2a78d6`, DANA `#eb6834`, FIX_PRICE `#4a3aa7` (прошли валидатор dataviz: CVD/контраст), неизвестная сеть — `#697178`. Зелёный для сетей не используем |
 
 Моки и типы приведены к **подтверждённому** контракту Backend 1 (см. `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`).
@@ -75,8 +79,8 @@
 | 10 | План переезда на Next.js (ради SEO) — `08_NEXTJS_MIGRATION_PLAN.md` | ✅ |
 | 11 | **Next 1. Каркас и перенос** (шаги 1–3): `frontend-next/`, lib/api/components, unit-тесты зелёные | ✅ |
 | 12 | **Next 2. Язык и роутинг** (шаги 4–5): `/ru`, `/kk`, middleware, Layout, Landing + Catalog | ✅ (+ скелетоны загрузки) |
-| 13 | **Next 3. Страницы с SSR** (шаги 6, 8): Category, Product, Search, Dashboard (+ скелетоны и `loading.tsx`) | ⏳ следующая |
-| 14 | **Next 4. SEO** (шаг 7): metadata, hreflang, JSON-LD, sitemap, robots, OG | — |
+| 13 | **Next 3. Страницы с SSR** (шаги 6, 8): Category, Product, Search, Dashboard (+ скелетоны) | ✅ (без `loading.tsx` — ради статуса 404) |
+| 14 | **Next 4. SEO** (шаг 7): metadata, hreflang, JSON-LD, sitemap, robots, OG | ⏳ следующая |
 | 15 | **Next 5. e2e и переключение** (шаги 9–10): `frontend-next/` → `frontend/` | — |
 
 ---
@@ -90,6 +94,14 @@
 ---
 
 ## Журнал
+
+### Сессия 13 — 2026-10-02 (Next 3. Страницы с SSR)
+- Перенесены Category, Product, Search, Dashboard в `src/views` + роуты `[lang]/(site)/` `collections/[slug]`, `products/[id]`, `search`, `dashboard`; `(site)/error.tsx`, `api/server.ts`, `lib/urlState.ts`. Детали — строки «Next: страницы с данными / без loading.tsx / фильтры / карта» в таблице решений.
+- `loading.tsx` сделаны и **убраны**: со стримингом несуществующие страницы отдавали 200 (+noindex). Проверено curl: без них — 404, HTML без скелетона.
+- Скелетоны по форме страниц товара, категории, «Аналитики» и сетки поиска.
+- Тесты: views Category (8, вкл. рендер серверного роута с фильтрами без состояния загрузки и 404), Product (7), Search (4), Dashboard (9). E2E `e2e/pages.spec.ts`: HTML товара/категории (с фильтрами)/дашборда, `noindex` поиска, 404 товара и категории, путь каталог → категория → фильтр (без запроса к серверу Next) → товар → крошки, поиск из шапки + сортировка, карта с 8 маркерами; без ошибок консоли (кроме офлайн-картинок моков).
+- Проверено: typecheck, oxlint 0, 96 unit, `next build` (товар — SSG без путей, категория — ƒ, остальное — SSG), E2E 26 passed (desktop+iPhone), скриншоты 1280/390 — вёрстка как в старом фронте. В логе сервера при e2e бывает «destination stream closed early» — оборванный при переходе prefetch, безвредно.
+- Регрессия: во вкладке поиска «Поиск — Adil Bağa» без текста запроса.
 
 ### Сессия 12 — 2026-10-02 (Next 2. Язык и роутинг)
 - `src/proxy.ts` (редиректы `/` 307 и старых URL 308), `app/[lang]/layout.tsx`, лендинг `/[lang]`, каталог `/[lang]/catalog` с серверным prefetch, 404 через `[...rest]` + `[lang]/not-found.tsx`. Временные `app/layout.tsx` и `app/page.tsx` удалены. Детали — строки «Next: …» в таблице решений.
@@ -203,7 +215,7 @@
 
 ## Следующий шаг
 
-**Next 3. Страницы с SSR** — шаги 6 и 8 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`. Перенести из `frontend/src/pages` в `src/views` + роуты в `app/[lang]/(site)/`: `collections/[slug]` (фильтры из `searchParams`, prefetch schema + первой страницы `useProductPages` — ключ `queryKeys.productPages`), `products/[id]` (prefetch товара + фильтров категории, `notFound()` на 404 API), `search` (клиентская, `noindex` — в сессии 4), `dashboard` (prefetch дашборда, StoreMap через `next/dynamic(..., { ssr: false })`). Для каждой — скелетон по форме страницы и `loading.tsx` для динамических роутов (компоненты в `components/ui/Skeleton.tsx`). Решить ISR: `revalidate` для страниц с данными (в http-режиме сборка ходит в API — без `revalidate`/динамики build упадёт, если API недоступен). Перенести тесты страниц на `renderPage` (CategoryPage, ProductPage, SearchPage, DashboardPage), заголовки — через `generateMetadata`.
+**Next 4. SEO** — шаг 7 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`: `generateMetadata` с description, canonical (у категории — без фильтров), `alternates.languages` (hreflang ru/kk + x-default), Open Graph + `opengraph-image`; JSON-LD `Product` + `AggregateOffer` на товаре, `BreadcrumbList` на категории и товаре; `sitemap.ts` (категории + товары из API, обе локали), `robots.ts`. Для абсолютных URL нужен `metadataBase` — домен ещё покупается, брать из env (например `NEXT_PUBLIC_SITE_URL`). Проверка: curl HTML товара (hreflang, `application/ld+json`); Rich Results Test — после деплоя. По желанию: индикатор перехода (`useLinkStatus`) вместо убранных `loading.tsx`.
 
 Старое (до решения о переезде): **фронт по плану закончен.** Осталась одна задача, и она ждёт бэк: когда Backend 1 подключит к API датасет backend-2 (или ветки смёржат в `main`), поднять бэк, прогнать `E2E_API=http PW_CHANNEL=chrome pnpm test:e2e` и посмотреть вёрстку на 1280/390: длинные названия капсом, много товаров с одной ценой, мало `priceSpreads` (на главной может быть < 8 карточек), реальные картинки и точки. По желанию: моки из `final_dataset.json`, Lighthouse, маркеры карты с клавиатуры. Деплой — не наша зона.
 

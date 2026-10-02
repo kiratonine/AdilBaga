@@ -44,6 +44,8 @@ export function LanguageSwitch() {
             href={href}
             lang={lang}
             hrefLang={lang}
+            // Язык меняют редко — не предзагружаем каждую страницу на втором языке
+            prefetch={false}
             aria-current={active ? 'true' : undefined}
             onClick={(event) => choose(event, lang, href)}
             className={`flex h-9 items-center rounded-[8px] px-2.5 text-sm font-medium transition-colors ${
