@@ -147,7 +147,8 @@ function Offers({ product, offers, compared }: { product: ProductCardDto; offers
                     {t('product.onlyStore')}
                   </Badge>
                 ) : isBest ? (
-                  <Badge tone="best" className="mt-1">
+                  // Строка уже accent-soft — бейдж белой таблеткой, иначе сливается
+                  <Badge tone="best" className="mt-1 bg-card!">
                     {t('product.cheapest')}
                   </Badge>
                 ) : (
