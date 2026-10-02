@@ -13,3 +13,20 @@ export function savingOf(offers: OfferDto[]): { amount: number; store: string } 
   const amount = max.price - sorted[0].price
   return amount > 0 ? { amount, store: max.storeName } : null
 }
+
+/** Первые limit предложений по цене для карточки; про остальные — сколько их и до какой цены */
+export function topOffers(offers: OfferDto[], limit: number): { shown: OfferDto[]; hiddenCount: number; maxPrice: number } {
+  const sorted = sortOffers(offers)
+  return {
+    shown: sorted.slice(0, limit),
+    hiddenCount: Math.max(sorted.length - limit, 0),
+    maxPrice: sorted.length > 0 ? sorted[sorted.length - 1].price : 0,
+  }
+}
+
+/** Скидка предложения в процентах, округлённая вниз; null — скидки нет или она меньше 1% */
+export function discountPercent(offer: OfferDto | undefined): number | null {
+  if (!offer?.oldPrice || offer.oldPrice <= offer.price) return null
+  const percent = Math.floor(((offer.oldPrice - offer.price) / offer.oldPrice) * 100)
+  return percent >= 1 ? percent : null
+}
