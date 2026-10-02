@@ -4,6 +4,7 @@ import { Footer } from '../../components/layout/Footer'
 import { SkipLink } from '../../components/layout/Main'
 import { Providers } from '../../components/Providers'
 import { getI18n, isLanguage, LANGUAGES } from '../../i18n'
+import { SITE_URL } from '../../lib/site'
 import '../globals.css'
 
 export const generateStaticParams = () => LANGUAGES.map((lang) => ({ lang }))
@@ -12,8 +13,15 @@ export async function generateMetadata({ params }: LayoutProps<'/[lang]'>): Prom
   const { lang } = await params
   if (!isLanguage(lang)) return {}
   const { t } = getI18n(lang)
-  // Страницы задают только своё название, бренд дописывает шаблон
-  return { title: { default: t('brand.title'), template: `%s — ${t('brand.name')}` } }
+  return {
+    // Относительные URL в canonical, hreflang и Open Graph дополняются адресом сайта
+    metadataBase: SITE_URL,
+    // Страницы задают только своё название, бренд дописывает шаблон
+    title: { default: t('brand.title'), template: `%s — ${t('brand.name')}` },
+    description: t('brand.tagline'),
+    // Картинку и тексты карточки X берёт из Open Graph страницы
+    twitter: { card: 'summary_large_image' },
+  }
 }
 
 // Корневой layout: язык — из префикса URL, на него завязаны <html lang>, i18n и все ссылки

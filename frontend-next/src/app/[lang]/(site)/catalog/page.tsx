@@ -2,6 +2,7 @@ import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query
 import type { Metadata } from 'next'
 import { categoriesQuery, dashboardQuery, productQuery, topDealIds } from '../../../../api/queries'
 import { getI18n, isLanguage } from '../../../../i18n'
+import { pageMetadata } from '../../../../lib/seo'
 import { CatalogPage } from '../../../../views/CatalogPage'
 
 // Статика с ISR, как «Аналитика»: топ разброса цен берётся из дашборда
@@ -9,7 +10,9 @@ export const revalidate = 3600
 
 export async function generateMetadata({ params }: PageProps<'/[lang]/catalog'>): Promise<Metadata> {
   const { lang } = await params
-  return isLanguage(lang) ? { title: getI18n(lang).t('nav.home') } : {}
+  if (!isLanguage(lang)) return {}
+  const { t } = getI18n(lang)
+  return pageMetadata({ lang, path: '/catalog', title: t('nav.home'), description: t('meta.catalog') })
 }
 
 // Данные — на сервере, чтобы категории и карточки с ценами были уже в HTML; клиент берёт их из кэша
