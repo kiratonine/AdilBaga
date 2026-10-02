@@ -62,6 +62,7 @@
 | Next: карта | `StoreMap` — `next/dynamic(..., { ssr: false, loading })` в `views/DashboardPage.tsx`; в unit-тестах `vi.mock` модуля работает и через dynamic |
 | Цвета сетей | `lib/stores.ts`: DINA `#2a78d6`, DANA `#eb6834`, FIX_PRICE `#4a3aa7` (прошли валидатор dataviz: CVD/контраст), неизвестная сеть — `#697178`. Зелёный для сетей не используем |
 | Карточка (D2) | Вариант A: фото квадрат (`rounded-media`, бейдж «−X%» по лучшему предложению — `discountPercent`, вниз, < 1% не показываем) → цена `text-price-card` + старая → `SavingLine` → бренд → название → **топ-3 сетей** (`topOffers` в `lib/offers.ts`) → `more-offers` «ещё N сетей · до X ₸» (плюралы `card.moreOffers_*`) → дата. Без рамки, `hover:shadow-hover`. `variant="compact"` (полка): 150/200px, без бренда, сетей и даты, выгода «Выгоднее на X ₸» (`SavingLine` без `store` → `card.savingShort`). `ProductImage` больше не скругляет сам — радиус передаёт вызывающий |
+| Оболочка (D3) | Раздел навигации — `navSection(pathname)` в `lib/paths.ts` (`catalog` — также `/collections/*`, `/products/*`). Шапка: `card`, без blur; мобильный — лого + RU/KZ, вторая строка поиск; разделы `hidden md:flex`, активный — `ink` + подчёркивание 2px (`after:`), прочие `muted`. `TabBar` (`components/layout/TabBar.tsx`, `< md`): `nav` `nav.main`, testid `tab-bar`/`tab-catalog`/`tab-search`/`tab-dashboard`, иконки `grid`/`search`/`chart`, активный `ink` 600 + `aria-current="page"`. Отступ под таб-бар — у `body` через `body:has([data-tab-bar])` в `globals.css` (футер идёт после `Main`, поэтому не `Main`). Серый фон — обёртка `SitePage` (`bg-page`) в layout `(site)` и `not-found`; лендинг белый. Отступ до футера — `Main` `pb-12 md:pb-20` (у `Footer` больше нет `mt-20`; футер `bg-card`). `viewport-fit=cover` (`export const viewport`), `container-page` — `max(16px, env(safe-area-inset-*))`. `SearchBox` ставит фокус в поле при клиентском переходе на `/search` без `q` (при первой загрузке — нет). `Segmented` — сегменты `h-10 md:h-9`. e2e `e2e/shell.spec.ts`: таб-бар на iphone, его нет на desktop, нет горизонтального скролла на 320/360/390 |
 | Сетка и полка (D2) | Классы раскладки — `components/product/layout.ts` (без `'use client'`, общие со скелетонами): `productGridClass(wide)` — 2 колонки, `wide` → `md:3 lg:4`, иначе `lg:3` (проп `wide` оставлен: у категории колонка фильтров); `SHELF_ROW`. `Shelf` (`title`, `products?`, `children` — состояние, пока товаров нет): `section` testid `shelf`, ряд со scroll-snap, на мобильном выходит за правый край (`-mr-4 pr-4`), ≥ md кнопки ‹ › (`Button size="icon" ghost`, `common.scrollBack/scrollForward`, `aria-controls`) — только если есть куда листать, у края `disabled`. Скелетоны: `ProductCardSkeleton({compact})`, `ShelfSkeleton` |
 
 Моки и типы приведены к **подтверждённому** контракту Backend 1 (см. `05_FRONTEND_ANSWERS_FROM_BACKEND_1.md`).
@@ -100,6 +101,11 @@
 ---
 
 ## Журнал
+
+### Сессия 16, продолжение — 2026-10-02 (Дизайн D3. Оболочка)
+- План — `docs/superpowers/plans/2026-10-02-design-system-d3-shell.md`. Шапка в новом стиле, нижний таб-бар на мобильном, серый фон страниц сайта, футер на `card`, safe-area. Детали — строка «Оболочка (D3)».
+- Коммиты: b0401b5 TabBar + navSection; 69ab763 header; 5d9e5f5 grey pages, layouts, safe-area, e2e shell.
+- Проверено: typecheck, `rtk proxy pnpm lint` 0, 156 unit (32 файла), `next build`, e2e 41 passed + 3 skipped (сценарии только для одной платформы). Горизонтального скролла на 320/360/390 нет (проблема шапки из D2 ушла). Скриншоты: каталог мобильный и категория 1280 — по мокапу.
 
 ### Сессия 16 — 2026-10-02 (Дизайн D2. Карточка и полка)
 - План — `docs/superpowers/plans/2026-10-02-design-system-d2-card-shelf.md`. Карточка варианта A (топ-3 сетей, «ещё N сетей · до X ₸», бейдж «−X%», compact), сетка 2 колонки на мобильном, `Shelf` в каталоге вместо сетки топ-8, скелетоны под новую геометрию. Детали — строки «Карточка (D2)» и «Сетка и полка (D2)».
@@ -241,12 +247,11 @@
 
 ## Следующий шаг
 
-**Дизайн D3. Оболочка** — написать план по спеке §5 (`docs/superpowers/specs/2026-10-02-design-system-design.md`) и выполнить: `Header`, `TabBar`, `Segmented` (44px на мобильном), серый фон `(site)`, отступ `Main`, футер. Дальше D4; затем Next 5 (ниже).
+**Дизайн D4. Страницы** — написать план по спеке §6–§7 (`docs/superpowers/specs/2026-10-02-design-system-design.md`) и выполнить: каталог (плитки категорий + полка), категория (сайдбар ≥ lg / шторка `Sheet` < lg, сортировка шторкой на мобильном), товар (блок «Цены в сетях», «Показать все N»), поиск, аналитика (белые карточки), лендинг, состояния. Этап большой — при нехватке времени делить на D4a (каталог + категория) и D4b (товар, поиск, аналитика, лендинг, состояния). Затем Next 5 (ниже).
 
-Перенесено из ревью D1–D2 (учесть в планах):
-- D3: шапка распирает страницу на ширине < ~370px — проверить на 320/360/390 после переноса навигации в таб-бар. Карточки и полка уже рассчитаны на серый `page` (белые без рамки) — до D3 на белом фоне их края не видны, это ожидаемо.
+Перенесено из ревью D1–D3 (учесть в планах):
+- D4: e2e iphone, которые ходят в фильтры/сортировку, перевести на шторку; на мобильном у категории сейчас нет «Фильтры · n» в новом стиле — делается в D4. Чипы категорий на сером фоне — с рамкой, уходят вместе с плитками.
 - D4: в старых местах ещё `rounded-[var(--radius-*)]` (страница товара, скелетоны страниц, дашборд) — менять на `rounded-card`/`rounded-control`; иконка категории вместо плейсхолдера фото (`lib/categoryIcons.ts`); плейсхолдер для картинки, упавшей до гидрации.
-- D3: `Segmented` — сегменты `h-9` в дорожке 40px, на мобильном нужно ≥ 44px (`h-10 md:h-9`); для `env(safe-area-inset-bottom)` (таб-бар, шторка) в viewport нужен `viewport-fit=cover`; активный пункт навигации ещё зелёный — заменить на подчёркивание `ink`.
 - D4: `Sheet` — `onClose` вызывается только через событие `close` (Esc, кнопка, фон); проверить вручную Esc и блокировку прокрутки на iOS; `Chip` без стилей `disabled`; у `Button` в режиме ссылки нет `aria-*`/`onClick` — расширить, если понадобится.
 - Lint: `pnpm lint` переписывается хуком rtk на eslint — запускать `rtk proxy pnpm lint`.
 
