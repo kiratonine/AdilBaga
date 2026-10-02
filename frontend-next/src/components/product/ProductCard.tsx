@@ -5,11 +5,13 @@ import Link from 'next/link'
 import type { ProductCardDto } from '../../api/types'
 import { formatDate, formatPrice } from '../../lib/format'
 import { savingOf, sortOffers } from '../../lib/offers'
+import { useHref } from '../../lib/useLang'
 import { ProductImage } from './ProductImage'
 import { SavingLine } from './SavingLine'
 
 export function ProductCard({ product }: { product: ProductCardDto }) {
   const { t } = useTranslation()
+  const href = useHref()
   const offers = sortOffers(product.offers)
   const best = offers[0]
   const oldPrice = best?.oldPrice != null && best.oldPrice > best.price ? best.oldPrice : null
@@ -26,7 +28,7 @@ export function ProductCard({ product }: { product: ProductCardDto }) {
         {product.brand && <p className="truncate text-[13px] text-muted">{product.brand}</p>}
         <h3 className="line-clamp-2 leading-snug font-medium">
           {/* Растянутая ссылка: кликабельна вся карточка */}
-          <Link href={`/products/${product.id}`} className="after:absolute after:inset-0 after:rounded-[var(--radius-card)]">
+          <Link href={href(`/products/${product.id}`)} className="after:absolute after:inset-0 after:rounded-[var(--radius-card)]">
             {product.name}
           </Link>
         </h3>

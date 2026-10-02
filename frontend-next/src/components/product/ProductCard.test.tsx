@@ -52,7 +52,7 @@ describe('ProductCard', () => {
 
   it('links to the product page', () => {
     renderCard(product)
-    expect(screen.getByRole('link', { name: product.name })).toHaveAttribute('href', '/products/p1')
+    expect(screen.getByRole('link', { name: product.name })).toHaveAttribute('href', '/ru/products/p1')
   })
 
   it('renders a placeholder without image and no saving for a single offer', () => {

@@ -5,10 +5,12 @@ import Link from 'next/link'
 import type { BasketSummary } from '../../lib/baskets'
 import { formatPrice } from '../../lib/format'
 import { storeColor } from '../../lib/stores'
+import { useHref } from '../../lib/useLang'
 
 /** Стоимость одной и той же продуктовой корзины в каждой сети; самая выгодная из полных — акцентом */
 export function Baskets({ baskets }: { baskets: BasketSummary[] }) {
   const { t } = useTranslation()
+  const href = useHref()
 
   return (
     <section aria-labelledby="baskets-title" className="mt-12">
@@ -58,7 +60,7 @@ export function Baskets({ baskets }: { baskets: BasketSummary[] }) {
                       <span className="min-w-0">
                         <span className="block text-muted">{item.categoryName}</span>
                         {item.productId ? (
-                          <Link href={`/products/${item.productId}`} className="hover:underline">
+                          <Link href={href(`/products/${item.productId}`)} className="hover:underline">
                             {item.name}
                           </Link>
                         ) : (

@@ -1,6 +1,6 @@
-import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query'
+import { queryOptions, useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query'
 import { catalogApi } from './catalogApi'
-import type { ProductCardDto, ProductQuery } from './types'
+import type { DashboardDto, ProductCardDto, ProductQuery } from './types'
 
 export const PAGE_SIZE = 24
 
@@ -17,8 +17,17 @@ export const queryKeys = {
   dashboard: ['dashboard'] as const,
 }
 
-export const useCategories = () =>
-  useQuery({ queryKey: queryKeys.categories, queryFn: catalogApi.getCategories, ...STATIC })
+/** Опции запросов — общие для хуков и серверного prefetch (страницы с данными в HTML) */
+export const categoriesQuery = () =>
+  queryOptions({ queryKey: queryKeys.categories, queryFn: catalogApi.getCategories, ...STATIC })
+
+export const productQuery = (id: string) =>
+  queryOptions({ queryKey: queryKeys.product(id), queryFn: () => catalogApi.getProduct(id), ...STATIC })
+
+export const dashboardQuery = () =>
+  queryOptions({ queryKey: queryKeys.dashboard, queryFn: catalogApi.getDashboard, ...STATIC })
+
+export const useCategories = () => useQuery(categoriesQuery())
 
 /** slug неизвестен (страница товара ещё грузится) — запрос не отправляем */
 export const useCategoryFilters = (slug: string | undefined) =>
@@ -51,7 +60,7 @@ export const useProductPages = (query: PagedQuery, { enabled = true }: { enabled
 /** Несколько товаров по id (главная: товары с наибольшим разбросом цен из дашборда) */
 export const useProductsByIds = (ids: string[]) =>
   useQueries({
-    queries: ids.map((id) => ({ queryKey: queryKeys.product(id), queryFn: () => catalogApi.getProduct(id), ...STATIC })),
+    queries: ids.map(productQuery),
     combine: (results) => ({
       data: results.flatMap((r) => (r.data ? [r.data] : [])),
       isPending: results.some((r) => r.isPending),
@@ -60,8 +69,12 @@ export const useProductsByIds = (ids: string[]) =>
     }),
   })
 
-export const useProduct = (id: string) =>
-  useQuery({ queryKey: queryKeys.product(id), queryFn: () => catalogApi.getProduct(id), ...STATIC })
+export const useProduct = (id: string) => useQuery(productQuery(id))
 
-export const useDashboard = () =>
-  useQuery({ queryKey: queryKeys.dashboard, queryFn: catalogApi.getDashboard, ...STATIC })
+export const useDashboard = () => useQuery(dashboardQuery())
+
+/** Сколько товаров с наибольшим разбросом цен показывать в каталоге — выбор и порядок делает бэк */
+export const TOP_DEALS = 8
+
+export const topDealIds = (dashboard: DashboardDto | undefined): string[] =>
+  dashboard?.priceSpreads.slice(0, TOP_DEALS).map((s) => s.productId) ?? []

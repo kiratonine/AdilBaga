@@ -5,7 +5,7 @@
     "react/rules-of-hooks": "error",
     "react/only-export-components": [
       "warn",
-      { "allowConstantExport": true, "allowExportNames": ["metadata", "generateMetadata", "viewport", "revalidate"] }
+      { "allowConstantExport": true, "allowExportNames": ["metadata", "generateMetadata", "generateStaticParams", "viewport", "revalidate"] }
     ]
   }
 }
