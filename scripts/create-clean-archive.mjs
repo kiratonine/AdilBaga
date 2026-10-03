@@ -1,14 +1,16 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && !['production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
+if (process.argv[2] && !['production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
-const output = join(outputDir, process.argv[2] === 'production-part-02'
+const output = join(outputDir, process.argv[2] === 'production-part-03'
+  ? 'production-part-03-review.tar.gz'
+  : process.argv[2] === 'production-part-02'
   ? 'production-part-02-review.tar.gz'
   : process.argv[2] === 'production-part-01'
   ? 'production-part-01-review.tar.gz'
@@ -47,13 +49,22 @@ function isSafeFile(name) {
   return true;
 }
 
+function isGoArtifact(path) {
+  const name = relative(root, path);
+  if (!name.startsWith('backend-go/')) return false;
+  if (/(?:^|\/)bin(?:\/|$)|(?:^|\/)api$|\.(?:exe|test|out|prof|pprof)$|(?:^|\/)coverage[._-]/iu.test(name)) return true;
+  // Exclude compiled binaries even when go build uses an arbitrary output name.
+  const magic = readFileSync(path).subarray(0, 4).toString('hex');
+  return ['7f454c46', 'feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', 'cafebabe'].includes(magic) || magic.startsWith('4d5a');
+}
+
 const files = [];
 function collect(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!excludedDirs.has(entry.name) && !(process.argv[2] === 'backend-1-part-05' && directory === root && entry.name === 'frontend')) collect(path);
-    } else if (entry.isFile() && isSafeFile(entry.name)) {
+      if (!excludedDirs.has(entry.name) && !(directory === join(root, 'backend-go') && entry.name === 'bin') && !(process.argv[2] === 'backend-1-part-05' && directory === root && entry.name === 'frontend')) collect(path);
+    } else if (entry.isFile() && isSafeFile(entry.name) && !isGoArtifact(path)) {
       files.push(relative(root, path));
     }
   }

@@ -189,6 +189,10 @@ PostgreSQL
 
 ### Voice flow
 
+`backend-go/` — отдельный production Go foundation: health/readiness и HTTP
+hardening, пока **без public business API parity**. NestJS `backend/` остаётся
+reference и владельцем traffic. Запуск и проверки: [backend-go/README.md](backend-go/README.md).
+
 ```text
 Siri
  ↓
