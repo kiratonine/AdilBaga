@@ -166,23 +166,27 @@ const locations = [
   longitude,
 }))
 
-// Аналитическая корзина Stage 5: те же три точные позиции, что в Backend contract.
-// Состав в проде задаёт бэк (docs/context/08_FRONTEND_ANSWERS_BASKET.md).
+// Продуктовая корзина: в каждой позиции — самый дешёвый подходящий товар сети.
+// Состав в проде задаёт бэк (docs/context/07_FRONTEND_QUESTIONS_BASKET.md).
+// Яйца C0 есть не во всех сетях — у Fix Price корзина неполная, проверяем этот случай.
 const basketRules = [
-  ['milk', 'Молочные продукты', 'volumeMl', 1000],
-  ['sugar', 'Сахар и соль', 'weightGrams', 1000],
-  ['oil', 'Растительные масла', 'volumeMl', 1000],
+  ['milk', (a) => a.volumeMl === 1000],
+  ['bread', () => true],
+  ['eggs', (a) => a.count === 10 && a.grade === 'C0'],
+  ['sugar', (a) => a.weightGrams === 1000],
+  ['oil', (a) => a.volumeMl === 1000],
 ]
 
 const baskets = Object.entries(STORES).map(([storeCode, storeName]) => {
-  const items = basketRules.map(([slug, categoryName, attributeKey, attributeValue]) => {
+  const items = basketRules.map(([slug, fits]) => {
+    const category = categories.find((c) => c.slug === slug)
     const best = products
-      .filter((p) => p.category.slug === slug && p.attributes[attributeKey] === attributeValue)
-      .flatMap((p) => p.offers.filter((o) => o.storeCode === storeCode && o.price > 0).map((o) => ({ product: p, price: o.price })))
+      .filter((p) => p.category.slug === slug && fits(p.attributes))
+      .flatMap((p) => p.offers.filter((o) => o.storeCode === storeCode).map((o) => ({ product: p, price: o.price })))
       .sort((a, b) => a.price - b.price)[0]
     return {
       categorySlug: slug,
-      categoryName,
+      categoryName: category.name,
       productId: best?.product.id ?? null,
       name: best?.product.name ?? null,
       price: best?.price ?? null,

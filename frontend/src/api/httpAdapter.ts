@@ -8,14 +8,17 @@ import {
   type ProductQuery,
 } from './types'
 
-export function createHttpAdapter(baseUrl: string): CatalogApi {
+export function createHttpAdapter(baseUrl: string, isServer = false): CatalogApi {
   const root = baseUrl.replace(/\/+$/, '')
 
   async function get<T>(path: string, params?: URLSearchParams): Promise<T> {
     const qs = params && params.size > 0 ? `?${params}` : ''
     let response: Response
     try {
-      response = await fetch(`${root}/api${path}${qs}`, { headers: { Accept: 'application/json' } })
+      response = await fetch(`${root}/api${path}${qs}`, {
+        headers: { Accept: 'application/json' },
+        ...(isServer ? { next: { revalidate: 3600, tags: ['catalog-data'] } } : {}),
+      })
     } catch {
       throw new ApiError(0, 'Network error')
     }

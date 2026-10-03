@@ -1,5 +1,4 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import type { ProductCardDto } from '../../api/types'
 import { ProductCard } from './ProductCard'
@@ -22,8 +21,7 @@ const product: ProductCardDto = {
 }
 
 function renderCard(p: ProductCardDto) {
-  const router = createMemoryRouter([{ path: '/', element: <ProductCard product={p} /> }])
-  return render(<RouterProvider router={router} />)
+  return render(<ProductCard product={p} />)
 }
 
 // Intl ставит неразрывные пробелы — сравниваем с обычными
@@ -54,7 +52,7 @@ describe('ProductCard', () => {
 
   it('links to the product page', () => {
     renderCard(product)
-    expect(screen.getByRole('link', { name: product.name })).toHaveAttribute('href', '/products/p1')
+    expect(screen.getByRole('link', { name: product.name })).toHaveAttribute('href', '/ru/products/p1')
   })
 
   it('renders a placeholder without image and no saving for a single offer', () => {
@@ -65,6 +63,38 @@ describe('ProductCard', () => {
     const [row] = within(screen.getByTestId('offer-list')).getAllByRole('listitem')
     expect(row).not.toHaveAttribute('data-best')
     expect(text(row)).toBe('Dina570 ₸')
+  })
+
+  it('shows a rounded-down discount badge for the best offer', () => {
+    renderCard(product)
+    // 570 при старой 660 — 13,6% → 13
+    const badge = screen.getByText('−13%').parentElement!
+    expect(badge).toHaveTextContent('Скидка 13%')
+    expect(badge).toHaveClass('bg-accent')
+  })
+
+  it('has no discount badge without an old price', () => {
+    renderCard({ ...product, offers: product.offers.map((o) => ({ ...o, oldPrice: null })) })
+    expect(screen.queryByText(/^−\d+%$/)).not.toBeInTheDocument()
+  })
+
+  it('shows the three cheapest stores and sums up the rest', () => {
+    renderCard({
+      ...product,
+      offers: [
+        ...product.offers,
+        { storeCode: 'DINA', storeName: 'Magnum', price: 700, oldPrice: null },
+        { storeCode: 'DANA', storeName: 'Small', price: 900, oldPrice: null },
+      ],
+    })
+    const rows = within(screen.getByTestId('offer-list')).getAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    expect(text(screen.getByTestId('more-offers'))).toBe('ещё 2 сети · до 900 ₸')
+  })
+
+  it('has no "more offers" line with three stores or fewer', () => {
+    renderCard(product)
+    expect(screen.queryByTestId('more-offers')).not.toBeInTheDocument()
   })
 
   it('falls back to the placeholder when the image fails to load', async () => {

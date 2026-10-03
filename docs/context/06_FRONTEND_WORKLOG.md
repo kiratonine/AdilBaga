@@ -6,7 +6,24 @@
 
 ---
 
-## Зафиксированные решения
+## Текущий production frontend — Production Part 01
+
+Миграция завершена: единственный frontend — Next.js 16 App Router в `frontend/`.
+React 19, TypeScript, Tailwind 4, TanStack Query, Leaflet; ru/kk в URL.
+Ветка `integrate/full-stack`. NestJS остаётся reference, API/DTO не изменены.
+Обязательны явные `NEXT_PUBLIC_API_MODE=http`, `NEXT_PUBLIC_API_BASE_URL` и
+production `NEXT_PUBLIC_SITE_URL`; optional `API_BASE_URL` — internal server URL.
+Mock допустим явно в dev/tests, production mock artifact — только test-only opt-in
+`NEXT_PUBLIC_ENABLE_TEST_MOCKS=1`, устанавливаемый mock Playwright конфигурацией.
+GET server cache: 3600 s, tag `catalog-data`. Каталог/Dashboard/sitemap — runtime SSR;
+backend-down build PASS. Planned URLs: https://aktau.market / https://api.aktau.market.
+Бренд Adil Bağa сохранён. Проверки и фактические результаты —
+`docs/production/reports/PART_01_REPORT.md`.
+
+## Исторические решения и контекст до Production Part 01
+
+Таблица и журнал ниже сохраняют историю Vite → Next; прежние пути/команды и
+временные fallback/SSG решения не являются текущими production instructions.
 
 | Тема | Решение |
 |---|---|
@@ -89,7 +106,7 @@
 | 12 | **Next 2. Язык и роутинг** (шаги 4–5): `/ru`, `/kk`, middleware, Layout, Landing + Catalog | ✅ (+ скелетоны загрузки) |
 | 13 | **Next 3. Страницы с SSR** (шаги 6, 8): Category, Product, Search, Dashboard (+ скелетоны) | ✅ (без `loading.tsx` — ради статуса 404) |
 | 14 | **Next 4. SEO** (шаг 7): metadata, hreflang, JSON-LD, sitemap, robots, OG | ✅ (адрес сайта — env, домена пока нет) |
-| 15 | **Next 5. e2e и переключение** (шаги 9–10): `frontend-next/` → `frontend/` | ⏳ следующая (после D4b) |
+| 15 | **Next 5. e2e и переключение** (шаги 9–10): итоговый `frontend/` | ✅ Production Part 01, external review pending |
 | 16 | **Дизайн D1–D4** (спека `docs/superpowers/specs/2026-10-02-design-system-design.md`): D1 токены, D2 карточка, D3 оболочка, D4a каталог + категория, D4b товар/поиск/аналитика/состояния | ✅ |
 
 ---
@@ -103,6 +120,22 @@
 ---
 
 ## Журнал
+
+### Production Part 01 — 2026-10-03
+
+- Fail-closed HTTP/site configuration, без silent mock/localhost production fallback.
+- Runtime-rendering каталога/Dashboard/sitemap через Next `connection()`;
+  bounded tagged GET cache, SSR/SEO сохранены, build с недоступным API PASS.
+- Data-agnostic HTTP E2E для ru routes; mock/HTTP suites изолированы.
+- Pre-switch: typecheck/lint PASS, 179 unit (34 файла), mock E2E 47 PASS/3
+  platform skips, real NestJS/Supabase E2E 12 PASS, real ru/kk SSR/SEO PASS.
+- После pre-switch gates старый source удалён, Next перенесён в `frontend/`;
+  локальный ignored .env сохранён без изменения, legacy generated файлы вне repo.
+- Final-path проверки и archive hygiene: см. canonical Production Part 01 report.
+  Unit suite выполняется на byte-identical native-WSL copy: /mnt/d worker issue
+  известен из Part 00; timeout/dependencies не менялись.
+- Backend/data/schema/voice не менялись. Supabase только READ-ONLY.
+  Commit/push/deploy не выполнялись. Следующий Part не начат.
 
 ### Сессия 19 — 2026-10-02 (SEO-аудит и оптимизация)
 - Аудит: прод-билд с `NEXT_PUBLIC_SITE_URL=https://adilbaga.kz`, curl HTML, Lighthouse (mobile) на каталоге, категории, товаре, «Аналитике», поиске. Технический SEO уже был 100; тормозили FCP/LCP (CSS блокировал отрисовку, 6 файлов шрифтов находились только после CSS), CLS поиска, порядок заголовков в категории.
@@ -276,14 +309,17 @@
 
 ## Следующий шаг
 
-**Next 5. e2e и переключение** (описание ниже) — дизайн D1–D4 закончен.
+**External review Production Part 01.** После внешнего PASS следующая задача —
+Production Part 02: API Contract Freeze + OpenAPI; сейчас не начинать.
 
 Хвосты дизайна (по желанию, мелочи):
 - `Sheet` — проверить вручную Esc и блокировку прокрутки на iOS; у `Button` в режиме ссылки нет `aria-*`/`onClick` — расширить, если понадобится.
 - Плейсхолдер-иконка категории в карточке сетки (сейчас только на странице товара) — если пользователь захочет.
 - Lint: `pnpm lint` переписывается хуком rtk на eslint — запускать `rtk proxy pnpm lint`.
 
-**Next 5. e2e и переключение** — шаги 9–10 из `docs/context/08_NEXTJS_MIGRATION_PLAN.md`: перенести из `frontend/e2e` то, что ещё не покрыто (`polish`, `http.spec.ts` — URL на `/ru/...`, порт :3100), прогнать e2e против моков и, если поднимется бэк, против http-режима; затем `frontend-next/` → `frontend/` отдельным коммитом, старый удалить, обновить README и этот журнал. По желанию до переключения: индикатор перехода (`useLinkStatus`) вместо убранных `loading.tsx`. После деплоя (не наша зона, но напомнить): задать `NEXT_PUBLIC_SITE_URL`, Rich Results Test товара, sitemap в Search Console и Яндекс.Вебмастер.
+Next migration COMPLETE. Возможные будущие улучшения (не scope Part 01):
+индикатор перехода `useLinkStatus`; после отдельного deploy — Rich Results Test,
+sitemap в Search Console/Яндекс.Вебмастер. Physical Siri — PENDING OWNER.
 
 Старое (до решения о переезде): **фронт по плану закончен.** Осталась одна задача, и она ждёт бэк: когда Backend 1 подключит к API датасет backend-2 (или ветки смёржат в `main`), поднять бэк, прогнать `E2E_API=http PW_CHANNEL=chrome pnpm test:e2e` и посмотреть вёрстку на 1280/390: длинные названия капсом, много товаров с одной ценой, мало `priceSpreads` (на главной может быть < 8 карточек), реальные картинки и точки. По желанию: моки из `final_dataset.json`, Lighthouse, маркеры карты с клавиатуры. Деплой — не наша зона.
 

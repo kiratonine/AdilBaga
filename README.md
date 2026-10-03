@@ -26,7 +26,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
-  <img src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" alt="Vite 8" />
+  <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS 11" />
   <img src="https://img.shields.io/badge/PostgreSQL-Supabase-3ECF8E?logo=postgresql&logoColor=white" alt="PostgreSQL / Supabase" />
 </p>
@@ -180,7 +180,7 @@ Dana Market / Dina Market / Fix Price
 ### Runtime
 
 ```text
-React + Vite
+Next.js App Router (SSR, ru/kk)
      ↓ REST
   NestJS API
      ↓
@@ -213,11 +213,11 @@ Siri speech + notification
 
 | Слой | Технологии |
 |---|---|
-| Frontend | React 19, Vite 8, TypeScript |
-| UI / routing | Tailwind CSS, React Router |
+| Frontend | Next.js 16 App Router, React 19, TypeScript |
+| UI / routing | Tailwind CSS, Next.js routing, ru/kk URL prefixes |
 | Data fetching | TanStack Query |
 | Карта | Leaflet / React Leaflet |
-| Backend | NestJS 11, TypeScript |
+| Backend | NestJS 11, TypeScript — reference для будущего Go parity |
 | Database | PostgreSQL / Supabase |
 | ORM | Prisma |
 | Voice NLP | Gemini API |
@@ -323,23 +323,26 @@ pnpm install
 cp .env.example .env
 ```
 
-Для работы с локальным backend:
+Для работы с локальным backend (не записывайте secrets в frontend env):
 
 ```env
-VITE_API_MODE=http
-VITE_API_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_API_MODE=http
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3000
+API_BASE_URL=http://127.0.0.1:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3100
+NEXT_PUBLIC_ENABLE_TEST_MOCKS=0
 ```
 
 Запуск:
 
 ```bash
-pnpm dev
+pnpm dev --port 3100
 ```
 
 Frontend:
 
 ```text
-http://localhost:5173
+http://localhost:3100/ru/catalog
 ```
 
 ---
@@ -376,15 +379,17 @@ pnpm test:matching
 pnpm test:audit
 ```
 
-### Frontend
+### Frontend (единственный frontend — Next.js в `frontend/`)
 
 ```bash
 cd frontend
 
-pnpm typecheck
-pnpm lint
-VITE_API_MODE=mock pnpm test
-pnpm build
+rtk proxy pnpm typecheck
+rtk proxy pnpm lint
+NEXT_PUBLIC_API_MODE=mock rtk pnpm test
+# HTTP env из раздела запуска обязателен и для build/start.
+rtk pnpm build
+PW_CHANNEL=chrome rtk pnpm test:e2e  # explicit test-only mock build
 ```
 
 ### Real HTTP E2E
@@ -395,12 +400,24 @@ pnpm build
 cd frontend
 
 E2E_API=http \
-VITE_API_BASE_URL=http://127.0.0.1:3000 \
+NEXT_PUBLIC_API_MODE=http \
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3000 \
+API_BASE_URL=http://127.0.0.1:3000 \
+NEXT_PUBLIC_SITE_URL=http://localhost:3100 \
 PW_CHANNEL=chrome \
 pnpm test:e2e
 ```
 
 Siri-flow дополнительно проверяется вручную на реальном iPhone.
+
+Production build/start требуют явных HTTP mode, публичного API URL и site URL.
+Планируемые адреса: `https://aktau.market` и `https://api.aktau.market`;
+бренд пока **Adil Bağa**, production deploy не выполнен. Backend может быть
+недоступен при `next build`: каталог, Dashboard и sitemap читают API в runtime;
+серверные GET кешируются до 3600 секунд. Mock production build разрешён только
+через `NEXT_PUBLIC_ENABLE_TEST_MOCKS=1` для Playwright, не для deployment.
+На `/mnt/d` известен Vitest worker-startup issue: см. Production Part 01 report
+для проверки byte-identical native-WSL test copy без изменения timeout/dependencies.
 
 ---
 
@@ -434,7 +451,8 @@ AdilBaga/
 │   └── src/
 │       ├── api/
 │       ├── components/
-│       ├── pages/
+│       ├── app/                # Next App Router, SSR/SEO
+│       ├── views/
 │       └── mocks/
 │
 ├── scripts/

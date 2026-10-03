@@ -1,61 +1,55 @@
-# Переезд фронтенда Adil Bağa: Vite SPA → Next.js (App Router) ради SEO
+# Next.js frontend migration — COMPLETE
 
-## Context
-Проект выиграл конкурс, покупается домен, нужна индексация в Google/Yandex. Сейчас `frontend/` — Vite SPA: поисковик получает пустой `<div id="root">`, title ставится через `document.title` в `useEffect`, язык (ru/kk) хранится в localStorage → казахская версия не индексируется вовсе. Бэкенд переезжает на Go (не наша зона, контракт — через Backend 1). Наша зона — только фронтенд.
+Updated: 2026-10-03. Implementation COMPLETE; Production Part 01 awaits external review.
+Canonical report: `docs/production/reports/PART_01_REPORT.md`.
 
-Решения пользователя: язык в URL-префиксе `/ru` и `/kk`; новый проект `frontend-next/` рядом со старым, перенос по страницам, старый `frontend/` живёт до переключения.
+## Итоговый путь
 
-## Целевая структура (`frontend-next/`)
+`frontend/` — единственный frontend, Next.js 16 App Router, React 19,
+TypeScript, Tailwind 4, TanStack Query, i18next и Leaflet. Старый Vite source
+удалён только после всех pre-switch PASS gates. NestJS остаётся reference backend
+для будущего Go parity; public API/DTO и Supabase schema/data не изменены.
+
+## Завершённые шаги
+
+1. Каркас, существующие lib/api/components и deterministic mocks перенесены.
+2. Next App Router, язык в `/ru`/`/kk`, cookie и proxy redirects.
+3. SSR/hydration каталога, категории, товара, поиска и Dashboard; Leaflet client-only.
+4. Metadata, canonical, ru/kk/x-default hreflang, Product/AggregateOffer,
+   BreadcrumbList, Organization/WebSite JSON-LD, robots/sitemap/OG; search noindex.
+5. Fail-closed production config: только HTTP, обязательный публичный API URL и
+   site URL. Internal `API_BASE_URL` optional; default — явно заданный public URL.
+6. Production mock artifact разрешён лишь test-only flag
+   `NEXT_PUBLIC_ENABLE_TEST_MOCKS=1`; нет автоматического перехода на mocks.
+7. Каталог/Dashboard/sitemap ждут runtime request (`connection()`), не API при
+   build. Server GET cache ограничен 3600 s с tag `catalog-data`; browser fetch
+   не получает Next cache options. Backend-down build PASS.
+8. Mock suite и live data-agnostic HTTP suite разделены. Unit и desktop/iPhone
+   viewport E2E проверены; real ru/kk SSR/SEO и HTTP 404 сохранены.
+9. После всех pre-switch PASS старый frontend удалён, Next переименован в
+   `frontend/`; повторены final-path gates. Unit выполняются на byte-identical
+   native-WSL test copy без изменений dependencies/timeouts (Part 00 /mnt/d issue).
+10. README/worklog обновлены, permanent archive target `production-part-01`.
+
+## Configuration / verification
+
+Production example: `frontend/.env.example`. Planned URLs:
+`https://aktau.market`, `https://api.aktau.market`; бренд пока **Adil Bağa**.
+Для local smoke явно задавать API/site origin; secrets в frontend не нужны.
+
+```bash
+cd frontend
+# С явными HTTP/site env из README:
+rtk proxy pnpm typecheck
+rtk proxy pnpm lint
+NEXT_PUBLIC_API_MODE=mock rtk pnpm test
+rtk pnpm build
+PW_CHANNEL=chrome rtk pnpm test:e2e
+E2E_API=http NEXT_PUBLIC_API_MODE=http \
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3000 API_BASE_URL=http://127.0.0.1:3000 \
+NEXT_PUBLIC_SITE_URL=http://localhost:3100 PW_CHANNEL=chrome rtk pnpm test:e2e
 ```
-app/
-  [lang]/layout.tsx          ← <html lang>, Header/Footer, Providers (QueryClient, i18n)
-  [lang]/page.tsx            ← Landing        (было /)
-  [lang]/catalog/page.tsx    ← HomePage
-  [lang]/collections/[slug]/page.tsx
-  [lang]/products/[id]/page.tsx
-  [lang]/search/page.tsx     ← noindex
-  [lang]/dashboard/page.tsx
-  [lang]/not-found.tsx
-  sitemap.ts, robots.ts
-middleware.ts                ← / → /ru (по Accept-Language / cookie), старые URL без префикса → 301
-```
 
-## Шаги
-1. **Каркас.** `create-next-app` (TS, Tailwind 4, без src-alias конфликтов), pnpm, oxlint, Vitest (+jsdom), Playwright. Шрифты Golos/Montserrat — через `next/font` или оставить fontsource. Перенести `index.css`, `public/`.
-2. **Перенос без изменений:** `src/lib/*`, `src/api/types.ts`, `httpAdapter`, `mockAdapter`, `mocks/`, `components/*` + их тесты. Компоненты с хуками → `'use client'`.
-3. **API-слой.** [catalogApi.ts](frontend/src/api/catalogApi.ts): `import.meta.env.VITE_*` → `process.env.API_MODE` / `API_BASE_URL` (серверный, для Go внутри сети) + `NEXT_PUBLIC_API_BASE_URL` (браузер). Контракт Go-API согласовать с Backend 1, пока работаем на моках.
-4. **Роутинг.** `react-router` → `next/link`, `useParams`/`useSearchParams`/`useRouter` из `next/navigation` (затронуты: Header, Logo, SearchBox, ProductCard, Baskets, все pages). Все ссылки — с префиксом языка (хелпер `href(lang, path)`). [filterParams.ts](frontend/src/lib/filterParams.ts) остаётся, читает из searchParams.
-5. **i18n.** [i18n/index.ts](frontend/src/i18n/index.ts): язык берётся из `params.lang`, не из localStorage; на сервере — словари ru/kk напрямую, на клиенте — i18next инициализируется с `lng` из URL (без гидрационных расхождений). LanguageSwitch меняет префикс URL, cookie запоминает выбор для редиректа с `/`.
-6. **Данные на сервере.** Страницы товара, категории, каталога, лендинга, дашборда: серверный prefetch через `catalogApi` + TanStack Query `HydrationBoundary` (переиспользуем `queryKeys` из [queries.ts](frontend/src/api/queries.ts)) → HTML уже с ценами; «Показать ещё» и фильтры остаются клиентскими через `useProductPages`. ISR (`revalidate`) — данные snapshot'ные.
-7. **SEO.**
-   - `useDocumentTitle` → `generateMetadata` на каждой странице: title, description, canonical, `alternates.languages` (hreflang ru/kk + x-default), Open Graph.
-   - JSON-LD: `Product` + `AggregateOffer` (lowPrice/highPrice по сетям) на странице товара, `BreadcrumbList` на категории/товаре.
-   - `sitemap.ts` (категории + товары из API, обе локали), `robots.ts`, `/search` — `noindex`.
-   - OG-картинка по умолчанию (`opengraph-image`).
-8. **Leaflet.** [StoreMap.tsx](frontend/src/components/dashboard/StoreMap.tsx) → `next/dynamic(..., { ssr: false })`.
-9. **Тесты.** Unit-тесты переносятся; `test/render.tsx` — моки `next/navigation` вместо MemoryRouter. e2e (`smoke`, `http`, `polish`) — обновить URL на `/ru/...`, добавить проверку: в исходном HTML (без JS) есть название и цена товара, `<title>`, `hreflang`, JSON-LD.
-10. **Переключение.** Когда всё перенесено и e2e зелёные — `frontend-next/` становится `frontend/` (отдельный коммит), старый удаляется. Обновить README и `docs/context/06_FRONTEND_WORKLOG.md`.
-
-## Разбивка по сессиям (одна сессия = один этап)
-Передача между сессиями — через репозиторий: план копируется в `docs/context/08_NEXTJS_MIGRATION_PLAN.md`, в конце каждой сессии — запись в `06_FRONTEND_WORKLOG.md` (что сделано, что дальше) + коммит. Новая сессия начинает с чтения этих двух файлов.
-
-| Сессия | Шаги | Готово, когда |
-|---|---|---|
-| 1. Каркас и перенос | 1, 2, 3 | `frontend-next/` собирается, unit-тесты lib/api/components зелёные |
-| 2. Язык и роутинг | 4, 5 | `/ru` и `/kk` работают, middleware-редиректы, Layout/Header/LanguageSwitch, Landing + Catalog |
-| 3. Страницы с SSR | 6, 8 | Category, Product, Search, Dashboard (с картой), NotFound; HTML отдаётся с данными |
-| 4. SEO | 7 | metadata, hreflang, JSON-LD, sitemap, robots, OG |
-| 5. e2e и переключение | 9, 10 | e2e зелёные, `frontend-next/` → `frontend/`, README и worklog обновлены |
-
-Субагенты: основную работу веду сам (проект маленький, связанный контекст важнее параллелизма). Субагенты — точечно: параллельный перенос независимых страниц в сессии 3 и независимое код-ревью в конце каждой сессии.
-
-## Вне нашей зоны, но надо согласовать
-- Хостинг: Next с SSR требует Node-рантайм (Vercel или Docker на VPS рядом с Go) — не статика.
-- Серверный адрес Go-API для Next (внутренний) и CORS для браузерных запросов.
-- После деплоя: Google Search Console + Яндекс.Вебмастер, отправка sitemap.
-
-## Verification
-- `pnpm typecheck && pnpm lint && pnpm test` в `frontend-next/`.
-- `pnpm build && pnpm start`, затем `curl http://localhost:3000/ru/products/<id>` — в HTML есть название, цены, `<title>`, `<link rel="alternate" hreflang>`, `application/ld+json`.
-- `pnpm test:e2e` против моков и против http-режима.
-- Lighthouse SEO-аудит (цель ≥ 95), Rich Results Test для JSON-LD на странице товара.
+История migration/design — в `docs/context/06_FRONTEND_WORKLOG.md`.
+Нет deploy/brand rename/DB mutation/commit/push. Physical Siri — PENDING OWNER.
+После внешнего review — Production Part 02 (API Contract Freeze/OpenAPI), не сейчас.
