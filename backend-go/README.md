@@ -1,10 +1,20 @@
-# Go production foundation — Part 03
+# Go production foundation / PostgreSQL layer
 
 This is a separate Go service beside `backend/`. NestJS remains the reference
 implementation and traffic owner. **Public business API parity is NOT implemented
-yet.** No catalog/dashboard/voice routes, domain SQL, migrations, Redis or Gemini.
+yet.** No catalog/dashboard/voice routes, Go migration history, Redis or Gemini.
 `GET /api/categories` intentionally returns JSON 404; health routes are operational
 and intentionally outside the frozen OpenAPI.
+
+Part 04 adds internal read-only catalog repositories. Overall Part 04 remains
+BLOCKED pending separately approved production security apply. The original
+clone failure (RLS enabled without policies; restricted role saw zero rows) is
+preserved in the report. Phase A supplies a reviewed NOLOGIN reader bootstrap
+and Prisma security migration, applied **only to disposable local databases**.
+See [PostgreSQL layer](../docs/production/POSTGRES_LAYER.md) and
+[Part 04 report](../docs/production/reports/PART_04_REPORT.md). Do not claim live
+repository parity or deploy these changes before external review and explicit
+production approval. No Supabase schema/data/role changes were made.
 
 ## Configuration and local run
 
@@ -41,7 +51,64 @@ APP_ENV=development CORS_ALLOWED_ORIGINS=http://localhost:3100 \
 
 Missing/invalid configuration fails startup. Pool creation is lazy: temporary DB
 outage does not terminate the process. Pool max 4/min 0, connect timeout 2s;
-only ParseConfig/NewWithConfig/Ping/Close, no application queries.
+`OpenReadOnly` forces `default_transaction_read_only=on` and a 5s statement
+timeout. HTTP runtime still uses DB only for readiness, not business queries.
+Read-only session defaults are defense-in-depth, not a replacement for a
+least-privilege role: a privileged credential could explicitly override them.
+
+## Part 04 integration profiles (explicit, local-first)
+
+No second migration history. The destructive fixture profile uses the
+existing Prisma migration and `tests/fixtures/catalog.sql` INSERT-only data in
+a dedicated disposable `part04_fixture` database. Set `TEST_DATABASE_URL` and
+`TEST_API_DATABASE_URL` privately, both targeting the same loopback database.
+The second URL must use local `part04_api_login`: INHERIT login with only
+`aktau_api_reader` membership, no ownership/admin/BYPASSRLS. The fixture profile
+requires the local operator to prepare existing init + group bootstrap using
+`backend/prisma/security/aktau_api_reader_role.sql` + security migration
+`20261004000000_rls_runtime_access` BEFORE creating the private disposable LOGIN
+and group membership. The tests require that prepared, empty seven-table schema
+and insert fixtures; they do not bootstrap an activated reader. Bootstrap and
+migration independently reject pre-existing memberships/direct/default ACLs.
+Fixtures are cleared locally on
+completion; non-local targets are refused before connection/setup. Tests never
+consult runtime DATABASE_URL or backend/.env.
+
+```bash
+rtk proxy go test -tags=integration ./...
+```
+
+`SMOKE_DATABASE_URL` explicitly selects a loopback production clone for read-only
+smoke/local EXPLAIN ANALYZE; no production dump becomes a committed fixture.
+`REFERENCE_API_BASE_URL` can explicitly select a loopback NestJS pointed at the
+same local clone for complete paginated local HTTP parity. Future live smoke
+requires separate `LIVE_DATABASE_URL`, `LIVE_READONLY_CONFIRM=1` and reference
+GET API. **Phase A is live audit-only: do not run live repositories with the owner
+credential as least-privilege evidence. Production apply and live parity await
+separate Phase B approval.** No live DDL/grants/role creation/write tests allowed.
+
+The separate destructive rollout profile requires `SECURITY_DATABASE_URL` and
+`SECURITY_API_DATABASE_URL`, set privately to an isolated loopback
+`part04_security` database and `part04_api_login` respectively. Effective pgx
+host/port/database and all fallback hosts are checked before connection. Start
+with uniformly RLS0 (fresh init) or RLS7 (restored clone), FORCE0/policies0/reader
+absent, existing managed ACLs and fixture or restored data. Use two isolated clusters to avoid cluster-global role dependencies
+between the clean migration-built DB and production clone.
+
+```bash
+rtk proxy go test -count=1 -tags=integration ./tests/integration \
+  -run '^TestReaderRolloutLifecycle$' -v
+```
+
+This proves migration/rollback guards, restricted repository access and a complete
+forward → explicit LOGIN removal → rollback → forward → rollback cycle, ending
+at RLS7/FORCE0/policies0/reader absent with exact original count/managed ACL
+baseline. Fresh init intentionally transitions RLS0→RLS7; rollback never disables
+RLS. Existing unsafe flags/membership/ownership, direct/default ACLs, FORCE/policy/
+mixed-state guards and real atomic lock-timeout refusal are tested independently.
+The rollback SQL is operator-only, not an automatic Prisma/runtime action.
+Database CONNECT comes from the audited existing PUBLIC ACL, not a new grant.
+See POSTGRES_LAYER.md for the future, separately authorized Phase B runbook.
 
 ## HTTP behavior and security
 
@@ -73,7 +140,7 @@ only ParseConfig/NewWithConfig/Ping/Close, no application queries.
 ## Reproducible quality gates
 
 ```bash
-rtk proxy gofmt -w cmd internal
+rtk proxy gofmt -w cmd internal tests
 rtk proxy gofmt -l .                    # must print nothing
 rtk proxy go mod tidy
 rtk proxy go mod verify

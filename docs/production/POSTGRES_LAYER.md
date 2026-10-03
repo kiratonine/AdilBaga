@@ -1,0 +1,276 @@
+# PostgreSQL production layer — Part 04
+
+Status: **BLOCKED**. NestJS remains the reference/traffic owner. Go business HTTP
+API parity is not implemented. This document records inspected facts and a
+owner-approved Phase A access model, not permission to change Supabase.
+
+## Schema and fresh clone
+
+Supabase PostgreSQL 17.6 contains the seven application tables in `public`:
+stores, store_locations, categories, raw_products, canonical_products,
+product_mappings and offers. Fresh public schema-only/custom dumps were made
+outside the repository with read-only session options, directory 0700/files 0600.
+Restore into disposable PostgreSQL 17.11 (`postgres:17-alpine`) exited 0 and all
+seven table counts matched live. A separate local reference database was created
+using the checked-in Prisma initialization migration, not a Go schema copy.
+
+Catalog comparison matched 3 enums/ordered values, 7 tables, 48 columns including
+types/nullability/defaults, 15 PK/FK constraints and 21 indexes including PK/unique
+indexes. All 8 FK cascade update/delete rules matched.
+
+**Material security-schema drift:** all seven live/restored application tables
+have `relrowsecurity=true`, `relforcerowsecurity=false`, with no `pg_policies` rows.
+All seven initial-migration-only reference tables have both RLS flags false. This was missed by
+the initial structural comparison and discovered when the restricted clone role
+returned zero categories. It cannot be dismissed as platform metadata: it changes
+the runtime role's observable data access. Stop condition 1 applies.
+
+## Runtime access design (not applied to Supabase)
+
+Approved stable group `aktau_api_reader`: NOLOGIN, NOSUPERUSER, NOCREATEDB,
+NOCREATEROLE, NOREPLICATION, NOBYPASSRLS, INHERIT. A separately provisioned runtime
+LOGIN inherits only this group, owns no tables and has no privileged membership.
+It needs CONNECT database, USAGE public,
+SELECT **only** categories/canonical_products/offers/stores/store_locations.
+No DML/DDL, raw_products/product_mappings access, role creation or ownership.
+Keep PUBLIC permissions and RLS implications under explicit deployment review.
+Future ingestion uses a separate credential; exact ingestion DML grants are
+deferred to Part 08. Migration uses a separate credential, reviewed DDL only,
+never a runtime API credential.
+
+A transient local-only `part04_api` role with the five SELECT grants passed the
+deterministic migration-based fixture tests. Direct SELECT on raw_products and
+product_mappings failed; INSERT/UPDATE/DELETE/CREATE TABLE failed independently
+of the pool's read-only settings. **On the production clone the same grants were
+insufficient: categories SELECT succeeded but returned 0 rather than 6 rows.**
+No BYPASSRLS or policies were added, even locally, to conceal this finding.
+
+The owner approved Phase A: RLS stays enabled on all seven tables, FORCE stays
+false; exactly five SELECT policies use TO aktau_api_reader USING(true), never
+PUBLIC, FOR ALL or WITH CHECK. No raw/mapping policies or grants. Bootstrap is
+separate because roles are cluster-global, not Prisma's per-database history.
+The new security migration only enables RLS and grants the reader five SELECTs
+plus schema USAGE/policies. Existing initialization migration remains unchanged.
+Do not disable RLS, use owner/service_role credentials for future Go runtime or
+add BYPASSRLS. No unrelated Supabase-managed grant is revoked.
+
+## Phase A live security audit
+
+Observed current_user=session_user=postgres, active role=none. This role owns all
+seven application tables, has BYPASSRLS, is not superuser; both ownership (with
+FORCE RLS false) and BYPASSRLS explain visibility. Live roles/policies were not
+changed. RLS's original administrative origin cannot be inferred from catalogs;
+the proven drift is security state absent from checked-in initialization history.
+
+Existing anon/authenticated/service_role each have SELECT/INSERT/UPDATE/DELETE/
+TRUNCATE/REFERENCES/TRIGGER on all seven tables (not grantable). postgres has the
+same grantable privileges. These managed ACLs are preserved: no API group
+membership/policy is given to anon/authenticated, so the new reader design does
+not require unrelated revokes. Schema PUBLIC/anon/authenticated/service_role have
+USAGE; pg_database_owner has USAGE+CREATE. PUBLIC has no CREATE. Schema ACL was
+inspected through pg_namespace/aclexplode, not an incomplete information_schema
+schema-usage projection. The reader role does not exist on live yet.
+
+PGOPTIONS alone was observed not to persist the requested settings on this
+connection. Phase A's audit explicitly SET default_transaction_read_only=on and
+statement_timeout=5000, then BEGIN READ ONLY in each catalog-query batch; inspected
+settings confirmed read-only defaults+transaction=on and timeout=5s. These are
+connection-local controls, not production schema/data mutations.
+
+## Reviewed artifacts and future deployment order
+
+- `backend/prisma/security/aktau_api_reader_role.sql`: operator-only group bootstrap;
+  PRE-activation only. Refuses unsafe attributes, memberships in either direction,
+  ownership or any direct/default ACL involving the reader. It is not a health
+  check/idempotent reapply for an already activated runtime group.
+- `backend/prisma/migrations/20261004000000_rls_runtime_access/migration.sql`:
+  independently enforces the same role/ACL invariants and seven ordinary app
+  tables with FORCE0/policies0. Permits only uniform RLS0 (fresh) or RLS7 (clone).
+  Target tables are locked before RLS/policy inspection; migration transaction
+  has lock_timeout5s and statement_timeout10s. No retry or partial apply.
+- `backend/prisma/security/rollback_aktau_api_reader_access.sql`: operator-only,
+  transactionally guarded emergency rollback, never an automatic migration.
+
+Future order, **not executed on Supabase in Phase A**:
+
+1. Operator provisions/verifies group bootstrap, without a password.
+2. Apply the reviewed Prisma security migration.
+3. Provision/rotate a separate LOGIN credential privately, outside Git.
+4. Grant only aktau_api_reader membership; ensure no owner/admin/service_role/BYPASSRLS.
+5. Verify catalog/ACLs, counts and live least-privilege repository/NestJS parity.
+
+Production steps require separate external review and explicit owner approval.
+Ingestion and migration credentials remain separate from this runtime reader.
+
+## Database CONNECT and rollback baseline
+
+Fresh live read-only database ACL inspection confirmed PUBLIC CONNECT and
+TEMPORARY (not grantable). Current inspection identity has CONNECT. The future
+restricted login obtains CONNECT from the **existing database-level PUBLIC ACL**,
+not from an owner/service_role membership. Bootstrap/migration do not grant or
+change database CONNECT. If this precondition changes, STOP for separately
+reviewed CONNECT scope; do not silently add a grant. PUBLIC TEMPORARY does not
+authorize persistent public-schema DDL; it is existing baseline, not a new grant.
+
+Local clean and restored clusters reproduced the audited managed table/schema/
+database ACLs because --no-acl dumps omit them. A brand-new restricted login
+connected with only reader membership, with no direct database grant to either
+login or group. Managed roles were simulated as non-login roles, not production
+credentials. No managed ACL was revoked as part of reader forward/rollback.
+
+The exact rollback target is the existing live security state, **not** the init
+migration's RLS-disabled state: seven RLS enabled, FORCE false, no policies,
+reader group absent, data/counts and existing ACLs unchanged. The rollback checks
+safe role flags, no parent-role membership/ownership, no remaining group members,
+RLS7/FORCE0, exact five SELECT/reader-only/USING(true)/no-WITH-CHECK policies and
+exact reader SELECT5 + schema USAGE with no grant option/extra reader privileges.
+It also rejects column/function/type/default/database ACLs granted to the reader.
+Any mismatch aborts its transaction before drops/revokes. Remaining cross-database
+role dependencies make DROP ROLE fail and roll back the transaction too.
+Table locks and bounded lock/statement timeouts keep the rollback finite; do not
+remove guards or suppress errors. Existing unrelated ACLs are never revoked.
+Before executing, the operator must compare the full managed ACL matrix with the
+captured baseline; any unrelated drift requires review, not blind rollback.
+
+Local automated proof uses a dedicated /part04_security DB in two isolated PG17
+clusters (clean init+INSERT fixture, and restored production dump). It rejects
+non-loopback primary/fallback hosts and effective pgx target overrides. Baseline
+snapshots compare seven counts, RLS/ownership/policies, and normalized full table,
+schema and database ACL entries including grantors. Both cycles passed forward
+→ explicit LOGIN removal → guarded rollback → exact baseline → forward access
+again → second rollback to baseline. No RLS disable is used by rollback.
+The final fresh-install proof starts with the init migration's actual RLS0;
+rollback intentionally preserves the resulting RLS7 production security baseline.
+Only that reviewed RLS0→RLS7 flag transition is normalized in the expected
+rollback snapshot; no ACL/count/ownership/policy difference is ignored.
+
+Forward role checks inspect direct ACLs on databases (cluster-wide), schemas,
+relations, columns, routines, types and default ACLs (current DB); both recipient
+and grantor are checked, as is default-ACL ownership. PUBLIC-only privileges do
+not count as direct reader ACL. Unexpected group members, even NOLOGIN children,
+are rejected before policy activation. Routine/type ownership is rejected too.
+Baseline validation concerns only the exact seven target tables; unrelated
+public-table policies are not a forward prerequisite. Existing reader ACLs or
+membership mean STOP, not automatic revokes or a permissive bootstrap.
+
+## Future Phase B runbook — NOT EXECUTED / separate approval required
+
+The following is an operator sequence for later explicit production approval,
+not permission to execute it now. Security metadata rollout is independent of
+Part 05 HTTP implementation/cutover; Go is not the public traffic owner.
+
+**Immutable production-apply prerequisite:** all externally reviewed Part04
+source/security artifacts MUST first be committed and pushed to
+integrate/full-stack. Production apply must reference that exact reviewed commit
+SHA. Do not apply security artifacts from an uncommitted working tree. External
+review must authorize commit/push first; neither is performed by Phase A.
+
+PRE:
+
+1. Fetch; check integrate/full-stack, clean working tree and HEAD=origin equal
+   to the exact reviewed/pushed Part04 SHA. STOP if any artifact is uncommitted
+   or differs from that immutable reviewed source.
+2. Take fresh private public schema/custom backup outside repo (0700/0600).
+3. Restore into a new disposable PG17 cluster with exit-on-error; compare all
+   seven counts and semantic relations. STOP on restore/count failure.
+4. READ ONLY re-audit RLS7/FORCE0/policies0, absent reader, ownership, full
+   table/schema/database ACL matrix and PUBLIC CONNECT. Save private baseline.
+   STOP on any change from the reviewed state; no opportunistic grants/revokes.
+5. Prepare the exact reviewed rollback path above and test it on that clone.
+   Check pending Prisma migrations: only the reviewed security migration may
+   be applied; unexpected pending migrations require STOP.
+6. Generate the future runtime LOGIN password privately, outside source/history/
+   command logs; provision no credential in this repository or report.
+
+FORWARD (only after explicit owner authorization):
+
+7. Execute `backend/prisma/security/aktau_api_reader_role.sql`; fail closed.
+   Before activation, group must have no parent or child memberships, owned
+   objects or direct/default privileges. Never run it as an activated-role check.
+8. Apply exactly `20261004000000_rls_runtime_access` through the separately
+   reviewed Prisma/operator deployment procedure, not Go runtime startup.
+   All seven tables must be ordinary, FORCE0/policies0, and uniformly RLS0 or
+   RLS7. Lock/statement timeout is a failed transaction: STOP, never retry blindly.
+9. Privately create the restricted LOGIN: INHERIT, non-owner, no superuser/
+   create-role/create-DB/replication/BYPASSRLS privileges.
+10. Grant only aktau_api_reader membership, with no administrative option or
+    inherited privileged role. No additional database CONNECT grant is needed.
+11. Verify identity/flags/membership, SELECT5/raw+mapping denial, RLS7/FORCE0/
+    exact policies5, reader ACLs, unchanged managed ACLs and all seven counts.
+
+LIVE VERIFY (restricted credential, no mutation):
+
+12. Run explicit SELECT-only Go repository smoke under the restricted LOGIN;
+    read-only pool/session defaults and bounded statement timeout remain required.
+13. Run NestJS ↔ Go paginated price_asc/price_desc/name_asc and search/filter/
+    detail parity; reference must use an approved connection, never claim owner
+    access as restricted Go proof.
+14. Check health/readiness with restricted connectivity; no business HTTP rollout.
+15. Confirm no application writes and recompare counts/security/managed ACLs.
+
+ROLLBACK TRIGGERS:
+
+- Policy/ACL mismatch or unexpected authorization behavior.
+- Restricted repository failure.
+- NestJS/Go parity failure caused by the DB security change.
+
+ROLLBACK (operator-only, exact reviewed artifact):
+
+16. Stop/drain restricted clients. Explicitly revoke reader membership from and
+    remove the known runtime LOGIN. Inventory all members first: unknown LOGINs
+    or ownership/dependencies require STOP; never silently DROP an unknown role.
+17. Compare managed ACLs with the captured baseline, then execute
+    `backend/prisma/security/rollback_aktau_api_reader_access.sql` with
+    ON_ERROR_STOP/exit-on-error. Any guard/dependency error means STOP, not a
+    partial rollback or guard removal. Keep deployment metadata consistent using
+    a separately reviewed Prisma recovery procedure; this artifact does not
+    rewrite `_prisma_migrations` or authorize replaying unrelated migrations.
+18. READ ONLY verify RLS7/FORCE0/policies0, reader absent, seven counts and full
+    managed table/schema/database ACL baseline unchanged. Retain private evidence.
+
+No step above was applied to Supabase in Phase A. Phase B and live least-privilege
+parity remain blocked pending explicit approval; no Part 05 work is authorized.
+
+## Repository implementation (HTTP still unwired)
+
+`internal/catalog` contains domain models and category/product interfaces.
+`internal/postgres` implements ListCategories/GetFilterSchema/ListProducts/
+GetProductByID. No handlers/routes or Go migrations were added.
+
+Products use two bounded queries (page and all page offers); filter validation
+adds at most two discovery queries. Category/search/dynamic filters/order/page,
+MIN usable price/MAX snapshot and offer sorting are SQL-side. Offers require
+inStock=true and price>0. Snapshot timestamp-without-time-zone uses explicit UTC.
+Brand reads canonical_products.brand; other dynamic values read JSONB attributes.
+Primitive JSON types are preserved. Same-key OR and cross-key AND are explicit.
+SQL identifiers are static; keys, JSON values, category, search, id and pagination
+are bound parameters. Sort uses only internal enum-selected static fragments.
+
+`OpenReadOnly` sets default_transaction_read_only=on and statement_timeout=5000,
+retaining lazy max4/min0 pool/connect timeout2s. Even a local admin credential
+using this pool could not execute UPDATE. A real least-privilege role is still
+required; privileged users can override a session default.
+
+## Collation and query plans
+
+Existing `ru-x-icu` is present live and on the local clone. SELECT ordering matched
+Node `localeCompare('ru')` exactly for all 849 usable product IDs in both databases.
+No collation was created. Live least-privilege HTTP/Go repository parity remains
+pending Phase B; local clone parity is recorded in the current Part 04 report.
+
+The original plan precondition failure is preserved in the report. After LOCAL
+security apply, ANALYZE + restricted-role EXPLAIN ANALYZE covered default/category/
+search/filter/descending/name/detail/discovery/offers. Existing PK/category/offer
+indexes were sufficient; SELECT plans completed in milliseconds under the 5s
+timeout. Bounded product/offer roundtrips and SQL LIMIT verified; no raw/mapping
+scan or Cartesian explosion. Small-table sequential scans are expected, not a
+reason for speculative indexing. No pg_trgm/GIN/composite index/extension/collation
+was added. No production EXPLAIN ANALYZE ran. Safe plan measurements are in report.
+
+## Rollout boundary
+
+Phase A local security proof is for owner/external review, not production apply.
+Overall Part 04 remains BLOCKED pending explicit production security approval
+and subsequent least-privilege live parity. Protected
+NestJS/Next/frozen contracts remain unchanged. Public `/api/categories` stays
+unwired in Go; no Part 05 work or traffic cutover is authorized.

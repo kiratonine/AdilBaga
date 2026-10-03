@@ -1,4 +1,4 @@
-// Package postgres provides connectivity only; no application queries or schema work.
+// Package postgres provides read-only connectivity and catalog repositories.
 package postgres
 
 import (
@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
+func OpenReadOnly(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	if err := config.ValidateDatabaseURL(databaseURL); err != nil {
 		return nil, err
 	}
@@ -21,6 +21,8 @@ func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	c.MaxConns = 4
 	c.MinConns = 0
 	c.ConnConfig.ConnectTimeout = 2 * time.Second
+	c.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
+	c.ConnConfig.RuntimeParams["statement_timeout"] = "5000"
 	// Pool creation is lazy: a temporary outage must not prevent liveness.
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
