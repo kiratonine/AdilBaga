@@ -1,0 +1,100 @@
+{
+  "summary": {
+    "canonicalProducts": 2,
+    "stores": 2,
+    "matchedAcrossStores": 2,
+    "snapshotAt": "2026-09-23T09:00:00.000Z"
+  },
+  "priceSpreads": [
+    {
+      "productId": "2358a413-8c03-4e59-baad-7675045b97bb",
+      "name": "Молоко FoodMaster 3.2% 1 л",
+      "minPrice": 570,
+      "maxPrice": 620,
+      "differencePercent": 8.77
+    },
+    {
+      "productId": "c6381f7d-b66a-445a-bbe6-3e56670656c2",
+      "name": "Молоко Адал 2.5% 500 мл",
+      "minPrice": 390,
+      "maxPrice": 420,
+      "differencePercent": 7.69
+    }
+  ],
+  "locations": [
+    {
+      "storeCode": "DINA",
+      "storeName": "Dina",
+      "name": "Dina — демо-точка",
+      "address": "Актау, демонстрационный адрес (не проверен)",
+      "latitude": 43.635,
+      "longitude": 51.169
+    },
+    {
+      "storeCode": "DANA",
+      "storeName": "Dana",
+      "name": "Dana — демо-точка",
+      "address": "Актау, демонстрационный адрес (не проверен)",
+      "latitude": 43.645,
+      "longitude": 51.181
+    }
+  ],
+  "baskets": [
+    {
+      "storeCode": "DINA",
+      "storeName": "Dina",
+      "total": 570,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молочные продукты",
+          "productId": "2358a413-8c03-4e59-baad-7675045b97bb",
+          "name": "Молоко FoodMaster 3.2% 1 л",
+          "price": 570
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар и соль",
+          "productId": null,
+          "name": null,
+          "price": null
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Растительные масла",
+          "productId": null,
+          "name": null,
+          "price": null
+        }
+      ]
+    },
+    {
+      "storeCode": "DANA",
+      "storeName": "Dana",
+      "total": 620,
+      "items": [
+        {
+          "categorySlug": "milk",
+          "categoryName": "Молочные продукты",
+          "productId": "2358a413-8c03-4e59-baad-7675045b97bb",
+          "name": "Молоко FoodMaster 3.2% 1 л",
+          "price": 620
+        },
+        {
+          "categorySlug": "sugar",
+          "categoryName": "Сахар и соль",
+          "productId": null,
+          "name": null,
+          "price": null
+        },
+        {
+          "categorySlug": "oil",
+          "categoryName": "Растительные масла",
+          "productId": null,
+          "name": null,
+          "price": null
+        }
+      ]
+    }
+  ]
+}

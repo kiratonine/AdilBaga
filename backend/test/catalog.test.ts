@@ -4,6 +4,7 @@ import { after, before, test } from 'node:test';
 import type { INestApplication } from '@nestjs/common';
 import type { DashboardDto, FilterSchemaDto, ProductCardDto } from '../src/contracts/catalog';
 import { normalizeProduct } from '../src/catalog/product-card';
+import { parseProductQuery } from '../src/catalog/product-query';
 import { createApp } from '../src/create-app';
 import { haversineMeters } from '../src/location/haversine';
 
@@ -76,6 +77,8 @@ test('product detail and invalid queries return documented errors', async () => 
   for (const path of [
     '/api/products?sort=unknown',
     '/api/products?limit=0',
+    '/api/products?limit=101',
+    '/api/products?limit=1&limit=2',
     '/api/products?offset=-1',
     '/api/products?category=milk&unknown=1',
     '/api/products?category=milk&volumeMl=oops',
@@ -102,6 +105,16 @@ test('normalization recomputes stale price without mutating offers', () => {
   assert.equal(result.minPrice, 570);
   assert.deepEqual(result.offers.map((offer) => offer.price), [570, 620]);
   assert.equal(original.offers[0]?.price, 620);
+});
+
+test('HTTP pagination defaults and maximum leave internal repository queries unchanged', async () => {
+  assert.equal(parseProductQuery({}, []).limit, 24);
+  assert.equal(parseProductQuery({}, []).offset, 0);
+  assert.equal(parseProductQuery({ limit: '100' }, []).limit, 100);
+  assert.throws(() => parseProductQuery({ limit: '101' }, []), /limit must be <= 100/);
+  const response = await get('/api/products?limit=100');
+  assert.equal(response.status, 200);
+  assert.equal((response.body as ProductCardDto[]).length, 2);
 });
 
 test('dashboard derives summary, sorted spreads and locations', async () => {

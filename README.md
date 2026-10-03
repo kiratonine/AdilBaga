@@ -251,7 +251,10 @@ POST /api/voice/continue
 - pagination;
 - dynamic filters.
 
-По умолчанию товары сортируются по минимальной цене.
+По умолчанию товары сортируются по минимальной цене; `limit=24`, максимум 100.
+Wire contract v1: [OpenAPI](contracts/openapi.yaml),
+[семантика и совместимость](docs/production/API_V1_CONTRACT.md),
+[reproducible contract checks](contracts/README.md).
 
 ---
 

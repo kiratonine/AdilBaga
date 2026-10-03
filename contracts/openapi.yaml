@@ -1,0 +1,504 @@
+openapi: 3.1.0
+info:
+  title: Aktau Market API
+  version: 1.0.0
+  description: |
+    Frozen v1 wire contract of the NestJS reference, for a later Go parity implementation.
+    No /api/v1 prefix. Prices are KZT. All responses are JSON. Public endpoints are
+    currently anonymous. Clients must ignore unknown additive response properties.
+    IDs and session IDs are opaque strings, not a public UUID requirement.
+    Runtime selection is deterministic; Gemini only interprets natural language.
+    The reference has no explicit Cache-Control policy; HTTP ETags may be generated
+    by its framework. No TTL or ETag representation is frozen here.
+servers:
+  - url: https://api.aktau.market
+    description: Planned production origin; not a deployment claim
+  - url: http://127.0.0.1:3000
+    description: Explicit local reference origin
+security: []
+tags:
+  - name: Catalog
+    description: Snapshot-backed product reads
+  - name: Dashboard
+    description: Snapshot analytics, not a checkout cart
+  - name: Voice
+    description: NLP and short-lived clarification sessions
+paths:
+  /api/categories:
+    get:
+      operationId: listCategories
+      tags: [Catalog]
+      summary: List categories ordered by slug ASC
+      responses:
+        '200':
+          description: Category array, no pagination envelope
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Categories' }
+              examples:
+                fixture: { $ref: '#/components/examples/Categories' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/categories/{slug}/filters:
+    get:
+      operationId: getCategoryFilters
+      tags: [Catalog]
+      summary: Get the real category-dependent filter schema
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Opaque category slug; unknown category returns 404
+          schema: { type: string }
+      responses:
+        '200':
+          description: Filter keys and typed options accepted by products
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FilterSchema' }
+              examples:
+                fixture: { $ref: '#/components/examples/Filters' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/products:
+    get:
+      operationId: listProducts
+      tags: [Catalog]
+      summary: Filter, sort and page usable canonical products
+      description: |
+        Returns an array, not an object with total. Category/search are trimmed;
+        empty strings mean no restriction. Unknown category without a dynamic
+        filter returns an empty array. Search is case-insensitive name matching.
+        Standard parameters must be single strings: repeats return 400.
+        Dynamic filter keys are ONLY those returned by the chosen category's filters
+        endpoint. Each repeated dynamic parameter selects another value (OR within
+        one key, AND across different keys). There is no filters[...] wrapper.
+        Values are serialized as strings; boolean values are true/false; numeric
+        options use decimal notation and are parsed according to the schema.
+        Unknown keys/options, invalid values, or dynamic filters without category
+        return 400. Brand compares CanonicalProduct.brand; other keys compare attributes.
+        Price sort uses minPrice; ties use id ASC. name_asc uses Russian locale
+        compatible name ordering, then id ASC. Offset is applied after sorting.
+      x-dynamic-filters:
+        discovery: /api/categories/{slug}/filters
+        encoding: repeated query keys, form/explode
+        same-key: OR
+        different-keys: AND
+        example: category=milk&volumeMl=500&volumeMl=1000&fatPercent=3.2
+      parameters:
+        - name: category
+          in: query
+          description: Single trimmed category slug
+          schema: { type: string }
+        - name: search
+          in: query
+          description: Single trimmed case-insensitive name substring; no new length bound in v1
+          schema: { type: string }
+        - name: sort
+          in: query
+          description: Single sort value
+          schema: { type: string, enum: [price_asc, price_desc, name_asc], default: price_asc }
+        - name: limit
+          in: query
+          description: Single decimal integer; 101 returns 400
+          schema: { type: integer, minimum: 1, maximum: 100, default: 24 }
+        - name: offset
+          in: query
+          description: Single nonnegative safe decimal integer
+          schema: { type: integer, minimum: 0, maximum: 9007199254740991, default: 0 }
+      responses:
+        '200':
+          description: Ordered page of products, possibly empty
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Products' }
+              examples:
+                fixture: { $ref: '#/components/examples/Products' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/products/{id}:
+    get:
+      operationId: getProduct
+      tags: [Catalog]
+      summary: Get a usable canonical product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Opaque string; an unknown non-UUID value also returns 404
+          schema: { type: string }
+      responses:
+        '200':
+          description: Same ProductCard shape as list entries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCard' }
+              examples:
+                fixture: { $ref: '#/components/examples/Product' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [Dashboard]
+      summary: Get current snapshot analytics and fixed analytical baskets
+      description: |
+        Not a user cart or checkout. Baskets are always present (possibly an empty
+        array). Current slots are milk volumeMl=1000, sugar weightGrams=1000,
+        oil volumeMl=1000, without category fallback. This describes current
+        business configuration, not a universal closed enum for categorySlug.
+        Cheapest matching offer is selected separately per chain. Missing items
+        have productId, name and price all null; total sums only found prices.
+        Price spreads are ordered differencePercent DESC, then productId ASC.
+        differencePercent = round((maxPrice-minPrice)/minPrice*100, 2).
+        Locations are genuine StoreLocation records, not generated product addresses.
+      responses:
+        '200':
+          description: Summary, spreads, locations and required baskets
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dashboard' }
+              examples:
+                fixture: { $ref: '#/components/examples/Dashboard' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/voice/start:
+    post:
+      operationId: startVoice
+      tags: [Voice]
+      summary: Interpret a voice request or ask for missing attributes
+      description: |
+        Returns HTTP 201 for both union branches. Numeric JSON strings for
+        coordinates are compatible wire input, explicitly converted to finite
+        numbers and range-validated by the reference. Coordinates select the
+        nearest location of the chosen cheapest chain using Haversine; Gemini
+        never selects product/price/store. No new text length bound is imposed here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VoiceStartRequest' }
+      responses:
+        '201':
+          description: Clarification or deterministic result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceResponse' }
+              examples:
+                result: { $ref: '#/components/examples/VoiceResult' }
+                clarification: { $ref: '#/components/examples/VoiceClarification' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/SessionUnavailable' }
+  /api/voice/continue:
+    post:
+      operationId: continueVoice
+      tags: [Voice]
+      summary: Continue an opaque short-lived clarification session
+      description: |
+        Session IDs are opaque nonblank strings, not validated UUIDs. Unknown,
+        expired or completed sessions return 404. The reference session TTL is
+        approximately 10 minutes; no promise of durable sessions. Additional
+        clarification returns the same branch; completion returns a result and
+        deletes the session. Dependency failure is 503, not a fabricated success.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VoiceContinueRequest' }
+      responses:
+        '201':
+          description: Clarification or result after intent/attribute merge
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/SessionUnavailable' }
+components:
+  examples:
+    Categories:
+      summary: Stable reference fixtures, not live data
+      externalValue: ./examples/categories.json
+    Filters:
+      summary: Milk reference filter options
+      externalValue: ./examples/filters.json
+    Products:
+      summary: Default reference price order
+      externalValue: ./examples/products.json
+    Product:
+      summary: Reference product detail
+      externalValue: ./examples/product.json
+    Dashboard:
+      summary: Fixture baskets including missing positions
+      externalValue: ./examples/dashboard.json
+    VoiceResult:
+      summary: Deterministic fixture result with synthetic coordinates
+      externalValue: ./examples/voice-start-result.json
+    VoiceClarification:
+      summary: Opaque example session, not a live token
+      externalValue: ./examples/voice-clarification.json
+  responses:
+    BadRequest:
+      description: Invalid query or DTO; message can be a string or validation string array
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: Unknown category/product or missing/expired voice session
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    RateLimited:
+      description: Reserved compatible error envelope for future rate limiting; not currently implemented
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    InternalError:
+      description: Compatible internal error envelope; no stack, credential or provider payload
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    SessionUnavailable:
+      description: Voice session dependency unavailable
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+  schemas:
+    StoreCode:
+      type: string
+      enum: [DINA, DANA, FIX_PRICE]
+    Category:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+    Categories:
+      type: array
+      items: { $ref: '#/components/schemas/Category' }
+    CategoryRef:
+      type: object
+      required: [slug, name]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+    AttributeValue:
+      type: [string, number, boolean, 'null']
+    FilterDefinition:
+      oneOf:
+        - { $ref: '#/components/schemas/MultiSelectFilterDefinition' }
+        - { $ref: '#/components/schemas/BooleanFilterDefinition' }
+    MultiSelectFilterDefinition:
+      type: object
+      required: [key, label, type, options]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string, const: multi-select }
+        options:
+          type: array
+          minItems: 1
+          items: { type: [string, number, boolean] }
+    BooleanFilterDefinition:
+      type: object
+      required: [key, label, type]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string, const: boolean }
+    FilterSchema:
+      type: object
+      required: [category, filters]
+      properties:
+        category: { type: string }
+        filters:
+          type: array
+          items: { $ref: '#/components/schemas/FilterDefinition' }
+    Offer:
+      type: object
+      required: [storeCode, storeName, price, oldPrice]
+      properties:
+        storeCode: { $ref: '#/components/schemas/StoreCode' }
+        storeName: { type: string }
+        price: { type: number, exclusiveMinimum: 0 }
+        oldPrice: { type: [number, 'null'] }
+    ProductCard:
+      type: object
+      description: |
+        Canonical product only; no RawProduct fields. Usable in-stock positive-price
+        offers ordered price ASC. minPrice is their minimum, never a missing-price 0.
+        snapshotAt is the maximum usable offer snapshot timestamp (UTC ISO datetime).
+      required: [id, name, brand, category, imageUrl, attributes, minPrice, offers, snapshotAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        brand: { type: [string, 'null'] }
+        category: { $ref: '#/components/schemas/CategoryRef' }
+        imageUrl: { type: [string, 'null'] }
+        attributes:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/AttributeValue' }
+        minPrice: { type: number, exclusiveMinimum: 0 }
+        offers:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Offer' }
+        snapshotAt: { type: string, format: date-time }
+    Products:
+      type: array
+      items: { $ref: '#/components/schemas/ProductCard' }
+    Summary:
+      type: object
+      required: [canonicalProducts, stores, matchedAcrossStores, snapshotAt]
+      properties:
+        canonicalProducts: { type: integer }
+        stores: { type: integer }
+        matchedAcrossStores: { type: integer }
+        snapshotAt: { type: string, format: date-time }
+    PriceSpread:
+      type: object
+      required: [productId, name, minPrice, maxPrice, differencePercent]
+      properties:
+        productId: { type: string }
+        name: { type: string }
+        minPrice: { type: number }
+        maxPrice: { type: number }
+        differencePercent: { type: number }
+    StoreLocation:
+      type: object
+      required: [storeCode, storeName, name, address, latitude, longitude]
+      properties:
+        storeCode: { $ref: '#/components/schemas/StoreCode' }
+        storeName: { type: string }
+        name: { type: string }
+        address: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+    BasketItem:
+      type: object
+      required: [categorySlug, categoryName, productId, name, price]
+      properties:
+        categorySlug: { type: string }
+        categoryName: { type: string }
+        productId: { type: [string, 'null'] }
+        name: { type: [string, 'null'] }
+        price: { type: [number, 'null'] }
+    Basket:
+      type: object
+      required: [storeCode, storeName, total, items]
+      properties:
+        storeCode: { $ref: '#/components/schemas/StoreCode' }
+        storeName: { type: string }
+        total: { type: number }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BasketItem' }
+    Dashboard:
+      type: object
+      required: [summary, priceSpreads, locations, baskets]
+      properties:
+        summary: { $ref: '#/components/schemas/Summary' }
+        priceSpreads:
+          type: array
+          items: { $ref: '#/components/schemas/PriceSpread' }
+        locations:
+          type: array
+          items: { $ref: '#/components/schemas/StoreLocation' }
+        baskets:
+          type: array
+          items: { $ref: '#/components/schemas/Basket' }
+    LatitudeInput:
+      description: Number or numeric JSON string; after Number conversion must be finite and between -90 and 90
+      oneOf:
+        - { type: number, minimum: -90, maximum: 90 }
+        - { type: string, pattern: '^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*$' }
+    LongitudeInput:
+      description: Number or numeric JSON string; after Number conversion must be finite and between -180 and 180
+      oneOf:
+        - { type: number, minimum: -180, maximum: 180 }
+        - { type: string, pattern: '^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*$' }
+    NonblankText:
+      type: string
+      pattern: '\S'
+      description: Nonblank text; no speculative maximum length
+    VoiceStartRequest:
+      type: object
+      additionalProperties: false
+      required: [text, latitude, longitude]
+      properties:
+        text: { $ref: '#/components/schemas/NonblankText' }
+        latitude: { $ref: '#/components/schemas/LatitudeInput' }
+        longitude: { $ref: '#/components/schemas/LongitudeInput' }
+    VoiceContinueRequest:
+      type: object
+      additionalProperties: false
+      required: [sessionId, text]
+      properties:
+        sessionId: { $ref: '#/components/schemas/NonblankText' }
+        text: { $ref: '#/components/schemas/NonblankText' }
+    VoiceItem:
+      type: object
+      required: [name, price, store, address, distanceMeters, imageUrl]
+      properties:
+        name: { type: string }
+        price: { type: number }
+        store: { type: string }
+        address: { type: [string, 'null'] }
+        distanceMeters: { type: [number, 'null'] }
+        imageUrl: { type: [string, 'null'] }
+    Clarification:
+      type: object
+      required: [status, sessionId, question, missingFields]
+      properties:
+        status: { type: string, const: needs_clarification }
+        sessionId: { type: string, description: 'Opaque session token, not guaranteed UUID' }
+        question: { type: string }
+        missingFields:
+          type: array
+          items: { type: string }
+    SingleResult:
+      type: object
+      required: [status, mode, speech, items]
+      properties:
+        status: { type: string, const: result }
+        mode: { type: string, const: single }
+        speech: { type: string }
+        items:
+          type: array
+          maxItems: 1
+          items: { $ref: '#/components/schemas/VoiceItem' }
+    ListResult:
+      type: object
+      required: [status, mode, speech, items]
+      properties:
+        status: { type: string, const: result }
+        mode: { type: string, const: list }
+        speech: { type: string }
+        items:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/VoiceItem' }
+    VoiceResponse:
+      description: Result items are price ordered; zero matches is a successful empty result, not a fabricated item
+      oneOf:
+        - { $ref: '#/components/schemas/Clarification' }
+        - { $ref: '#/components/schemas/SingleResult' }
+        - { $ref: '#/components/schemas/ListResult' }
+    ApiError:
+      type: object
+      required: [statusCode, message]
+      properties:
+        statusCode: { type: integer }
+        message:
+          oneOf:
+            - { type: string }
+            - { type: array, items: { type: string } }
+        error: { type: string }

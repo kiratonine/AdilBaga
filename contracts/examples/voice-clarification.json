@@ -1,0 +1,9 @@
+{
+  "status": "needs_clarification",
+  "sessionId": "opaque-example-session",
+  "question": "Какой объём и жирность молока вам нужны?",
+  "missingFields": [
+    "volumeMl",
+    "fatPercent"
+  ]
+}

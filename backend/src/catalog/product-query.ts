@@ -47,6 +47,8 @@ export function parseProductQuery(
   const search = raw.search === undefined ? undefined : scalar(raw.search, 'search').trim();
   const sort = raw.sort === undefined ? 'price_asc' : scalar(raw.sort, 'sort');
   if (!sorts.has(sort)) throw new BadRequestException('Invalid sort');
+  const limit = integer(raw.limit, 'limit', 1) ?? 24;
+  if (limit > 100) throw new BadRequestException('limit must be <= 100');
 
   const filters: NonNullable<ProductQuery['filters']> = {};
   for (const [key, value] of Object.entries(raw)) {
@@ -62,7 +64,7 @@ export function parseProductQuery(
     category: category || undefined,
     search: search || undefined,
     sort: sort as NonNullable<ProductQuery['sort']>,
-    limit: integer(raw.limit, 'limit', 1),
+    limit,
     offset: integer(raw.offset, 'offset', 0) ?? 0,
     filters,
   };

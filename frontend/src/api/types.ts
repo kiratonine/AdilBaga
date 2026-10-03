@@ -1,5 +1,4 @@
-// DTO по подтверждённому контракту Backend 1 (docs/context/05_FRONTEND_ANSWERS_FROM_BACKEND_1.md).
-// Поля с «?» бэк может добавить позже — UI не должен от них зависеть.
+// Frozen wire contract: contracts/openapi.yaml (Production Part 02).
 
 export type StoreCode = 'DINA' | 'DANA' | 'FIX_PRICE'
 
@@ -15,8 +14,8 @@ export type CategoryRefDto = Pick<CategoryDto, 'slug' | 'name'>
 export type AttributeValue = string | number | boolean
 
 export type FilterDto =
-  // У бэка options необязательны и бывают boolean — те же примитивы, что в attributes
-  | { key: string; label: string; type: 'multi-select'; options?: AttributeValue[] }
+  // Multi-select discovery always supplies nonempty options; boolean needs none.
+  | { key: string; label: string; type: 'multi-select'; options: AttributeValue[] }
   | { key: string; label: string; type: 'boolean' }
 
 export type FilterSchemaDto = {
@@ -29,7 +28,7 @@ export type OfferDto = {
   storeName: string
   price: number
   oldPrice: number | null
-  /** Пока не входит в контракт — может появиться позже */
+  /** Optional mock/SEO extension; NOT returned or guaranteed by API v1. */
   inStock?: boolean
 }
 
@@ -68,16 +67,9 @@ export type PriceSpreadDto = {
   maxPrice: number
   /** (max - min) / min * 100, считает бэк. Отсортировано DESC */
   differencePercent: number
-  // Возможные будущие additive-поля
-  imageUrl?: string | null
-  category?: CategoryRefDto
-  minStoreName?: string
-  maxStoreName?: string
 }
 
 export type StoreLocationDto = {
-  /** Может появиться позже; ключ маркера — storeCode + address */
-  id?: string
   storeCode: StoreCode
   storeName: string
   name: string
@@ -113,8 +105,8 @@ export type DashboardDto = {
   }
   priceSpreads: PriceSpreadDto[]
   locations: StoreLocationDto[]
-  /** Предложено бэку, пока не в контракте: без поля блок корзины не показываем */
-  baskets?: BasketDto[]
+  /** Required: total sums found prices; missing items are null. */
+  baskets: BasketDto[]
 }
 
 export interface CatalogApi {

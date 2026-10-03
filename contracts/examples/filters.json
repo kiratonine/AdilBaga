@@ -1,0 +1,23 @@
+{
+  "category": "milk",
+  "filters": [
+    {
+      "key": "volumeMl",
+      "label": "Объём",
+      "type": "multi-select",
+      "options": [
+        500,
+        1000
+      ]
+    },
+    {
+      "key": "fatPercent",
+      "label": "Жирность",
+      "type": "multi-select",
+      "options": [
+        2.5,
+        3.2
+      ]
+    }
+  ]
+}

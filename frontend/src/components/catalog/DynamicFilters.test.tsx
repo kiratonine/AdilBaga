@@ -45,10 +45,11 @@ describe('DynamicFilters', () => {
   })
 
   it('skips multi-select without options and labels boolean options', () => {
-    const schema: FilterDto[] = [
+    // Deliberately malformed input: retain defensive UI coverage, not a wire example.
+    const schema = [
       { key: 'volumeMl', label: 'Объём', type: 'multi-select' },
       { key: 'sliced', label: 'Нарезка', type: 'multi-select', options: [true, false] },
-    ]
+    ] as unknown as FilterDto[]
     render(<DynamicFilters filters={schema} values={{}} onChange={() => {}} />)
     expect(screen.queryByTestId('filter-volumeMl')).not.toBeInTheDocument()
     expect(within(screen.getByTestId('filter-sliced')).getAllByRole('button').map((b) => b.textContent)).toEqual([
