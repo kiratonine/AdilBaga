@@ -1,0 +1,143 @@
+{
+  "milk": {
+    "category": "milk",
+    "filters": [
+      {
+        "key": "volumeMl",
+        "label": "Объём",
+        "type": "multi-select",
+        "options": [
+          500,
+          900,
+          1000,
+          2000
+        ]
+      },
+      {
+        "key": "fatPercent",
+        "label": "Жирность",
+        "type": "multi-select",
+        "options": [
+          1,
+          2.5,
+          3.2,
+          6
+        ]
+      },
+      {
+        "key": "lactoseFree",
+        "label": "Без лактозы",
+        "type": "boolean"
+      }
+    ]
+  },
+  "bread": {
+    "category": "bread",
+    "filters": [
+      {
+        "key": "weightGrams",
+        "label": "Вес",
+        "type": "multi-select",
+        "options": [
+          300,
+          450,
+          600
+        ]
+      },
+      {
+        "key": "breadType",
+        "label": "Вид",
+        "type": "multi-select",
+        "options": [
+          "Пшеничный",
+          "Ржаной",
+          "Бородинский"
+        ]
+      },
+      {
+        "key": "sliced",
+        "label": "Нарезанный",
+        "type": "boolean"
+      }
+    ]
+  },
+  "eggs": {
+    "category": "eggs",
+    "filters": [
+      {
+        "key": "count",
+        "label": "Количество",
+        "type": "multi-select",
+        "options": [
+          10,
+          20,
+          30
+        ]
+      },
+      {
+        "key": "grade",
+        "label": "Категория",
+        "type": "multi-select",
+        "options": [
+          "C0",
+          "C1",
+          "C2"
+        ]
+      }
+    ]
+  },
+  "sugar": {
+    "category": "sugar",
+    "filters": [
+      {
+        "key": "weightGrams",
+        "label": "Вес",
+        "type": "multi-select",
+        "options": [
+          1000,
+          2000,
+          5000
+        ]
+      },
+      {
+        "key": "form",
+        "label": "Вид",
+        "type": "multi-select",
+        "options": [
+          "Песок",
+          "Рафинад"
+        ]
+      }
+    ]
+  },
+  "oil": {
+    "category": "oil",
+    "filters": [
+      {
+        "key": "volumeMl",
+        "label": "Объём",
+        "type": "multi-select",
+        "options": [
+          500,
+          1000,
+          3000,
+          5000
+        ]
+      },
+      {
+        "key": "oilType",
+        "label": "Вид",
+        "type": "multi-select",
+        "options": [
+          "Подсолнечное",
+          "Оливковое"
+        ]
+      },
+      {
+        "key": "refined",
+        "label": "Рафинированное",
+        "type": "boolean"
+      }
+    ]
+  }
+}

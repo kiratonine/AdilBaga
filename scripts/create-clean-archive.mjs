@@ -5,10 +5,12 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && !['full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
+if (process.argv[2] && !['production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
-const output = join(outputDir, process.argv[2] === 'backend-1-part-06'
+const output = join(outputDir, process.argv[2] === 'production-part-00'
+  ? 'production-part-00-review.tar.gz'
+  : process.argv[2] === 'backend-1-part-06'
   ? 'backend-1-part-06-review.tar.gz'
   : process.argv[2] === 'backend-2-eggs-data-quality'
   ? 'backend-2-eggs-data-quality-review.tar.gz'
@@ -25,18 +27,18 @@ const excludedDirs = new Set([
   '.git', 'TODO', 'artifacts', 'node_modules', 'dist', 'build', '.next',
   'coverage', 'tmp', 'temp', 'logs', 'playwright-report', 'test-results',
   'traces', '.cache', '.vite', '.vitest', '.turbo', 'cache', 'caches', '.pnpm-store',
-  '.ssh', '.aws', '.config', 'credentials', 'secrets',
+  '.ssh', '.aws', '.config', 'credentials', 'secrets', 'backups', 'Presentation',
 ]);
 const excludedNames = new Set([
   'id_rsa', 'id_ed25519', 'credentials.json', 'service-account.json',
-  'serviceAccountKey.json', '.npmrc', '.pypirc',
+  'serviceAccountKey.json', '.npmrc', '.pypirc', 'next-env.d.ts',
 ]);
 
 function isSafeFile(name) {
   if (name === '.env.example') return true;
   if (name === '.env' || name.startsWith('.env.')) return false;
   if (excludedNames.has(name)) return false;
-  if (/\.(log|pem|key|p12|pfx|jks|keystore|sqlite|db|tsbuildinfo)$/iu.test(name)) return false;
+  if (/\.(dump|log|pem|key|p12|pfx|jks|keystore|sqlite|db|tsbuildinfo)$/iu.test(name)) return false;
   if (/^(?:secret|credentials)(?:[._-]|$)/iu.test(name)) return false;
   return true;
 }

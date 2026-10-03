@@ -1,0 +1,170 @@
+'use client'
+
+import dynamic from 'next/dynamic'
+import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
+import { useDashboard } from '../api/queries'
+import type { DashboardDto, PriceSpreadDto, StoreLocationDto } from '../api/types'
+import { Baskets } from '../components/dashboard/Baskets'
+import { DashboardSkeleton } from '../components/ui/Skeleton'
+import { ErrorState, LoadingState } from '../components/ui/States'
+import { basketLine } from '../lib/basketText'
+import { summarizeBaskets, type BasketSummary } from '../lib/baskets'
+import { formatDate, formatPercent, formatPrice } from '../lib/format'
+import { groupByStore, locationKey, storeColor } from '../lib/stores'
+import { useHref } from '../lib/useLang'
+
+// Leaflet нужен только здесь и только в браузере (обращается к window) — отдельный чанк без SSR.
+// Пока грузится — серая подложка того же размера
+const StoreMap = dynamic(() => import('../components/dashboard/StoreMap'), {
+  ssr: false,
+  loading: () => <div className="h-full rounded-card bg-surface" />,
+})
+
+export function DashboardPage() {
+  const { t } = useTranslation()
+  const dashboard = useDashboard()
+
+  return (
+    <>
+      <h1 className="text-h1">{t('dashboard.title')}</h1>
+      <p className="mt-2 max-w-[60ch] text-muted">{t('dashboard.lead')}</p>
+
+      {dashboard.isPending && (
+        <LoadingState>
+          <DashboardSkeleton />
+        </LoadingState>
+      )}
+      {dashboard.isError && <ErrorState onRetry={() => dashboard.refetch()} />}
+      {dashboard.data && <Content data={dashboard.data} />}
+    </>
+  )
+}
+
+function Content({ data }: { data: DashboardDto }) {
+  // Корзин пока нет в контракте бэка: без поля блок и суммы на карте не показываем
+  const baskets = data.baskets?.length ? summarizeBaskets(data.baskets) : []
+
+  return (
+    <>
+      <Summary summary={data.summary} />
+      {baskets.length > 0 && <Baskets baskets={baskets} />}
+      {/* Карта сразу под корзиной: на ней подписаны суммы корзин сетей */}
+      <Stores locations={data.locations} baskets={baskets} />
+      <PriceSpreads spreads={data.priceSpreads} />
+    </>
+  )
+}
+
+function Summary({ summary }: { summary: DashboardDto['summary'] }) {
+  const { t } = useTranslation()
+  const matchedShare = summary.canonicalProducts > 0 ? (summary.matchedAcrossStores / summary.canonicalProducts) * 100 : 0
+  const tiles = [
+    { key: 'products', label: t('dashboard.products'), value: String(summary.canonicalProducts) },
+    { key: 'stores', label: t('dashboard.stores'), value: String(summary.stores) },
+    {
+      key: 'matched',
+      label: t('dashboard.matched'),
+      value: String(summary.matchedAcrossStores),
+      hint: t('dashboard.matchedShare', { percent: formatPercent(Math.round(matchedShare)) }),
+    },
+    { key: 'snapshot', label: t('dashboard.snapshot'), value: formatDate(summary.snapshotAt) },
+  ]
+
+  return (
+    <dl className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+      {tiles.map((tile) => (
+        <div key={tile.key} data-testid="summary-card" className="flex flex-col rounded-card bg-card px-4 py-4 md:px-5">
+          <dt className="text-sm text-muted">{tile.label}</dt>
+          <dd className="order-first font-display text-[22px] leading-tight font-bold tracking-[-0.02em] tabular sm:text-[26px] md:text-[32px]">
+            {tile.value}
+          </dd>
+          {tile.hint && <dd className="mt-1 text-meta text-muted">{tile.hint}</dd>}
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function PriceSpreads({ spreads }: { spreads: PriceSpreadDto[] }) {
+  const { t } = useTranslation()
+  const href = useHref()
+
+  return (
+    <section aria-labelledby="spreads-title" className="mt-8 md:mt-12">
+      <h2 id="spreads-title" className="text-h2">
+        {t('dashboard.spreads')}
+      </h2>
+      <p className="mt-1 text-sm text-muted">{t('dashboard.spreadsHint')}</p>
+      {spreads.length === 0 ? (
+        <p className="mt-4 rounded-card bg-card px-4 py-6 text-muted md:px-5">{t('dashboard.spreadsEmpty')}</p>
+      ) : (
+        <ol className="mt-4 divide-y divide-line rounded-card bg-card px-4 md:px-5">
+          {spreads.map((spread) => (
+            <li
+              key={spread.productId}
+              data-testid="price-spread"
+              className="flex items-center justify-between gap-4 py-3"
+            >
+              <Link href={href(`/products/${spread.productId}`)} className="min-w-0 font-medium text-pretty hover:underline">
+                {spread.name}
+              </Link>
+              <p className="shrink-0 text-right text-[15px] tabular">
+                <span className="font-semibold text-accent">{formatPrice(spread.minPrice)}</span>
+                <span className="text-muted"> – {formatPrice(spread.maxPrice)}</span>
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
+
+function Stores({ locations, baskets }: { locations: StoreLocationDto[]; baskets: BasketSummary[] }) {
+  const { t } = useTranslation()
+  const groups = groupByStore(locations)
+
+  return (
+    <section aria-labelledby="stores-title" className="mt-8 md:mt-12">
+      <h2 id="stores-title" className="text-h2">
+        {t('dashboard.map')}
+      </h2>
+      <p className="mt-1 text-sm text-muted">{t('dashboard.mapHint')}</p>
+
+      <div className="mt-4 grid grid-cols-1 gap-5 rounded-card bg-card p-3 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:gap-6 md:p-4">
+        <div className="h-[320px] md:h-[460px]">
+          <StoreMap locations={locations} baskets={baskets} label={t('dashboard.map')} />
+        </div>
+
+        {/* Легенда и текстовый список точек — карта без него недоступна для скринридеров */}
+        <ul data-testid="store-list" className="flex flex-col gap-5 px-1 pb-1 md:py-1">
+          {groups.map((group) => {
+            const basket = baskets.find((b) => b.storeCode === group.storeCode)
+            return (
+              <li key={group.storeCode} data-testid="store-group">
+                <p className="flex items-center gap-2 font-semibold">
+                  <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: storeColor(group.storeCode) }} />
+                  {group.storeName}
+                  <span className="font-normal text-muted tabular">· {t('dashboard.points', { count: group.locations.length })}</span>
+                </p>
+                {basket && (
+                  <p data-testid="store-basket" className="mt-0.5 pl-5 text-[15px] tabular">
+                    {basketLine(basket, t)}
+                  </p>
+                )}
+                <ul className="mt-1.5 flex flex-col gap-1 pl-5 text-[15px]">
+                  {group.locations.map((location) => (
+                    <li key={locationKey(location)} className="text-muted">
+                      {location.address}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </section>
+  )
+}

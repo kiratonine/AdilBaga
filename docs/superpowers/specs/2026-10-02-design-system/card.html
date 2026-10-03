@@ -1,0 +1,119 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Montserrat:wght@700;800&display=swap');
+.ab{--page:#F4F5F6;--card:#fff;--surface:#F3F5F4;--line:#E2E6E4;--ink:#1A1F24;--muted:#697178;--accent:#17744A;--soft:#E5F2EA;
+  font-family:'Golos Text',sans-serif;color:var(--ink);font-size:15px;line-height:1.45}
+.ab .stage{background:var(--page);border-radius:12px;padding:12px}
+.ab .phone{width:390px;max-width:100%}
+.ab .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ab .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.ab .c{background:var(--card);border-radius:12px;padding:8px;display:flex;flex-direction:column;transition:box-shadow .2s}
+.ab .grid4 .c{padding:12px}
+.ab .c:hover{box-shadow:0 4px 16px rgb(26 31 36/.08)}
+.ab .ph{aspect-ratio:1;background:var(--surface);border-radius:8px;display:grid;place-items:center;font-size:64px;position:relative}
+.ab .badge{position:absolute;left:6px;top:6px;background:var(--accent);color:#fff;font:600 12px/1 'Golos Text';padding:4px 6px;border-radius:999px}
+.ab .price{font:700 18px/1 'Montserrat';letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:10px;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.ab .grid4 .price{font-size:22px}
+.ab .price s{font:400 13px 'Golos Text';color:var(--muted)}
+.ab .save{font-size:13px;margin-top:4px;line-height:1.3}.ab .save b{color:var(--accent);font-weight:600}
+.ab .brand{font-size:13px;color:var(--muted);margin-top:6px}
+.ab .t{font-size:14px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ab .grid4 .t{font-size:15px}
+.ab .offers{list-style:none;margin:8px 0 0;padding:0;font-size:13px}
+.ab .offers li{display:flex;justify-content:space-between;padding:3px 6px;border-radius:6px;font-variant-numeric:tabular-nums}
+.ab .offers li.best{background:var(--soft);color:var(--accent);font-weight:500}
+.ab .date{font-size:12px;color:var(--muted);margin-top:auto;padding-top:8px}
+.ab .chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.ab .chip{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--surface);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ab .chip.best{background:var(--soft);color:var(--accent);font-weight:500}
+.ab .stores{font-size:13px;color:var(--muted);margin-top:6px}
+.ab .row{display:flex;gap:12px;background:var(--card);border-radius:12px;padding:8px}
+.ab .row .ph{width:96px;flex-shrink:0;font-size:44px}
+.ab h4{margin:18px 0 8px;font:600 14px 'Golos Text';color:#555}
+</style>
+
+<h2>Карточка товара — какой вариант?</h2>
+<p class="subtitle">Все три — цена первой, без рамки, серый фон страницы. Разница — как показаны цены по сетям. Слева мобильный (2 колонки, 390px), ниже десктоп.</p>
+
+<div class="options">
+ <div class="option" data-choice="a" onclick="toggleSelect(this)">
+  <div class="letter">A</div>
+  <div class="content" style="width:100%">
+   <h3>Список сетей (как сейчас, но компактнее) — рекомендую</h3>
+   <p>Цена → выгода → название → все сети столбиком, лучшая подсвечена. Главная ценность сайта видна сразу, без перехода в товар.</p>
+   <div class="ab">
+    <h4>Мобильный</h4>
+    <div class="stage phone"><div class="grid2">
+     <div class="c"><div class="ph">🥛<span class="badge">−8%</span></div>
+      <div class="price">570 ₸ <s>620 ₸</s></div>
+      <div class="save">Выгоднее на <b>80 ₸</b> в Dina</div>
+      <div class="brand">Простоквашино</div><div class="t">Молоко пастеризованное 3,2%, 1 л</div>
+      <ul class="offers"><li class="best"><span>Dina</span><span>570 ₸</span></li><li><span>Dana</span><span>620 ₸</span></li><li><span>Fix Price</span><span>650 ₸</span></li></ul>
+      <div class="date">Цена на 24.09.2026</div></div>
+     <div class="c"><div class="ph">🍞</div>
+      <div class="price">210 ₸</div>
+      <div class="brand">Аксай Нан</div><div class="t">Хлеб пшеничный формовой нарезной, 500 г</div>
+      <ul class="offers"><li><span>Dana</span><span>210 ₸</span></li></ul>
+      <div class="date">Цена на 24.09.2026</div></div>
+    </div></div>
+   </div>
+  </div>
+ </div>
+
+ <div class="option" data-choice="b" onclick="toggleSelect(this)">
+  <div class="letter">B</div>
+  <div class="content" style="width:100%">
+   <h3>Сети чипами</h3>
+   <p>Цены по сетям — маленькие таблетки в строку. Карточка ниже и ровнее, но на узком экране чипы переносятся.</p>
+   <div class="ab">
+    <h4>Мобильный</h4>
+    <div class="stage phone"><div class="grid2">
+     <div class="c"><div class="ph">🥛<span class="badge">−8%</span></div>
+      <div class="price">570 ₸ <s>620 ₸</s></div>
+      <div class="save">Выгоднее на <b>80 ₸</b> в Dina</div>
+      <div class="brand">Простоквашино</div><div class="t">Молоко пастеризованное 3,2%, 1 л</div>
+      <div class="chips"><span class="chip best">Dina 570</span><span class="chip">Dana 620</span><span class="chip">Fix 650</span></div>
+      <div class="date">Цена на 24.09.2026</div></div>
+     <div class="c"><div class="ph">🍞</div>
+      <div class="price">210 ₸</div>
+      <div class="brand">Аксай Нан</div><div class="t">Хлеб пшеничный формовой нарезной, 500 г</div>
+      <div class="chips"><span class="chip">Dana 210</span></div>
+      <div class="date">Цена на 24.09.2026</div></div>
+    </div></div>
+   </div>
+  </div>
+ </div>
+
+ <div class="option" data-choice="c" onclick="toggleSelect(this)">
+  <div class="letter">C</div>
+  <div class="content" style="width:100%">
+   <h3>Минимум: «от 570 ₸ · в 3 сетях»</h3>
+   <p>Как idealo/Яндекс — только лучшая цена и число сетей, сравнение — на странице товара. Самая чистая витрина, но сравнение спрятано на клик.</p>
+   <div class="ab">
+    <h4>Мобильный</h4>
+    <div class="stage phone"><div class="grid2">
+     <div class="c"><div class="ph">🥛<span class="badge">−8%</span></div>
+      <div class="price">570 ₸ <s>620 ₸</s></div>
+      <div class="save">Выгоднее на <b>80 ₸</b> в Dina</div>
+      <div class="brand">Простоквашино</div><div class="t">Молоко пастеризованное 3,2%, 1 л</div>
+      <div class="stores">в 3 сетях · 570–650 ₸</div>
+      <div class="date">Цена на 24.09.2026</div></div>
+     <div class="c"><div class="ph">🍞</div>
+      <div class="price">210 ₸</div>
+      <div class="brand">Аксай Нан</div><div class="t">Хлеб пшеничный формовой нарезной, 500 г</div>
+      <div class="stores">только в Dana</div>
+      <div class="date">Цена на 24.09.2026</div></div>
+    </div></div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<div class="ab">
+ <h4>Десктоп (вариант A, 4 колонки) — наведите, чтобы увидеть тень</h4>
+ <div class="stage"><div class="grid4">
+  <div class="c"><div class="ph">🥛<span class="badge">−8%</span></div><div class="price">570 ₸ <s>620 ₸</s></div><div class="save">Выгоднее на <b>80 ₸</b> в Dina</div><div class="brand">Простоквашино</div><div class="t">Молоко пастеризованное 3,2%, 1 л</div><ul class="offers"><li class="best"><span>Dina</span><span>570 ₸</span></li><li><span>Dana</span><span>620 ₸</span></li><li><span>Fix Price</span><span>650 ₸</span></li></ul><div class="date">Цена на 24.09.2026</div></div>
+  <div class="c"><div class="ph">🥚</div><div class="price">890 ₸</div><div class="save">Выгоднее на <b>150 ₸</b> в Dana</div><div class="brand">Ак Кайнар</div><div class="t">Яйца куриные С0, 10 шт</div><ul class="offers"><li class="best"><span>Dana</span><span>890 ₸</span></li><li><span>Dina</span><span>1 040 ₸</span></li></ul><div class="date">Цена на 24.09.2026</div></div>
+  <div class="c"><div class="ph">🫙</div><div class="price">1 150 ₸</div><div class="save">Выгоднее на <b>240 ₸</b> в Fix Price</div><div class="brand">Шедевр</div><div class="t">Масло подсолнечное рафинированное дезодорированное, 1 л</div><ul class="offers"><li class="best"><span>Fix Price</span><span>1 150 ₸</span></li><li><span>Dina</span><span>1 290 ₸</span></li><li><span>Dana</span><span>1 390 ₸</span></li></ul><div class="date">Цена на 24.09.2026</div></div>
+  <div class="c"><div class="ph">🍞</div><div class="price">210 ₸</div><div class="brand">Аксай Нан</div><div class="t">Хлеб пшеничный формовой нарезной, 500 г</div><ul class="offers"><li><span>Dana</span><span>210 ₸</span></li></ul><div class="date">Цена на 24.09.2026</div></div>
+ </div></div>
+</div>

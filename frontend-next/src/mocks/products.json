@@ -1,0 +1,971 @@
+[
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000001",
+    "name": "Молоко FoodMaster 3,2% 1 л",
+    "brand": "FoodMaster",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 1000,
+      "fatPercent": 3.2,
+      "lactoseFree": false
+    },
+    "minPrice": 570,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 570,
+        "oldPrice": 660
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 660,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 720,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000002",
+    "name": "Молоко FoodMaster 2,5% 1 л",
+    "brand": "FoodMaster",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 1000,
+      "fatPercent": 2.5,
+      "lactoseFree": false
+    },
+    "minPrice": 545,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 545,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 630,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 680,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000003",
+    "name": "Молоко FoodMaster 6% 1 л",
+    "brand": "FoodMaster",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": "https://example.invalid/broken.jpg",
+    "attributes": {
+      "volumeMl": 1000,
+      "fatPercent": 6,
+      "lactoseFree": false
+    },
+    "minPrice": 690,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 690,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 770,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000004",
+    "name": "Молоко Lactel 3,2% 900 мл",
+    "brand": "Lactel",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 900,
+      "fatPercent": 3.2,
+      "lactoseFree": false
+    },
+    "minPrice": 620,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 620,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 740,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000005",
+    "name": "Молоко Lactel безлактозное 1% 900 мл",
+    "brand": "Lactel",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 900,
+      "fatPercent": 1,
+      "lactoseFree": true
+    },
+    "minPrice": 880,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 880,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 940,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 1180,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000006",
+    "name": "Молоко Адал 2,5% 1 л",
+    "brand": "Адал",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 1000,
+      "fatPercent": 2.5,
+      "lactoseFree": false
+    },
+    "minPrice": 510,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 510,
+        "oldPrice": 590
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 540,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 670,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000007",
+    "name": "Молоко Адал 3,2% 2 л",
+    "brand": "Адал",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 2000,
+      "fatPercent": 3.2,
+      "lactoseFree": false
+    },
+    "minPrice": 980,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 980,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 1010,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000008",
+    "name": "Молоко Emil 1% 500 мл",
+    "brand": "Emil",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 500,
+      "fatPercent": 1,
+      "lactoseFree": false
+    },
+    "minPrice": 290,
+    "offers": [
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 290,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 320,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000009",
+    "name": "Молоко Emil 3,2% 500 мл",
+    "brand": "Emil",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 500,
+      "fatPercent": 3.2,
+      "lactoseFree": false
+    },
+    "minPrice": 320,
+    "offers": [
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 320,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000010",
+    "name": "Молоко Моё 2,5% 900 мл",
+    "brand": "Моё",
+    "category": {
+      "slug": "milk",
+      "name": "Молоко"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 900,
+      "fatPercent": 2.5,
+      "lactoseFree": false
+    },
+    "minPrice": 560,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 560,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 690,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000011",
+    "name": "Хлеб пшеничный формовой 450 г",
+    "brand": "Актау нан",
+    "category": {
+      "slug": "bread",
+      "name": "Хлеб"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 450,
+      "breadType": "Пшеничный",
+      "sliced": false
+    },
+    "minPrice": 150,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 150,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 170,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 180,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000012",
+    "name": "Хлеб пшеничный нарезной 450 г",
+    "brand": "Актау нан",
+    "category": {
+      "slug": "bread",
+      "name": "Хлеб"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 450,
+      "breadType": "Пшеничный",
+      "sliced": true
+    },
+    "minPrice": 175,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 175,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 210,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000013",
+    "name": "Хлеб ржаной 300 г",
+    "brand": "Каспий нан",
+    "category": {
+      "slug": "bread",
+      "name": "Хлеб"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 300,
+      "breadType": "Ржаной",
+      "sliced": false
+    },
+    "minPrice": 190,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 190,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 200,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000014",
+    "name": "Хлеб Бородинский нарезка 300 г",
+    "brand": "Каспий нан",
+    "category": {
+      "slug": "bread",
+      "name": "Хлеб"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 300,
+      "breadType": "Бородинский",
+      "sliced": true
+    },
+    "minPrice": 260,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 260,
+        "oldPrice": 300
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 280,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 340,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000015",
+    "name": "Батон нарезной 600 г",
+    "brand": "Актау нан",
+    "category": {
+      "slug": "bread",
+      "name": "Хлеб"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 600,
+      "breadType": "Пшеничный",
+      "sliced": true
+    },
+    "minPrice": 230,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 230,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 240,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000016",
+    "name": "Хлеб ржано-пшеничный 600 г",
+    "brand": "Мангистау нан",
+    "category": {
+      "slug": "bread",
+      "name": "Хлеб"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 600,
+      "breadType": "Ржаной",
+      "sliced": false
+    },
+    "minPrice": 240,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 240,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000017",
+    "name": "Яйца куриные С1 10 шт",
+    "brand": "Айс",
+    "category": {
+      "slug": "eggs",
+      "name": "Яйца"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "count": 10,
+      "grade": "C1"
+    },
+    "minPrice": 620,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 620,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 720,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 790,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000018",
+    "name": "Яйца куриные С0 10 шт",
+    "brand": "Айс",
+    "category": {
+      "slug": "eggs",
+      "name": "Яйца"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "count": 10,
+      "grade": "C0"
+    },
+    "minPrice": 720,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 720,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 890,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000019",
+    "name": "Яйца куриные С2 30 шт",
+    "brand": "Жас Канат",
+    "category": {
+      "slug": "eggs",
+      "name": "Яйца"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "count": 30,
+      "grade": "C2"
+    },
+    "minPrice": 1590,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 1590,
+        "oldPrice": 1830
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 1780,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000020",
+    "name": "Яйца куриные С1 20 шт",
+    "brand": "Жас Канат",
+    "category": {
+      "slug": "eggs",
+      "name": "Яйца"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "count": 20,
+      "grade": "C1"
+    },
+    "minPrice": 1190,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 1190,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 1430,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000021",
+    "name": "Яйца куриные С0 30 шт",
+    "brand": "Айс",
+    "category": {
+      "slug": "eggs",
+      "name": "Яйца"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "count": 30,
+      "grade": "C0"
+    },
+    "minPrice": 2150,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 2150,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000022",
+    "name": "Сахар-песок 1 кг",
+    "brand": "Коксу",
+    "category": {
+      "slug": "sugar",
+      "name": "Сахар"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 1000,
+      "form": "Песок"
+    },
+    "minPrice": 480,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 480,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 510,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 630,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000023",
+    "name": "Сахар-песок 5 кг",
+    "brand": "Коксу",
+    "category": {
+      "slug": "sugar",
+      "name": "Сахар"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 5000,
+      "form": "Песок"
+    },
+    "minPrice": 2250,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 2250,
+        "oldPrice": 2590
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 2320,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000024",
+    "name": "Сахар-песок 2 кг",
+    "brand": "Тараз",
+    "category": {
+      "slug": "sugar",
+      "name": "Сахар"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 2000,
+      "form": "Песок"
+    },
+    "minPrice": 930,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 930,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 1010,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000025",
+    "name": "Сахар рафинад 1 кг",
+    "brand": "Тараз",
+    "category": {
+      "slug": "sugar",
+      "name": "Сахар"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "weightGrams": 1000,
+      "form": "Рафинад"
+    },
+    "minPrice": 690,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 690,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 800,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 880,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000026",
+    "name": "Масло подсолнечное рафинированное Шедевр 1 л",
+    "brand": "Шедевр",
+    "category": {
+      "slug": "oil",
+      "name": "Масло растительное"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 1000,
+      "oilType": "Подсолнечное",
+      "refined": true
+    },
+    "minPrice": 890,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 890,
+        "oldPrice": 1020
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 1020,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 1100,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000027",
+    "name": "Масло подсолнечное рафинированное Шедевр 5 л",
+    "brand": "Шедевр",
+    "category": {
+      "slug": "oil",
+      "name": "Масло растительное"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 5000,
+      "oilType": "Подсолнечное",
+      "refined": true
+    },
+    "minPrice": 4150,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 4150,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 4650,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000028",
+    "name": "Масло подсолнечное нерафинированное Алтын 1 л",
+    "brand": "Алтын",
+    "category": {
+      "slug": "oil",
+      "name": "Масло растительное"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 1000,
+      "oilType": "Подсолнечное",
+      "refined": false
+    },
+    "minPrice": 820,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 820,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 980,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000029",
+    "name": "Масло подсолнечное Алтын 3 л",
+    "brand": "Алтын",
+    "category": {
+      "slug": "oil",
+      "name": "Масло растительное"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 3000,
+      "oilType": "Подсолнечное",
+      "refined": true
+    },
+    "minPrice": 2390,
+    "offers": [
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 2390,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 2560,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "id": "p0a1f000-0000-4000-8000-000000000030",
+    "name": "Масло оливковое Borges Extra Virgin 500 мл",
+    "brand": "Borges",
+    "category": {
+      "slug": "oil",
+      "name": "Масло растительное"
+    },
+    "imageUrl": null,
+    "attributes": {
+      "volumeMl": 500,
+      "oilType": "Оливковое",
+      "refined": false
+    },
+    "minPrice": 3490,
+    "offers": [
+      {
+        "storeCode": "DANA",
+        "storeName": "Dana Market",
+        "price": 3490,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "FIX_PRICE",
+        "storeName": "Fix Price",
+        "price": 3700,
+        "oldPrice": null
+      },
+      {
+        "storeCode": "DINA",
+        "storeName": "Dina Market",
+        "price": 4570,
+        "oldPrice": null
+      }
+    ],
+    "snapshotAt": "2026-09-24T00:00:00.000Z"
+  }
+]
