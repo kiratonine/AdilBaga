@@ -33,7 +33,7 @@ func TestHealthAndRouting(t *testing.T) {
 		{"live independent", "GET", "/health/live", true, 200, "ok"},
 		{"ready", "GET", "/health/ready", false, 200, "ready"},
 		{"not ready", "GET", "/health/ready", true, 503, "not_ready"},
-		{"no business parity", "GET", "/api/categories", false, 404, ""},
+		{"business route", "GET", "/api/categories", false, 200, ""},
 		{"method mismatch", "POST", "/health/live", false, 405, ""},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -50,22 +50,22 @@ func TestHealthAndRouting(t *testing.T) {
 				return nil
 			})
 			w := httptest.NewRecorder()
-			Router(testConfig(), observability.New(&bytes.Buffer{}, "info"), db).ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, nil))
-			if w.Code != tt.status || w.Header().Get("Content-Type") != "application/json" || w.Header().Get("Cache-Control") != "no-store" {
+			Router(testConfig(), observability.New(&bytes.Buffer{}, "info"), testDependencies(db)).ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, nil))
+			if w.Code != tt.status || w.Header().Get("Content-Type") != "application/json" || (tt.path != "/api/categories" && w.Header().Get("Cache-Control") != "no-store") {
 				t.Fatalf("response %d %v", w.Code, w.Header())
 			}
 			if strings.Contains(w.Body.String(), "sensitive") {
 				t.Fatal("DB details leaked")
 			}
-			var body map[string]any
+			var body any
 			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 				t.Fatal(err)
 			}
 			if tt.health != "" {
-				if body["status"] != tt.health {
+				if body.(map[string]any)["status"] != tt.health {
 					t.Fatal("wrong health status")
 				}
-			} else if body["statusCode"] != float64(tt.status) || body["message"] != http.StatusText(tt.status) {
+			} else if tt.path != "/api/categories" && (body.(map[string]any)["statusCode"] != float64(tt.status) || body.(map[string]any)["message"] != http.StatusText(tt.status)) {
 				t.Fatal("wrong envelope")
 			}
 			if called != (tt.path == "/health/ready") {
@@ -94,7 +94,7 @@ func TestCORS(t *testing.T) {
 			r.Header.Set("Access-Control-Request-Method", tt.requested)
 			r.Header.Set("Access-Control-Request-Headers", tt.headers)
 			w := httptest.NewRecorder()
-			Router(testConfig(), observability.New(&bytes.Buffer{}, "info"), pingFunc(func(context.Context) error { return nil })).ServeHTTP(w, r)
+			Router(testConfig(), observability.New(&bytes.Buffer{}, "info"), testDependencies(pingFunc(func(context.Context) error { return nil }))).ServeHTTP(w, r)
 			if w.Code != tt.want {
 				t.Fatalf("got %d", w.Code)
 			}
@@ -112,11 +112,11 @@ func TestRateLimitAndHealthExemption(t *testing.T) {
 	c := testConfig()
 	c.RateRPS = .001
 	c.RateBurst = 1
-	h := Router(c, observability.New(&bytes.Buffer{}, "info"), pingFunc(func(context.Context) error { return nil }))
+	h := Router(c, observability.New(&bytes.Buffer{}, "info"), testDependencies(pingFunc(func(context.Context) error { return nil })))
 	for _, tt := range []struct {
 		method, path string
 		want         int
-	}{{"GET", "/api/categories", 404}, {"GET", "/api/categories", 429}, {"GET", "/health/live", 200}, {"GET", "/health/ready", 200}, {"OPTIONS", "/unimplemented", 404}} {
+	}{{"GET", "/api/categories", 200}, {"GET", "/api/categories", 429}, {"GET", "/health/live", 200}, {"GET", "/health/ready", 200}, {"OPTIONS", "/unimplemented", 404}} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, nil))
 		if w.Code != tt.want {

@@ -5,10 +5,12 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && !['production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
+if (process.argv[2] && !['production-part-05', 'production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
-const output = join(outputDir, process.argv[2] === 'production-part-04'
+const output = join(outputDir, process.argv[2] === 'production-part-05'
+  ? 'production-part-05-review.tar.gz'
+  : process.argv[2] === 'production-part-04'
   ? 'production-part-04-review.tar.gz'
   : process.argv[2] === 'production-part-03'
   ? 'production-part-03-review.tar.gz'

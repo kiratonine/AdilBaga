@@ -218,6 +218,32 @@ func TestDeterministicCatalog(t *testing.T) {
 			}
 		}
 	})
+	t.Run("dashboard SQL aggregates", func(t *testing.T) {
+		db.count = 0
+		d, err := repo.GetDashboard(ctx)
+		if err != nil || db.count != 1 {
+			t.Fatal("one bounded dashboard SQL roundtrip required")
+		}
+		if d.Summary.CanonicalProducts != 4 || d.Summary.Stores != 3 || d.Summary.MatchedAcrossStores != 1 || d.Summary.SnapshotAt != "2026-10-02T11:00:00.000Z" {
+			t.Fatal("usable summary")
+		}
+		if len(d.PriceSpreads) != 1 || d.PriceSpreads[0].ProductID != "p1" || d.PriceSpreads[0].DifferencePercent != 20 || len(d.Locations) != 2 {
+			t.Fatal("spreads/locations")
+		}
+		if len(d.Baskets) != 3 || d.Baskets[0].Total != 120 || d.Baskets[1].Total != 100 || d.Baskets[2].Total != 50 {
+			t.Fatal("store-specific basket prices")
+		}
+		for _, b := range d.Baskets {
+			if len(b.Items) != 3 {
+				t.Fatal("fixed basket slots")
+			}
+			for _, item := range b.Items {
+				if item.Price == nil && (item.ProductID != nil || item.Name != nil) {
+					t.Fatal("missing null semantics")
+				}
+			}
+		}
+	})
 	t.Run("restricted role and read-only pool", func(t *testing.T) {
 		for _, sql := range []string{`SELECT * FROM raw_products`, `SELECT * FROM product_mappings`} {
 			assertDenied(t, pool.Exec, ctx, sql, "42501")

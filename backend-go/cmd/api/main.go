@@ -36,7 +36,8 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return err
 	}
 	defer pool.Close()
-	server := httpapi.Server(c, httpapi.Router(c, logger, pool), logger)
+	repo := postgres.NewRepository(pool)
+	server := httpapi.Server(c, httpapi.Router(c, logger, httpapi.Dependencies{DB: pool, Categories: repo, Products: repo, Dashboard: repo}), logger)
 	logger.Info("starting", "port", c.Port, "app_env", c.AppEnv)
 	return serve(ctx, server, logger)
 }

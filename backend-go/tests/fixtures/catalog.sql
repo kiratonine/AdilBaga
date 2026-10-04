@@ -2,6 +2,9 @@ INSERT INTO stores (id,code,name) VALUES ('dina','DINA','Dina'),('dana','DANA','
 INSERT INTO categories (id,slug,name,"filterSchema") VALUES
 ('milk','milk','Молоко','{"filters":[{"key":"brand","label":"Brand","type":"multi-select","options":["A","B","stale"]},{"key":"volumeMl","label":"Volume","type":"multi-select","options":[500,1000,"1000",999]},{"key":"organic","label":"Organic","type":"boolean"},{"key":"stale","label":"Stale","type":"multi-select","options":[1]},{"key":"broken","label":"Broken","type":"multi-select"}]}'),
 ('oil','oil','Масло','{"filters":[]}'),('empty','empty','Empty',NULL);
+INSERT INTO store_locations(id,"storeId",name,address,latitude,longitude) VALUES
+('loc-dina','dina','Fixture Dina','Synthetic fixture address',43.6,51.1),
+('loc-dana','dana','Fixture Dana','Synthetic fixture address',43.7,51.2);
 INSERT INTO raw_products (id,"storeId","sourceProductId","rawName","rawPrice") VALUES
 ('r1','dina','1','Fixture',100),('r2','dana','2','Fixture',200),('r3','fix','3','Fixture',300);
 INSERT INTO canonical_products (id,name,brand,"categoryId",attributes) VALUES

@@ -8,7 +8,9 @@ import (
 	"strconv"
 	"time"
 
+	"adilbaga/backend-go/internal/catalog"
 	"adilbaga/backend-go/internal/config"
+	"adilbaga/backend-go/internal/dashboard"
 	"adilbaga/backend-go/internal/middleware"
 	"github.com/go-chi/chi/v5"
 )
@@ -25,7 +27,14 @@ const (
 
 type Pinger interface{ Ping(context.Context) error }
 
-func Router(c config.Config, logger *slog.Logger, db Pinger) http.Handler {
+type Dependencies struct {
+	DB         Pinger
+	Categories catalog.CategoryRepository
+	Products   catalog.ProductRepository
+	Dashboard  dashboard.Repository
+}
+
+func Router(c config.Config, logger *slog.Logger, d Dependencies) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.NewIPResolver(c.TrustedProxies).Middleware, middleware.AccessLog(logger), middleware.Recover(logger), middleware.Timeout, middleware.Limits, middleware.CORS(c.CORSOrigins), middleware.NewLimiter(c.RateRPS, c.RateBurst).Middleware)
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { middleware.WriteError(w, 404) })
@@ -34,12 +43,17 @@ func Router(c config.Config, logger *slog.Logger, db Pinger) http.Handler {
 	r.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), ReadinessTimeout)
 		defer cancel()
-		if err := db.Ping(ctx); err != nil {
+		if err := d.DB.Ping(ctx); err != nil {
 			health(w, 503, "not_ready")
 			return
 		}
 		health(w, 200, "ready")
 	})
+	r.Get("/api/categories", d.categories)
+	r.Get("/api/categories/{slug}/filters", d.filters)
+	r.Get("/api/products", d.products)
+	r.Get("/api/products/{id}", d.product)
+	r.Get("/api/dashboard", d.dashboard)
 	return r
 }
 
