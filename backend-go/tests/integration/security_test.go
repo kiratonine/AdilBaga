@@ -17,12 +17,16 @@ import (
 
 var runtimeTables = []string{"canonical_products", "categories", "offers", "store_locations", "stores"}
 
-func assertReaderSecurity(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+func assertReaderSecurity(t *testing.T, ctx context.Context, pool *pgxpool.Pool, expectedUser ...string) {
 	t.Helper()
+	login := "part04_api_login"
+	if len(expectedUser) == 1 {
+		login = expectedUser[0]
+	}
 	var user string
 	var member, safe bool
 	err := pool.QueryRow(ctx, `SELECT current_user,pg_has_role(current_user,'aktau_api_reader','member'),NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) AND rolcanlogin AND rolinherit FROM pg_roles WHERE rolname=current_user`).Scan(&user, &member, &safe)
-	if err != nil || user != "part04_api_login" || !member || !safe {
+	if err != nil || user != login || !member || !safe {
 		t.Fatal("restricted login identity/attributes/membership")
 	}
 	var groupSafe bool

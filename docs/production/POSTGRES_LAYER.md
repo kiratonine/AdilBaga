@@ -25,7 +25,7 @@ the initial structural comparison and discovered when the restricted clone role
 returned zero categories. It cannot be dismissed as platform metadata: it changes
 the runtime role's observable data access. Stop condition 1 applies.
 
-## Runtime access design (not applied to Supabase)
+## Runtime access design (production policies still pending)
 
 Approved stable group `aktau_api_reader`: NOLOGIN, NOSUPERUSER, NOCREATEDB,
 NOCREATEROLE, NOREPLICATION, NOBYPASSRLS, INHERIT. A separately provisioned runtime
@@ -80,8 +80,10 @@ connection-local controls, not production schema/data mutations.
 ## Reviewed artifacts and future deployment order
 
 - `backend/prisma/security/aktau_api_reader_role.sql`: operator-only group bootstrap;
-  PRE-activation only. Refuses unsafe attributes, memberships in either direction,
-  ownership or any direct/default ACL involving the reader. It is not a health
+  PRE-activation only. Refuses unsafe attributes, parent memberships, any child
+  other than the exact permitted operator-admin anchor below, ownership or any
+  direct/default ACL involving the reader. It validates newly-created roles too.
+  It is not a health
   check/idempotent reapply for an already activated runtime group.
 - `backend/prisma/migrations/20261004000000_rls_runtime_access/migration.sql`:
   independently enforces the same role/ACL invariants and seven ordinary app
@@ -96,7 +98,8 @@ Future order, **not executed on Supabase in Phase A**:
 1. Operator provisions/verifies group bootstrap, without a password.
 2. Apply the reviewed Prisma security migration.
 3. Provision/rotate a separate LOGIN credential privately, outside Git.
-4. Grant only aktau_api_reader membership; ensure no owner/admin/service_role/BYPASSRLS.
+4. Grant only aktau_api_reader membership with explicit ADMIN FALSE, INHERIT TRUE,
+   SET FALSE; ensure no ownership/privileged parent membership/BYPASSRLS.
 5. Verify catalog/ACLs, counts and live least-privilege repository/NestJS parity.
 
 Production steps require separate external review and explicit owner approval.
@@ -121,7 +124,8 @@ credentials. No managed ACL was revoked as part of reader forward/rollback.
 The exact rollback target is the existing live security state, **not** the init
 migration's RLS-disabled state: seven RLS enabled, FORCE false, no policies,
 reader group absent, data/counts and existing ACLs unchanged. The rollback checks
-safe role flags, no parent-role membership/ownership, no remaining group members,
+safe role flags, no parent-role membership/ownership, no remaining runtime/unknown
+members (only the exact permitted operator-admin anchor may remain),
 RLS7/FORCE0, exact five SELECT/reader-only/USING(true)/no-WITH-CHECK policies and
 exact reader SELECT5 + schema USAGE with no grant option/extra reader privileges.
 It also rejects column/function/type/default/database ACLs granted to the reader.
@@ -151,7 +155,62 @@ not count as direct reader ACL. Unexpected group members, even NOLOGIN children,
 are rejected before policy activation. Routine/type ownership is rejected too.
 Baseline validation concerns only the exact seven target tables; unrelated
 public-table policies are not a forward prerequisite. Existing reader ACLs or
-membership mean STOP, not automatic revokes or a permissive bootstrap.
+memberships other than the exact permitted operator-admin anchor mean STOP, not
+automatic revokes or a permissive bootstrap.
+
+## Reviewed creator-admin anchor — LOCAL remediation proof only
+
+PostgreSQL17 automatically grants a new role back to a non-superuser CREATEROLE
+creator through the bootstrap superuser: ADMIN true, INHERIT false, SET false.
+This is an intentional administrative relationship, not unexpected platform drift.
+[PostgreSQL17 role attributes](https://www.postgresql.org/docs/17/role-attributes.html).
+The old superuser-only proof missed it; the stopped production bootstrap history
+is preserved below and in the same Part04 report.
+
+Bootstrap, independently the pending migration guard, and rollback after runtime
+removal now require exactly one of the following, evaluated against current_user:
+
+- Case A: current operator is superuser and reader has zero child memberships.
+- Case B: current operator is NON-superuser with CREATEROLE; reader has EXACTLY one
+  child, member=current_user, ADMIN true / INHERIT false / SET false, with a grantor
+  whose catalog rolsuper is true. No hard-coded operator/grantor name is used.
+
+Both cases forbid reader parent memberships, unsafe flags, ownership and unexpected
+direct/default ACLs. A different operator, extra LOGIN/NOLOGIN child, missing or
+malformed anchor, non-superuser grantor, or premature runtime member is rejected
+with P0001. Bootstrap never revokes/grants membership to repair drift; creation
+and resulting-state validation are atomic. Local creation with unsafe opt-in
+createrole_self_grant settings is rejected without leaving a reader behind.
+
+For the exact non-superuser anchor, MEMBER=true but USAGE=false and SET=false;
+SET ROLE reader fails42501 locally. ADMIN TRUE is NOT an authorization boundary:
+it allows role administration/new membership grants. The production operator
+already owns app tables and separately has administrative/BYPASSRLS authority;
+it must never be advertised as the least-privilege runtime.
+
+Future runtime membership must be explicit PostgreSQL17 semantics:
+
+```sql
+GRANT aktau_api_reader TO aktau_api_runtime
+WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+```
+
+Runtime MEMBER/USAGE=true, SET/ADMIN=false, exactly this parent, safe LOGIN flags,
+no ownership/direct grants. A non-superuser creator may also receive a separate
+admin-only anchor on the newly-created LOGIN itself; that is a child relationship,
+not the runtime inheriting an operator role. DROP removes those automatic anchors.
+After inventory/draining, remove ONLY the known runtime LOGIN; do not manually
+remove the reader's exact operator anchor. Guarded rollback drops the reader and
+its automatic anchor, preserving RLS7/FORCE0 and managed ACL/count baseline.
+Unknown member/dependency still means STOP.
+
+Local clean init/fixture and restored clone both passed non-superuser operator
+forward→rollback→forward→rollback, exact snapshots and negative matrix. The stopped
+production-state rehearsal reverified an existing anchored reader without mutation,
+Prisma deployed ONLY pending RLS, restricted Go↔Nest exact parity passed for all849
+products in3 sorts/categories/filters/detail/search, and operator rollback passed.
+This is LOCAL proof, not production apply permission; original superuser Case A
+and existing fixture/unsafe-flag regressions remain separately verified.
 
 ## Future Phase B runbook — NOT EXECUTED / separate approval required
 
@@ -173,7 +232,8 @@ PRE:
 2. Take fresh private public schema/custom backup outside repo (0700/0600).
 3. Restore into a new disposable PG17 cluster with exit-on-error; compare all
    seven counts and semantic relations. STOP on restore/count failure.
-4. READ ONLY re-audit RLS7/FORCE0/policies0, absent reader, ownership, full
+4. READ ONLY re-audit the current stopped state: RLS7/FORCE0/policies0, safe existing
+   reader with the exact current-operator admin anchor, runtime absent, ownership, full
    table/schema/database ACL matrix and PUBLIC CONNECT. Save private baseline.
    STOP on any change from the reviewed state; no opportunistic grants/revokes.
 5. Prepare the exact reviewed rollback path above and test it on that clone.
@@ -185,16 +245,18 @@ PRE:
 FORWARD (only after explicit owner authorization):
 
 7. Execute `backend/prisma/security/aktau_api_reader_role.sql`; fail closed.
-   Before activation, group must have no parent or child memberships, owned
-   objects or direct/default privileges. Never run it as an activated-role check.
+   Before activation, group must have no parent membership, ownership or direct/
+   default ACL. Child memberships must satisfy EXACT Case A/B above. An existing
+   valid reader is verification-only; never run this as an activated-role check.
 8. Apply exactly `20261004000000_rls_runtime_access` through the separately
    reviewed Prisma/operator deployment procedure, not Go runtime startup.
    All seven tables must be ordinary, FORCE0/policies0, and uniformly RLS0 or
    RLS7. Lock/statement timeout is a failed transaction: STOP, never retry blindly.
 9. Privately create the restricted LOGIN: INHERIT, non-owner, no superuser/
    create-role/create-DB/replication/BYPASSRLS privileges.
-10. Grant only aktau_api_reader membership, with no administrative option or
-    inherited privileged role. No additional database CONNECT grant is needed.
+10. Grant only aktau_api_reader membership WITH ADMIN FALSE, INHERIT TRUE, SET FALSE.
+    Verify MEMBER/USAGE=true, SET/ADMIN=false and no other runtime parent role.
+    No additional database CONNECT grant is needed.
 11. Verify identity/flags/membership, SELECT5/raw+mapping denial, RLS7/FORCE0/
     exact policies5, reader ACLs, unchanged managed ACLs and all seven counts.
 
@@ -217,8 +279,10 @@ ROLLBACK TRIGGERS:
 ROLLBACK (operator-only, exact reviewed artifact):
 
 16. Stop/drain restricted clients. Explicitly revoke reader membership from and
-    remove the known runtime LOGIN. Inventory all members first: unknown LOGINs
-    or ownership/dependencies require STOP; never silently DROP an unknown role.
+    remove the known runtime LOGIN. Inventory all members first: only known runtime
+    and the exact current-operator admin anchor are allowed; unknown members or
+    ownership/dependencies require STOP. Never DROP an unknown role or manually
+    revoke the operator anchor; the guarded reader DROP removes it.
 17. Compare managed ACLs with the captured baseline, then execute
     `backend/prisma/security/rollback_aktau_api_reader_access.sql` with
     ON_ERROR_STOP/exit-on-error. Any guard/dependency error means STOP, not a
@@ -307,12 +371,33 @@ All app structure/counts/ownership/RLS7/FORCE0/policies0/full managed ACLs/role
 state remain equal to PRE. Reader/runtime roles remain absent. No deploy or
 security SQL was executed, no application data was changed.
 
-Current overall blocker:
-`AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL_AFTER_BASELINE`.
-Do not repeat baseline or manually edit history. The next production RLS/security
-flow requires separate explicit approval/review; step7 above was NOT executed.
-The full observed results are in the same Part04 report; live least-privilege
-parity still awaits future production security apply. NestJS is traffic owner.
+The preceding approval blocker was superseded by owner authorization for the
+final Phase B continuation from immutable commit
+`ae9465a41d2dc95e44bee9890176bac5ded6b1f6`. Fresh public backup/PG17 restore,
+seven-count/application-structure equality and the exact init-only Prisma history
+were verified again. Exact reader bootstrap executed once, SQL exit0; immediate
+pristine-group verification failed. The non-superuser CREATEROLE operator received
+automatic membership: role aktau_api_reader, member postgres, grantor supabase_admin,
+ADMIN true / INHERIT false / SET false. This is documented
+[PostgreSQL17 behavior](https://www.postgresql.org/docs/17/role-attributes.html)
+and conflicts with the reviewed zero-child-members guards.
+
+That conflict is now remediated in locally proven source/tests, NOT by a production
+mutation. Current overall blocker:
+`AWAITING_EXPLICIT_PRODUCTION_RLS_RESUME_APPROVAL_AFTER_OPERATOR_MEMBERSHIP_REVIEW`.
+Reader remains safe NOLOGIN with no ownership/direct/default ACLs and its exact
+automatic operator anchor; it matches the new proposed Case B. No production
+membership cleanup was attempted. The corrected pending migration/bootstrap/
+rollback artifacts require NEW external review/immutable SHA/hash approval before
+any production resume; the old Phase B reviewed hashes no longer describe source.
+RLS migration remains the ONLY pending migration; runtime LOGIN/secret absent.
+Final RLS7/FORCE0/policies0, managed ACLs/PUBLIC CONNECT, ownership/structure and
+seven counts remain unchanged. No deploy or rollback ran: rollback requires the
+applied rollout state and must not be used for this bootstrap-only outcome.
+Do not repeat baseline/bootstrap/deploy or edit history automatically. Resume only
+after separately reviewed bootstrap/operator-membership remediation/runbook approval.
+The same Part04 report contains exact observed evidence. Live restricted parity
+remains NOT RUN; NestJS is traffic owner.
 
 ## Repository implementation (HTTP still unwired)
 
@@ -352,8 +437,10 @@ was added. No production EXPLAIN ANALYZE ran. Safe plan measurements are in repo
 
 ## Rollout boundary
 
-Phase A local security proof is for owner/external review, not production apply.
-Overall Part 04 remains BLOCKED pending explicit production security approval
-and subsequent least-privilege live parity. Protected
+Phase A local security proof is for owner/external review. Final Phase B had
+explicit production authorization but stopped at the bootstrap membership gate.
+Overall Part 04 remains BLOCKED pending external acceptance of the local
+remediation and explicit production resume/security deploy/least-privilege live
+parity. This task performed production READ-ONLY audits only. Protected
 NestJS/Next/frozen contracts remain unchanged. Public `/api/categories` stays
 unwired in Go; no Part 05 work or traffic cutover is authorized.

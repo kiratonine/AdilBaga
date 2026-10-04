@@ -2,13 +2,17 @@
 
 Status: **BLOCKED**
 
-Current continuation: **Production Prisma baseline apply PASS**.
-Overall blocker: `AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL_AFTER_BASELINE`.
-Separately authorized production resolve recorded ONLY init as applied; application
-state stayed unchanged. RLS deploy and API-role provisioning remain NOT RUN.
-See the final production baseline section. Prior failures/proof/history remain.
+Current continuation: **Reader creator-membership remediation — local proof PASS**.
+Overall blocker:
+`AWAITING_EXPLICIT_PRODUCTION_RLS_RESUME_APPROVAL_AFTER_OPERATOR_MEMBERSHIP_REVIEW`.
+Corrected bootstrap/pending-migration/rollback guards and non-superuser operator
+proof PASS locally. Production was ONLY READ-ONLY audited in this continuation:
+the existing inert reader/automatic anchor remains, RLS pending, runtime absent.
+See the final local-remediation section. The stopped production bootstrap and all
+prior failures/proof/history remain below; Part04 is not complete.
 Sections A–T preserve the initial stopped run; current Phase A evidence follows
-in “External-review approved RLS design — Phase A”. No Supabase security apply.
+in “External-review approved RLS design — Phase A”; those historical sections
+predate the production baseline and the final bootstrap attempt.
 
 ## A. Goal/scope
 
@@ -1273,3 +1277,360 @@ output or Go binary/profile. Archive is a review artifact, not a DB backup.
 Part04 is NOT complete; RLS migration still pending, reader/runtime absent, live
 least-privilege parity NOT RUN. Stop for external review; do not proceed to RLS
 apply, API roles, Go deploy/cutover or Part05 under this authorization.
+
+## Final Production RLS Phase B — STOP after bootstrap
+
+**Status: BLOCKED.**
+**Blocker: PRODUCTION_READER_BOOTSTRAP_AUTO_MEMBERSHIP_CONFLICT.**
+
+The owner explicitly authorized this continuation under
+`TODO/PRODUCTION_PART_04_FINAL_RLS_PHASE_B.md`. The preceding approval blocker is
+superseded by that authorization, not deleted from historical evidence. No Part05
+work or traffic cutover occurred.
+
+### Immutable preflight — PASS
+
+Fetch origin --prune exited0. Branch integrate/full-stack; initial tree clean;
+HEAD = origin/integrate/full-stack =
+`ae9465a41d2dc95e44bee9890176bac5ded6b1f6`
+(`docs(db): record production Prisma baseline`). SHA/tree/artifact checks were
+repeated immediately before the bootstrap production write.
+
+| Reviewed artifact | Verified SHA-256 |
+| --- | --- |
+| init migration | `a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92` |
+| RLS migration | `804feb74cfaab9b9262fd5c873432e1dc61a6004a48d89010df02cdf7c524bc7` |
+| reader bootstrap | `bc67db66b06753c95c154405d2cd391a1705c50dcfabac5febd78965d75b5ac8` |
+| guarded rollback | `04faeb0e6196cd542e2fb58b5268f6f157630b8022096a88a8054aeff54c5a60` |
+
+Prisma installed version5.22.0; Go1.27.1 linux/amd64; PostgreSQL client17.10;
+Docker client/server29.1.3. No source/SQL hot-edit, reset/rebase, commit or push.
+
+### Fresh private backup / restore / PRE — PASS
+
+New portable public schema-only + custom dump and canonical security/structure
+evidence retained outside Git:
+`/home/denis/.local/share/aktau-market/backups/part04-final-rls/2026-10-04T11-08-52-788Z/`.
+Directory0700; all four files0600. Dumps used --schema=public --no-owner --no-acl.
+Canonical evidence includes ownership/RLS/FORCE/policies, full aclexplode table
+ACL with MAINTAIN/grantor, schema/database ACL, roles/memberships and Prisma rows.
+Live audits explicitly set default_transaction_read_only=on, statement_timeout=5000,
+BEGIN READ ONLY. No production application data mutation occurred.
+
+Fresh labelled disposable postgres:17-alpine on loopback15436 restored with
+--no-owner --no-acl --exit-on-error: exit0. Seven counts and application structure
+equal current live PRE and the reviewed init structural evidence. Only the empty
+local public schema was removed to allow dump restoration. No local baseline or
+security migration was rerun for this fresh restore check.
+
+PRE matched the prior production baseline byte-for-byte: seven ordinary app
+tables RLS7/FORCE0/policies0, reader/runtime absent, unchanged full managed ACLs
+and existing PUBLIC CONNECT. Exactly one successful Prisma init record,
+finished_at non-null, rolled_back_at null, steps0, checksum as above.
+Actual migrate status exit1 listed ONLY 20261004000000_rls_runtime_access pending.
+The expected pending status was not labelled up-to-date or treated as a failed
+migration. Rollback artifact and backup/restore readiness were verified pre-write.
+
+| Table | PRE / restored | Final READ-ONLY audit |
+| --- | ---: | ---: |
+| stores | 3 | 3 |
+| store_locations | 15 | 15 |
+| categories | 6 | 6 |
+| raw_products | 863 | 863 |
+| canonical_products | 849 | 849 |
+| product_mappings | 863 | 863 |
+| offers | 863 | 863 |
+
+### Exact bootstrap execution / immediate pristine check — FAIL
+
+Executed the exact reviewed aktau_api_reader_role.sql ONCE over the existing
+private direct operator connection with psql ON_ERROR_STOP=1: SQL exit0.
+No SQL statements were substituted or patched. The new reader is NOLOGIN,
+INHERIT, NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS.
+Read-only full catalog inventory proves zero ownership, direct/default ACLs and
+parent memberships. However the required zero-child-members gate failed:
+
+| Role | Member | Grantor | ADMIN | INHERIT | SET |
+| --- | --- | --- | --- | --- | --- |
+| aktau_api_reader | postgres | supabase_admin | true | false | false |
+
+The operator is a non-superuser with CREATEROLE. This observed membership is the
+documented PostgreSQL behavior when such an operator creates a role, rather than
+an explicit additional GRANT performed by this session.
+[PostgreSQL17 role attributes](https://www.postgresql.org/docs/17/role-attributes.html).
+The prior disposable proof used a superuser and therefore did not reproduce this
+operator-dependent behavior. Both the bootstrap's existing-role guard and the
+RLS migration's pristine-reader guard reject any child membership.
+
+STOP immediately: no migrate deploy attempted, no LOGIN/password created, no
+manual REVOKE/DROP/ALTER or hot-edit. Reader has no application grants/policies;
+operator cannot inherit or SET this group through the automatic membership.
+It is retained as the inert bootstrap outcome for separate review. The automatic
+ADMIN membership is explicitly recorded, not accepted as the required pristine
+state. Do not simply retry the unchanged bootstrap/deploy.
+
+### Final state and remaining gates
+
+Additional SELECT-only audit confirmed: RLS7/FORCE0/policies0; application
+structure/ownership, all seven counts, complete managed table/schema/database
+ACL and PUBLIC CONNECT unchanged. Runtime LOGIN absent; reader has no owned
+objects or direct/default privileges; exact unexpected membership above persists.
+Prisma history still EXACTLY init successful steps0/checksum, no failed/rolled-back
+or extra record; final status exit1 with only RLS pending.
+
+| Gate in this continuation | Actual result |
+| --- | --- |
+| production Prisma baseline / fresh backup-restore | PASS |
+| exact bootstrap SQL execution | PASS: exit0 |
+| bootstrap pristine-group verification | FAIL: automatic operator membership |
+| RLS deploy / post-migration policies5+SELECT5 verification | NOT RUN: STOP before deploy |
+| runtime secret/LOGIN + reader membership | NOT RUN; no secret file created |
+| restricted SELECT5 / raw-mapping denial / Go pool policy | NOT RUN |
+| live least-privilege Go↔Nest parity / restricted Go readiness | NOT RUN |
+| final Go test/race/vet/staticcheck/govulncheck + contracts lint | NOT RUN: STOP; preceding baseline continuation PASS evidence retained above |
+| protected-source diff / git diff --check | PASS |
+
+NestJS GET-only reference started locally with existing production DB configuration,
+using 49 byte-identical compiled files in a native-WSL temporary copy. Categories
+GET returned200 with6 categories; no voice/Gemini/Redis/POST calls. This does NOT
+constitute restricted Go parity. Own reference process/native workspace removed;
+task-owned restore container/volume removed with label ownership checks. Private
+backup remains. backend/.env and NestJS credentials unchanged.
+
+No rollback was executed: the RLS migration was never applied, and the reviewed
+rollback requires the full applied rollout state. No Prisma history reconciliation
+is needed from this run. A separately reviewed bootstrap/operator-membership
+remediation and matching preflight/runbook update are needed before continuation.
+This report does not authorize that fix. Production security is PARTIAL (group
+creation only), not successful RLS apply. Part04 implementation gates INCOMPLETE;
+Part05 NOT STARTED. No Go deploy, traffic change, application DML/DDL, seed/import,
+manual history edits, commit or push.
+
+### Updated review archive
+
+Permanent target production-part-04 rebuilt
+`artifacts/production-part-04-review.tar.gz` for this BLOCKED external review.
+Verification: all305 archived files byte-match current source, report and runbook;
+required reviewed SQL included; exclusions/known-credential scan PASS. No real env,
+backup/dump/canonical private evidence, node_modules, build/test output, temporary
+workspace, Docker volume, Go binary/profile or secrets. Archive is not a DB backup.
+
+**Status: BLOCKED — PRODUCTION_READER_BOOTSTRAP_AUTO_MEMBERSHIP_CONFLICT.**
+Stop for external review; do not advance to Part05.
+
+## Reader creator-membership remediation — local proof
+
+**Status: BLOCKED. Local remediation/proof PASS.**
+**Overall blocker:
+AWAITING_EXPLICIT_PRODUCTION_RLS_RESUME_APPROVAL_AFTER_OPERATOR_MEMBERSHIP_REVIEW.**
+
+Authorization: `TODO/PRODUCTION_PART_04_READER_CREATOR_MEMBERSHIP_REMEDIATION.md`.
+This task performed source/test/runbook changes, production READ-ONLY audits and
+disposable LOCAL proof only. It did NOT resume production Phase B or remove any
+production membership. The previously observed bootstrap conflict is corrected
+in proposed source/model, not by changing live roles or accepting unreviewed apply.
+
+### Preflight and preserved production state
+
+Fetch origin --prune PASS. Branch integrate/full-stack; HEAD=origin=
+`ae9465a41d2dc95e44bee9890176bac5ded6b1f6`. Initial tree contained ONLY the two
+expected report/runbook changes from the stopped run; neither was discarded.
+
+Fresh PRE and FINAL audit used explicit read-only defaults+BEGIN READ ONLY and5s
+statement timeout, full ACL/ownership/role/structure/count checks. They matched the
+prior stopped-run canonical state exactly. Prisma5.22 status exit1 with ONLY
+20261004000000_rls_runtime_access pending; init successful steps0/checksum unchanged.
+No failed, extra or rolled-back migration. Production reader safe NOLOGIN/INHERIT,
+all elevated flags false; no owned objects, direct/default ACL or parent membership;
+runtime absent. Exactly one reader child:
+
+| Role | Member/current operator | Grantor | ADMIN | INHERIT | SET | Grantor superuser |
+| --- | --- | --- | --- | --- | --- | --- |
+| aktau_api_reader | postgres | supabase_admin | true | false | false | true |
+
+Live operator non-superuser/CREATEROLE; catalog MEMBER=true, USAGE=false, SET=false.
+No production SET ROLE or DML/DDL denial attempt was made. Seven tables remain
+RLS7/FORCE0/policies0; complete managed ACLs incl MAINTAIN/grantor and PUBLIC CONNECT
+unchanged. PRE=FINAL counts: stores3, store_locations15, categories6, raw_products863,
+canonical_products849, product_mappings863, offers863. Application structure unchanged.
+
+### Root cause and corrected invariant
+
+The automatic creator anchor is documented PostgreSQL17 behavior, not platform
+drift. Non-superuser CREATEROLE creation gets an admin-only membership from the
+bootstrap superuser; the old disposable superuser proof could not reveal it.
+[PostgreSQL17 role attributes](https://www.postgresql.org/docs/17/role-attributes.html).
+
+All THREE artifacts independently enforce:
+
+- Case A: current_user is superuser, zero child memberships.
+- Case B: current_user is non-superuser with CREATEROLE, EXACTLY one child;
+  member=current_user, ADMIN=true, INHERIT=false, SET=false, superuser grantor.
+- Neither case permits reader parent memberships, unsafe flags/ownership or
+  unexpected ACLs. No reusable SQL hard-codes postgres/supabase_admin.
+
+Bootstrap validates after creation as well as on existing-role verification; no
+membership repair GRANT/REVOKE is added. Pending migration is corrected in place,
+not duplicated; init unchanged. Existing migration transaction, seven-table lock,
+5s lock/10s statement timeouts, uniform RLS0/7 baseline and exact grants/policies
+remain. Guarded rollback permits only the exact operator anchor after runtime
+removal; DROP reader removes it normally. Rollback never disables RLS.
+
+The anchor is control-plane administration, NOT runtime data access or a new
+least-privilege credential. MEMBER true does not imply inherited privileges or
+SET capability. ADMIN TRUE is not a security boundary: it allows role administration
+and new grants. The separately privileged production operator already owns all app
+tables and has administrative/BYPASSRLS authority. The exact allowlist is essential.
+
+Future runtime grant is explicit, not PostgreSQL defaults:
+
+```sql
+GRANT aktau_api_reader TO aktau_api_runtime
+WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+```
+
+Tested runtime MEMBER/USAGE=true, SET/ADMIN=false, sole reader parent, safe LOGIN
+flags, non-owner/no direct application grants. Production LOGIN was NOT created.
+
+### NEW artifact hashes — external review required
+
+| Corrected artifact | SHA-256 |
+| --- | --- |
+| reader bootstrap | `bd09e6cbdbe0fb292e721573184cacadde7d339be68845df8ca5d8e1cfd10a0d` |
+| still-pending RLS migration | `aa5d016c002f9b9d7d1feb3de2b77bd667879466ec3e808f6452b620afe09e79` |
+| guarded rollback | `6d9d8bc377f985c37dc9e81252a0af79f80f5debe338cdb8544b3e4fa5f1a545` |
+
+Old reviewed Phase B hashes are preserved in history but no longer describe these
+proposed artifacts. Init remains
+`a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92`.
+Future production resume requires externally accepted/committed immutable source
+and separately explicit owner authorization with NEW hashes. No commit/push here.
+
+### Production-like LOCAL topology and positive proof
+
+Two fresh labelled postgres:17-alpine clusters on loopback15437/15438 with private
+disposable credentials, no production credentials. Bootstrap superuser provisioned
+LOGIN part04_operator: non-superuser CREATEROLE, no CREATEDB/BYPASSRLS/replication;
+it owned the dedicated part04_security database and all seven application tables.
+Clean path used exact checked-in init + INSERT fixture; clone restored the existing
+verified private public dump --no-owner/--no-acl/--exit-on-error as the operator.
+Clone seven counts equal current live. Local anon/authenticated/service_role ACLs
+were simulated with operator as local object owner/grantor and captured before
+cycles. No production managed role/ACL was changed or copied with credentials.
+
+On BOTH primary paths, all bootstrap/migration/rollback operations under test ran
+as part04_operator. Bootstrap create+immediate validation PASS; pristine existing
+reader reverify was snapshot-equivalent. Automatic exact anchor appeared; operator
+MEMBER=true/USAGE=false/SET=false, actual SET ROLE reader denied42501. Migration
+PASS, exact policies5/SELECT5. Local aktau_api_runtime inherited only reader with
+explicit options; MEMBER/USAGE=true, SET/ADMIN=false, SET ROLE denied42501. Categories,
+filter discovery, all3 repository sorts/detail and raw/mapping denial passed.
+After removing runtime, operator rollback PASS while anchor remained. Reader DROP
+removed the automatic anchor. Forward→rollback→forward→rollback PASS with exact
+count/full managed ACL/ownership snapshot equality. Clean RLS0→7 is the only
+intentional normalized rollback-target transition; restored clone remains RLS7.
+
+### Negative matrix and preserved regression coverage
+
+Each new operator path passed49 subtests:45 anchor/drift probes (15 for EACH of
+bootstrap/migration/rollback), two unsafe-creation self-grant probes, and two
+grouping subtests. Required cases: second LOGIN, second NOLOGIN, different operator,
+missing anchor, early runtime, ADMIN false, INHERIT true, SET true, non-superuser
+grantor, operator lacking CREATEROLE, reader parent, unsafe flags, ownership,
+direct/default ACL. Rejections were P0001; transaction rollback and complete
+security/ACL/count snapshot equality verified. Newly-created reader under unsafe
+createrole_self_grant inherit/set settings was rejected atomically, leaving none.
+
+Non-superuser grantor was independently simulated by a single grantor-field mutation
+in pg_auth_members inside a LOCAL bootstrap-superuser transaction, then artifact
+execution SET LOCAL ROLE part04_operator; expected P0001 and rollback restored the
+original grantor. This adversarial catalog probe cannot target production: all
+three explicit URLs/effective pgx hosts/fallbacks/database/user topology are guarded;
+no runtime DATABASE_URL fallback. It avoids falsely passing solely through an
+extra-child count. No catalog mutation escaped the local test transaction.
+
+Original Case A lifecycle suite remained PASS on clean and clone,85 subtests each,
+including unsafe flags/ownership/all ACL classes, RLS/policy negatives, unrelated
+policy positive, lock timeout55P03/atomicity, activated-reader refusal and exact
+rollback drift/refusal. No old case was removed. Full legacy tagged fixture package
+PASS:3 top-level tests +25 subtests; other explicit profiles correctly SKIP there
+and were executed independently as documented. Legacy intentional SUPERUSER/
+BYPASSRLS/replication flag injection uses its original superuser profile; this is
+supplemental Case A regression, not the primary non-superuser proof.
+
+Initial local probe setup failures are not hidden: demoting the bootstrap superuser
+was prohibited by PostgreSQL (0A000), and ownership transfer removed operator table
+lock permission before the guard. Revised LOCAL-only setups isolate grantor and
+restore locking permission so the actual guards return P0001. The existing legacy
+unsafe-flag fixture suite initially failed when incorrectly supplied the restricted
+operator credential; rerun with its correct superuser topology passed. One rerun
+refused an intentionally still-activated rehearsal clone; after completing parity/
+rollback its clean-baseline lifecycle rerun passed. Final runs have zero failures;
+none of these local setup issues caused a production action or weakened an assertion.
+
+### Current-production-state rehearsal — LOCAL PASS
+
+Restored clone started with successful init history, only RLS pending, RLS7/FORCE0/
+policies0, runtime absent. Operator bootstrap created the exact stopped-state
+reader/automatic anchor; re-run verification changed no snapshot. Local Prisma5.22
+status exit1 listed ONLY RLS pending. migrate deploy exited0 applying ONLY
+20261004000000_rls_runtime_access; init not replayed, history2 successful steps0/1,
+RLS checksum equals the NEW hash above. Local runtime created with explicit options.
+
+Committed NestJS reference ran locally on3002 against this restored clone, using49
+byte-identical compiled files in an ephemeral native-WSL copy. No production
+credentials/.env copied, no provider/voice/POST calls. Restricted Go pool verified
+read-only default, role/policy/ACL state, SELECT/raw-mapping denial, no SET, and
+independent LOCAL DML/DDL denial42501 before repository/Nest parity.
+
+Exact parity PASS:6 categories/all category filters/detail; all849 product IDs and
+DTOs in price_asc, price_desc and name_asc, pages<=100 and bounded roundtrips. Search
+results in required order: МОЛОКО44, %849, _849, backslash4, Молок%44, Молок_44,
+backslash+%168, backslash+_0, literal/injection-shaped cases0/0.
+This is LOCAL repository parity, not Go public HTTP API parity/live restricted proof.
+
+Known runtime removed; operator executed corrected guarded rollback with anchor
+still present: PASS. Reader/runtime/anchors disappear, RLS7/FORCE0/policies0/counts/
+managed ACL unchanged. Successful LOCAL Prisma records intentionally retained;
+no manual history edits/replay. Own Nest process/native copy and both labelled
+Docker containers/volumes removed. Existing private production backup retained.
+
+### Full quality/source protection and current state
+
+| Actual gate | Result |
+| --- | --- |
+| gofmt cmd/internal/tests; gofmt -l empty | PASS |
+| go mod tidy / go mod verify | PASS; all modules verified; go.mod/sum unchanged |
+| full go test ./... | PASS:100 tests/7 packages |
+| full go test -race ./... | PASS:100 tests/7 packages |
+| go vet ./... / pinned staticcheck ./... | PASS |
+| pinned govulncheck ./... | PASS:exit0, No vulnerabilities found |
+| tagged integration vet / explicit lifecycle+fixture+clone parity | PASS as detailed above |
+| contracts pnpm lint (Node24 final run) | PASS |
+| protected-source diff / git diff --check | PASS |
+| production PRE and FINAL READ-ONLY audit | PASS: unchanged stopped state |
+
+Changed only three SQL artifacts, rollout_test.go, related security_test.go helper,
+POSTGRES_LAYER.md and THIS report. NestJS runtime/Prisma schema/init/seed,
+frontend/frozen contracts/API_V1_CONTRACT.md, Go business code/config/dependencies
+and archive script unchanged. No new migrations, routes, public contract/bounds,
+application data/schema redesign, secret/config edit, seed/import/parser, deploy,
+brand rename, commit/push or Part05.
+
+**Production is unchanged in this task:** existing reader + exact creator anchor,
+RLS migration pending, runtime absent, RLS7/FORCE0/policies0. Part04 NOT complete;
+live restricted runtime parity remains NOT RUN. Await explicit production resume
+approval after external operator-membership review.
+
+### Clean review archive
+
+Permanent production-part-04 target rebuilt
+`artifacts/production-part-04-review.tar.gz`. Verification PASS:305 files byte-match
+current source/report/runbook; new SQL/source present; exclusion/known-credential
+scan includes this task's six disposable passwords. No real env, private catalog
+snapshot, DB dump/backup, credentials, Docker volumes, node_modules, build/test
+outputs, temporary WSL workspace or Go binaries/profiles.
+
+**Status: BLOCKED —
+AWAITING_EXPLICIT_PRODUCTION_RLS_RESUME_APPROVAL_AFTER_OPERATOR_MEMBERSHIP_REVIEW.**
+Stop for external review; no production resume or Part05 under this authorization.

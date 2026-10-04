@@ -29,8 +29,23 @@ BEGIN
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datdba = reader.oid) THEN
         RAISE EXCEPTION 'Reader role attributes, membership or ownership drift';
     END IF;
-    IF EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members WHERE roleid = reader.oid) THEN
-        RAISE EXCEPTION 'Explicitly remove runtime LOGIN memberships before rollback';
+    -- Runtime must be removed first, but the exact admin-only creator anchor
+    -- remains until DROP ROLE. It is not an inherited/settable runtime grant.
+    IF NOT (
+           ((SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname = current_user)
+            AND (SELECT count(*) FROM pg_catalog.pg_auth_members WHERE roleid = reader.oid) = 0)
+           OR
+           ((SELECT NOT rolsuper AND rolcreaterole FROM pg_catalog.pg_roles WHERE rolname = current_user)
+            AND (SELECT count(*) FROM pg_catalog.pg_auth_members WHERE roleid = reader.oid) = 1
+            AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_auth_members m
+                JOIN pg_catalog.pg_roles grantor ON grantor.oid = m.grantor
+                WHERE m.roleid = reader.oid
+                  AND m.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_user)
+                  AND m.admin_option AND NOT m.inherit_option AND NOT m.set_option
+                  AND grantor.rolsuper))
+       ) THEN
+        RAISE EXCEPTION 'Remove runtime members; only the exact current-operator admin anchor may remain';
     END IF;
     IF (SELECT count(*) FROM pg_catalog.pg_class
         WHERE relnamespace = 'public'::regnamespace AND relname = ANY(app_tables)

@@ -20,13 +20,30 @@ BEGIN
         RAISE EXCEPTION 'Provision/verify the restricted aktau_api_reader group first';
     END IF;
     SELECT oid INTO reader_oid FROM pg_catalog.pg_roles WHERE rolname = 'aktau_api_reader';
-    IF EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members WHERE member = reader_oid OR roleid = reader_oid)
-       OR EXISTS (SELECT 1 FROM pg_catalog.pg_class WHERE relowner = reader_oid)
+    -- Independently enforce the same pre-activation operator anchor as bootstrap.
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members WHERE member = reader_oid)
+       OR NOT (
+           ((SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname = current_user)
+            AND (SELECT count(*) FROM pg_catalog.pg_auth_members WHERE roleid = reader_oid) = 0)
+           OR
+           ((SELECT NOT rolsuper AND rolcreaterole FROM pg_catalog.pg_roles WHERE rolname = current_user)
+            AND (SELECT count(*) FROM pg_catalog.pg_auth_members WHERE roleid = reader_oid) = 1
+            AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_auth_members m
+                JOIN pg_catalog.pg_roles grantor ON grantor.oid = m.grantor
+                WHERE m.roleid = reader_oid
+                  AND m.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_user)
+                  AND m.admin_option AND NOT m.inherit_option AND NOT m.set_option
+                  AND grantor.rolsuper))
+       ) THEN
+        RAISE EXCEPTION 'Reader must have only the exact current-operator admin anchor or no members for a superuser';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_class WHERE relowner = reader_oid)
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspowner = reader_oid)
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datdba = reader_oid)
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE proowner = reader_oid)
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_type WHERE typowner = reader_oid) THEN
-        RAISE EXCEPTION 'aktau_api_reader must have no memberships or owned objects';
+        RAISE EXCEPTION 'aktau_api_reader must have no owned objects';
     END IF;
     IF EXISTS (SELECT 1 FROM pg_catalog.pg_database d
             CROSS JOIN LATERAL pg_catalog.aclexplode(d.datacl) a

@@ -170,13 +170,14 @@ func TestReaderRolloutLifecycle(t *testing.T) {
 		executeSecurity(t, ctx, admin, bootstrap)
 		executeSecurity(t, ctx, admin, migration)
 		// PASSWORD is private and never logged; DDL cannot bind this value.
-		executeSecurity(t, ctx, admin, `CREATE ROLE part04_api_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD '`+strings.ReplaceAll(password, "'", "''")+`'; GRANT aktau_api_reader TO part04_api_login`)
+		executeSecurity(t, ctx, admin, `CREATE ROLE part04_api_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD '`+strings.ReplaceAll(password, "'", "''")+`'; GRANT aktau_api_reader TO part04_api_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`)
 		pool, err := postgres.OpenReadOnly(ctx, apiURL)
 		if err != nil {
 			t.Fatal("restricted pool configuration failed")
 		}
 		defer pool.Close()
 		assertReaderSecurity(t, ctx, pool)
+		assertRuntimeAnchor(t, ctx, pool, "part04_api_login")
 		var loginConnect, databaseDirectGrant bool
 		err = pool.QueryRow(ctx, `SELECT has_database_privilege(current_user,current_database(),'CONNECT'),EXISTS(SELECT 1 FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl)a WHERE d.datname=current_database() AND a.grantee IN (SELECT oid FROM pg_roles WHERE rolname IN ('part04_api_login','aktau_api_reader')) AND a.privilege_type='CONNECT')`).Scan(&loginConnect, &databaseDirectGrant)
 		if err != nil || !loginConnect || databaseDirectGrant {
@@ -263,6 +264,286 @@ func TestReaderRolloutLifecycle(t *testing.T) {
 	t.Log("forward/rollback/forward PASS; final baseline RLS7/FORCE0/policies0/reader absent; exact counts, table/schema/database ACLs and ownership preserved")
 }
 
+// Separately opt-in to the production-like, non-superuser operator proof. All
+// artifacts run as the operator; the bootstrap connection only sets up negative
+// probes that a restricted operator could not construct (e.g. unsafe role flags).
+func TestReaderCreatorAnchorLifecycle(t *testing.T) {
+	operatorURL := os.Getenv("OPERATOR_DATABASE_URL")
+	if operatorURL == "" {
+		t.Skip("explicit isolated local operator database required")
+	}
+	bootstrapURL, apiURL := os.Getenv("OPERATOR_BOOTSTRAP_DATABASE_URL"), os.Getenv("OPERATOR_API_DATABASE_URL")
+	var configs []*pgx.ConnConfig
+	for _, value := range []string{operatorURL, bootstrapURL, apiURL} {
+		if !localURL(value) {
+			t.Fatal("operator proof must use explicit loopback targets, no runtime fallback")
+		}
+		c, err := pgx.ParseConfig(value)
+		if err != nil || c.Database != "part04_security" {
+			t.Fatal("dedicated operator-proof database required")
+		}
+		configs = append(configs, c)
+	}
+	for _, c := range configs[1:] {
+		if c.Host != configs[0].Host || c.Port != configs[0].Port {
+			t.Fatal("operator/bootstrap/runtime targets must match")
+		}
+	}
+	if configs[0].User != "part04_operator" || configs[2].User != "aktau_api_runtime" || configs[2].Password == "" {
+		t.Fatal("explicit local operator/runtime identities required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	operator, err := pgx.Connect(ctx, operatorURL)
+	if err != nil {
+		t.Fatal("local operator connect failed")
+	}
+	defer operator.Close(context.Background())
+	bootstrapConn, err := pgx.Connect(ctx, bootstrapURL)
+	if err != nil {
+		t.Fatal("local bootstrap connect failed")
+	}
+	defer bootstrapConn.Close(context.Background())
+	var topology, super bool
+	err = operator.QueryRow(ctx, `SELECT NOT rolsuper AND rolcanlogin AND rolcreaterole AND NOT rolbypassrls AND (SELECT datdba=r.oid FROM pg_database WHERE datname=current_database()) AND (SELECT count(*)=7 FROM pg_class WHERE relnamespace='public'::regnamespace AND relname=ANY($1) AND relowner=r.oid) FROM pg_roles r WHERE rolname=current_user`, append(append([]string(nil), runtimeTables...), "raw_products", "product_mappings")).Scan(&topology)
+	if err != nil || !topology || bootstrapConn.QueryRow(ctx, `SELECT rolsuper FROM pg_roles WHERE rolname=current_user`).Scan(&super) != nil || !super {
+		t.Fatal("non-superuser CREATEROLE owner + bootstrap superuser topology required")
+	}
+	var roles, policies, enabled int
+	err = operator.QueryRow(ctx, `SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('aktau_api_reader','aktau_api_runtime')),(SELECT count(*) FROM pg_policies WHERE schemaname='public'),(SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND relname=ANY($1) AND relrowsecurity AND NOT relforcerowsecurity)`, append(append([]string(nil), runtimeTables...), "raw_products", "product_mappings")).Scan(&roles, &policies, &enabled)
+	if err != nil || roles != 0 || policies != 0 || (enabled != 0 && enabled != 7) {
+		t.Fatal("clean RLS0/7, FORCE0, no policies or reader/runtime required")
+	}
+	baseline := securitySnapshot(t, ctx, operator, true)
+	bootstrap := securityArtifact(t, "security", "aktau_api_reader_role.sql")
+	migration := securityArtifact(t, "migrations", "20261004000000_rls_runtime_access", "migration.sql")
+	rollback := securityArtifact(t, "security", "rollback_aktau_api_reader_access.sql")
+	// Fail closed after creation too: opt-in self-grant settings must not leave
+	// a newly-created reader with inherited/settable operator access behind.
+	for _, setting := range []string{"inherit", "set"} {
+		t.Run("bootstrap creation rejects self-grant "+setting, func(t *testing.T) {
+			before := securitySnapshot(t, ctx, operator)
+			tx, err := operator.Begin(ctx)
+			if err != nil {
+				t.Fatal("local bootstrap creation transaction failed")
+			}
+			defer tx.Rollback(context.Background())
+			if _, err = tx.Exec(ctx, "SET LOCAL createrole_self_grant='"+setting+"'"); err != nil {
+				t.Fatal("local self-grant setting failed")
+			}
+			_, err = tx.Exec(ctx, bootstrap)
+			var e *pgconn.PgError
+			if !errors.As(err, &e) || e.Code != "P0001" {
+				t.Fatal("unsafe newly-created reader must be rejected with P0001")
+			}
+			if err = tx.Rollback(ctx); err != nil {
+				t.Fatal("local bootstrap creation rollback failed")
+			}
+			assertSameSnapshot(t, before, securitySnapshot(t, ctx, operator))
+		})
+	}
+	executeSecurity(t, ctx, operator, bootstrap)
+	assertOperatorAnchor(t, ctx, operator)
+	before := securitySnapshot(t, ctx, operator)
+	executeSecurity(t, ctx, operator, bootstrap)
+	assertSameSnapshot(t, before, securitySnapshot(t, ctx, operator))
+	assertDenied(t, operator.Exec, ctx, `SET ROLE aktau_api_reader`, "42501")
+	anchorCases := map[string]string{
+		"second LOGIN":           `CREATE ROLE part04_extra LOGIN; GRANT aktau_api_reader TO part04_extra`,
+		"second NOLOGIN":         `CREATE ROLE part04_extra NOLOGIN; GRANT aktau_api_reader TO part04_extra`,
+		"runtime attached early": `CREATE ROLE aktau_api_runtime LOGIN; GRANT aktau_api_reader TO aktau_api_runtime WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`,
+		"different operator":     `CREATE ROLE part04_extra LOGIN CREATEROLE; REVOKE aktau_api_reader FROM part04_operator; GRANT aktau_api_reader TO part04_extra WITH ADMIN TRUE, INHERIT FALSE, SET FALSE`,
+		"missing anchor":         `REVOKE aktau_api_reader FROM part04_operator`,
+		"ADMIN false":            `GRANT aktau_api_reader TO part04_operator WITH ADMIN FALSE, INHERIT FALSE, SET FALSE`,
+		"INHERIT true":           `GRANT aktau_api_reader TO part04_operator WITH ADMIN TRUE, INHERIT TRUE, SET FALSE`,
+		"SET true":               `GRANT aktau_api_reader TO part04_operator WITH ADMIN TRUE, INHERIT FALSE, SET TRUE`,
+		// Adversarial catalog-only probe in this explicitly isolated local
+		// transaction: normal GRANT needs another admin member, while PostgreSQL
+		// forbids demoting its bootstrap superuser. Mutate only grantor to test
+		// that guard independently of the child-count rule; always roll back.
+		"non-superuser grantor":     `UPDATE pg_catalog.pg_auth_members SET grantor=(SELECT oid FROM pg_roles WHERE rolname='part04_operator') WHERE roleid=(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader')`,
+		"operator lacks CREATEROLE": `ALTER ROLE part04_operator NOCREATEROLE`,
+		"reader parent":             `CREATE ROLE part04_extra NOLOGIN; GRANT part04_extra TO aktau_api_reader`,
+		"unsafe flags":              `ALTER ROLE aktau_api_reader BYPASSRLS`,
+		"ownership":                 `ALTER TABLE stores OWNER TO aktau_api_reader`,
+		"direct ACL":                `GRANT SELECT ON stores TO aktau_api_reader`,
+		"default ACL":               `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO aktau_api_reader`,
+	}
+	for name, artifact := range map[string]string{"bootstrap": bootstrap, "migration": migration} {
+		t.Run(name+" operator anchor rejection", func(t *testing.T) {
+			for name, setup := range anchorCases {
+				t.Run(name, func(t *testing.T) {
+					rejectOperatorDrift(t, ctx, bootstrapConn, setup, artifact)
+					assertSameSnapshot(t, before, securitySnapshot(t, ctx, operator))
+					assertOperatorAnchor(t, ctx, operator)
+				})
+			}
+		})
+	}
+	activate := func() {
+		executeSecurity(t, ctx, operator, bootstrap)
+		executeSecurity(t, ctx, operator, migration)
+		executeSecurity(t, ctx, operator, `CREATE ROLE aktau_api_runtime LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '`+strings.ReplaceAll(configs[2].Password, "'", "''")+`'; GRANT aktau_api_reader TO aktau_api_runtime WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`)
+		pool, err := postgres.OpenReadOnly(ctx, apiURL)
+		if err != nil {
+			t.Fatal("restricted operator-proof pool failed")
+		}
+		defer pool.Close()
+		assertReaderSecurity(t, ctx, pool, "aktau_api_runtime")
+		assertRuntimeAnchor(t, ctx, pool, "aktau_api_runtime")
+		repo := postgres.NewRepository(pool)
+		categories, err := repo.ListCategories(ctx)
+		var expected int
+		if err != nil || operator.QueryRow(ctx, `SELECT count(*) FROM categories`).Scan(&expected) != nil || len(categories) != expected {
+			t.Fatal("operator-proof full category visibility")
+		}
+		for _, c := range categories {
+			if _, err := repo.GetFilterSchema(ctx, c.Slug); err != nil {
+				t.Fatal("operator-proof filters")
+			}
+		}
+		for _, order := range []catalog.Sort{catalog.PriceAsc, catalog.PriceDesc, catalog.NameAsc} {
+			products, err := repo.ListProducts(ctx, catalog.ProductQuery{Sort: order, Limit: 100})
+			if err != nil || len(products) == 0 {
+				t.Fatal("operator-proof repository sorts")
+			}
+			if _, err := repo.GetProductByID(ctx, products[0].ID); err != nil {
+				t.Fatal("operator-proof detail")
+			}
+		}
+		for _, sql := range []string{`SELECT * FROM raw_products`, `SELECT * FROM product_mappings`} {
+			assertDenied(t, pool.Exec, ctx, sql, "42501")
+		}
+		assertDenied(t, pool.Exec, ctx, `SET ROLE aktau_api_reader`, "42501")
+	}
+	removeRuntime := func() {
+		executeSecurity(t, ctx, operator, `REVOKE aktau_api_reader FROM aktau_api_runtime; DROP ROLE aktau_api_runtime`)
+	}
+	activate()
+	activated := securitySnapshot(t, ctx, operator)
+	rejectOperatorDrift(t, ctx, bootstrapConn, "", rollback)
+	assertSameSnapshot(t, activated, securitySnapshot(t, ctx, operator))
+	removeRuntime()
+	beforeRollback := securitySnapshot(t, ctx, operator)
+	rollbackCases := make(map[string]string, len(anchorCases))
+	for name, setup := range anchorCases {
+		rollbackCases[name] = setup
+	}
+	// SELECT is expected after activation; an extra write grant is drift.
+	rollbackCases["direct ACL"] = `GRANT UPDATE ON stores TO aktau_api_reader`
+	// Retain operator locking permission so the ownership guard, not an earlier
+	// table-lock permission error, is the independently tested refusal.
+	rollbackCases["ownership"] = `ALTER TABLE stores OWNER TO aktau_api_reader; GRANT ALL ON stores TO part04_operator`
+	// The same malformed anchors must also be rejected after activation once
+	// the known runtime is removed; no manual creator-anchor removal is needed.
+	for name, setup := range rollbackCases {
+		t.Run("rollback operator anchor rejection/"+name, func(t *testing.T) {
+			rejectOperatorDrift(t, ctx, bootstrapConn, setup, rollback)
+			assertSameSnapshot(t, beforeRollback, securitySnapshot(t, ctx, operator))
+		})
+	}
+	for cycle := 0; cycle < 2; cycle++ {
+		assertOperatorAnchor(t, ctx, operator)
+		executeSecurity(t, ctx, operator, rollback)
+		assertSameSnapshot(t, baseline, securitySnapshot(t, ctx, operator))
+		var remaining int
+		if operator.QueryRow(ctx, `SELECT count(*) FROM pg_roles WHERE rolname IN ('aktau_api_reader','aktau_api_runtime')`).Scan(&remaining) != nil || remaining != 0 {
+			t.Fatal("reader/runtime and automatic anchors must disappear on DROP ROLE")
+		}
+		if cycle == 0 {
+			activate()
+			removeRuntime()
+		}
+	}
+	t.Log("non-superuser CREATEROLE owner: bootstrap create/reverify, exact admin-only anchor, runtime MEMBER/USAGE true SET/ADMIN false, repositories/denials, forward→rollback→forward→rollback PASS; counts/managed ACL baseline exact")
+}
+
+// Read-only repository/Nest parity plus independent local write-denial checks
+// for the already-provisioned runtime in the stopped-state deploy rehearsal.
+func TestOperatorCloneParity(t *testing.T) {
+	value := os.Getenv("OPERATOR_API_DATABASE_URL")
+	if value == "" {
+		t.Skip("explicit local operator clone runtime URL required")
+	}
+	c, err := pgx.ParseConfig(value)
+	if !localURL(value) || err != nil || c.Database != "part04_security" || c.User != "aktau_api_runtime" {
+		t.Fatal("rehearsal denials/parity require isolated loopback clone runtime")
+	}
+	u, err := url.Parse(os.Getenv("REFERENCE_API_BASE_URL"))
+	if err != nil || !localHost(u.Hostname()) {
+		t.Fatal("rehearsal reference must use loopback")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	pool, err := postgres.OpenReadOnly(ctx, value)
+	if err != nil {
+		t.Fatal("rehearsal runtime pool failed")
+	}
+	defer pool.Close()
+	assertReaderSecurity(t, ctx, pool, "aktau_api_runtime")
+	assertRuntimeAnchor(t, ctx, pool, "aktau_api_runtime")
+	for _, sql := range []string{`SELECT * FROM raw_products`, `SELECT * FROM product_mappings`, `SET ROLE aktau_api_reader`} {
+		assertDenied(t, pool.Exec, ctx, sql, "42501")
+	}
+	pool.Close()
+	conn, err := pgx.Connect(ctx, value)
+	if err != nil {
+		t.Fatal("independent local role connection failed")
+	}
+	defer conn.Close(context.Background())
+	for _, sql := range []string{`UPDATE stores SET name=name WHERE false`, `DELETE FROM stores WHERE false`, `INSERT INTO stores(id,code,name) SELECT 'bad','DINA','bad' WHERE false`, `CREATE TABLE public.bad(id int)`, `ALTER TABLE stores ADD COLUMN bad int`} {
+		assertDenied(t, conn.Exec, ctx, sql, "42501")
+	}
+	_ = conn.Close(context.Background())
+	smoke(t, value, true)
+}
+
+func assertOperatorAnchor(t *testing.T, ctx context.Context, conn *pgx.Conn) {
+	t.Helper()
+	var member, usage, set, exact bool
+	err := conn.QueryRow(ctx, `SELECT pg_has_role(current_user,'aktau_api_reader','MEMBER'),pg_has_role(current_user,'aktau_api_reader','USAGE'),pg_has_role(current_user,'aktau_api_reader','SET'),(SELECT count(*)=1 AND bool_and(m.member=(SELECT oid FROM pg_roles WHERE rolname=current_user) AND m.admin_option AND NOT m.inherit_option AND NOT m.set_option AND g.rolsuper) FROM pg_auth_members m JOIN pg_roles g ON g.oid=m.grantor WHERE m.roleid=(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader'))`).Scan(&member, &usage, &set, &exact)
+	if err != nil || !member || usage || set || !exact {
+		t.Fatal("operator must have only exact admin anchor, no inherited or settable reader access")
+	}
+}
+
+func assertRuntimeAnchor(t *testing.T, ctx context.Context, db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, login string) {
+	t.Helper()
+	var member, usage, set, exact bool
+	err := db.QueryRow(ctx, `SELECT pg_has_role($1,'aktau_api_reader','MEMBER'),pg_has_role($1,'aktau_api_reader','USAGE'),pg_has_role($1,'aktau_api_reader','SET'),(SELECT count(*)=1 AND bool_and(roleid=(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader') AND NOT admin_option AND inherit_option AND NOT set_option) FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname=$1))`, login).Scan(&member, &usage, &set, &exact)
+	if err != nil || !member || !usage || set || !exact {
+		t.Fatal("runtime must inherit only reader, no SET or ADMIN")
+	}
+}
+
+func rejectOperatorDrift(t *testing.T, ctx context.Context, bootstrap *pgx.Conn, setup, artifact string) {
+	t.Helper()
+	tx, err := bootstrap.Begin(ctx)
+	if err != nil {
+		t.Fatal("operator negative transaction failed")
+	}
+	defer tx.Rollback(context.Background())
+	if setup != "" {
+		if _, err = tx.Exec(ctx, setup); err != nil {
+			var e *pgconn.PgError
+			if errors.As(err, &e) {
+				t.Fatalf("local operator negative setup SQLSTATE %s", e.Code)
+			}
+			t.Fatal("local operator negative setup failed")
+		}
+	}
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE part04_operator`); err != nil {
+		t.Fatal("negative artifact must run as operator")
+	}
+	_, err = tx.Exec(ctx, securityBody(artifact))
+	var e *pgconn.PgError
+	if !errors.As(err, &e) || e.Code != "P0001" {
+		t.Fatal("operator guard must reject with P0001 before changes")
+	}
+}
+
 func securityArtifact(t *testing.T, path ...string) string {
 	t.Helper()
 	parts := append([]string{"..", "..", "..", "backend", "prisma"}, path...)
@@ -332,7 +613,7 @@ func securitySnapshot(t *testing.T, ctx context.Context, conn *pgx.Conn, normali
 	 'policies',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY tablename,policyname),'[]') FROM pg_policies p WHERE schemaname='public'),
 	 'reader',(SELECT count(*) FROM pg_roles WHERE rolname='aktau_api_reader'),
 	 'readerFlags',(SELECT jsonb_build_array(rolcanlogin,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,rolinherit) FROM pg_roles WHERE rolname='aktau_api_reader'),
-	 'readerMembers',(SELECT coalesce(jsonb_agg(jsonb_build_array(pg_get_userbyid(roleid),pg_get_userbyid(member),admin_option,inherit_option,set_option) ORDER BY roleid,member),'[]') FROM pg_auth_members WHERE roleid=(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader') OR member=(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader')),
+	 'readerMembers',(SELECT coalesce(jsonb_agg(jsonb_build_array(pg_get_userbyid(roleid),pg_get_userbyid(member),pg_get_userbyid(grantor),admin_option,inherit_option,set_option) ORDER BY roleid,member,grantor),'[]') FROM pg_auth_members WHERE roleid=(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader') OR member=(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader')),
 	 'readerExtraACLs',(SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY scope,object,grantee,grantor,privilege_type),'[]') FROM (
 	   SELECT 'column' scope,c.attrelid::text||':'||c.attnum::text object,a.grantee,a.grantor,a.privilege_type,a.is_grantable FROM pg_attribute c CROSS JOIN LATERAL aclexplode(c.attacl)a
 	   UNION ALL SELECT 'function',p.oid::text,a.grantee,a.grantor,a.privilege_type,a.is_grantable FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl)a
