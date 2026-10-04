@@ -14,14 +14,21 @@ import (
 )
 
 type Config struct {
-	AppEnv         string
-	Port           int
-	DatabaseURL    string
-	CORSOrigins    []string
-	TrustedProxies []netip.Prefix
-	LogLevel       string
-	RateRPS        float64
-	RateBurst      int
+	AppEnv           string
+	Port             int
+	DatabaseURL      string
+	CORSOrigins      []string
+	TrustedProxies   []netip.Prefix
+	LogLevel         string
+	RateRPS          float64
+	RateBurst        int
+	GeminiKeys       []string
+	GeminiModel      string
+	UpstashURL       string
+	UpstashToken     string
+	VoiceRateRPS     float64
+	VoiceRateBurst   int
+	VoiceConcurrency int
 }
 
 func Load(getenv func(string) string) (Config, error) {
@@ -92,6 +99,54 @@ func Load(getenv func(string) string) (Config, error) {
 			return Config{}, errors.New("RATE_LIMIT_BURST is invalid")
 		}
 		c.RateBurst = n
+	}
+	c.GeminiModel = strings.TrimSpace(getenv("GEMINI_MODEL"))
+	if c.GeminiModel == "" {
+		c.GeminiModel = "gemini-3.1-flash-lite"
+	}
+	if strings.ContainsAny(c.GeminiModel, "/?# \t\r\n") {
+		return Config{}, errors.New("GEMINI_MODEL is invalid")
+	}
+	seen := map[string]bool{}
+	for _, name := range []string{"GEMINI_API_KEY", "GEMINI_API_KEY2", "GEMINI_API_KEY3"} {
+		v := strings.TrimSpace(getenv(name))
+		if v != "" && !seen[v] {
+			c.GeminiKeys = append(c.GeminiKeys, v)
+			seen[v] = true
+		}
+	}
+	c.UpstashURL = strings.TrimSpace(getenv("UPSTASH_REDIS_REST_URL"))
+	c.UpstashToken = strings.TrimSpace(getenv("UPSTASH_REDIS_REST_TOKEN"))
+	if c.UpstashURL != "" {
+		u, err := url.Parse(c.UpstashURL)
+		if err != nil || u == nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.HasSuffix(c.UpstashURL, "#") || (u.Path != "" && u.Path != "/") || (u.Scheme != "https" && !(c.AppEnv != "production" && u.Scheme == "http")) {
+			return Config{}, errors.New("UPSTASH_REDIS_REST_URL is invalid")
+		}
+	}
+	if (c.UpstashURL == "") != (c.UpstashToken == "") {
+		return Config{}, errors.New("upstash configuration is incomplete")
+	}
+	if c.AppEnv == "production" && (c.UpstashURL == "" || len(c.GeminiKeys) == 0) {
+		return Config{}, errors.New("production voice provider configuration is required")
+	}
+	c.VoiceRateRPS = 2
+	c.VoiceRateBurst = 4
+	c.VoiceConcurrency = 4
+	if value := getenv("VOICE_RATE_LIMIT_RPS"); value != "" {
+		n, err := strconv.ParseFloat(value, 64)
+		if err != nil || n <= 0 || math.IsNaN(n) || math.IsInf(n, 0) {
+			return Config{}, errors.New("VOICE_RATE_LIMIT_RPS is invalid")
+		}
+		c.VoiceRateRPS = n
+	}
+	for name, target := range map[string]*int{"VOICE_RATE_LIMIT_BURST": &c.VoiceRateBurst, "VOICE_MAX_CONCURRENCY": &c.VoiceConcurrency} {
+		if value := getenv(name); value != "" {
+			n, err := strconv.Atoi(value)
+			if err != nil || n <= 0 {
+				return Config{}, errors.New(name + " is invalid")
+			}
+			*target = n
+		}
 	}
 	return c, nil
 }

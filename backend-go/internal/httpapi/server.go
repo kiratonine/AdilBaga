@@ -32,6 +32,7 @@ type Dependencies struct {
 	Categories catalog.CategoryRepository
 	Products   catalog.ProductRepository
 	Dashboard  dashboard.Repository
+	Voice      VoiceService
 }
 
 func Router(c config.Config, logger *slog.Logger, d Dependencies) http.Handler {
@@ -54,6 +55,21 @@ func Router(c config.Config, logger *slog.Logger, d Dependencies) http.Handler {
 	r.Get("/api/products", d.products)
 	r.Get("/api/products/{id}", d.product)
 	r.Get("/api/dashboard", d.dashboard)
+	rps, burst, concurrency := c.VoiceRateRPS, c.VoiceRateBurst, c.VoiceConcurrency
+	if rps == 0 {
+		rps = 2
+	}
+	if burst == 0 {
+		burst = 4
+	}
+	if concurrency == 0 {
+		concurrency = 4
+	}
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.VoiceGate(rps, burst, concurrency))
+		r.Post("/api/voice/start", d.voiceStart)
+		r.Post("/api/voice/continue", d.voiceContinue)
+	})
 	return r
 }
 

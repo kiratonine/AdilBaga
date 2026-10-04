@@ -88,6 +88,9 @@ func TestProductionOrigins(t *testing.T) {
 		t.Run(value, func(t *testing.T) {
 			env := environment()
 			env["APP_ENV"] = "production"
+			env["GEMINI_API_KEY"] = "unit-key"
+			env["UPSTASH_REDIS_REST_URL"] = "https://unit.invalid"
+			env["UPSTASH_REDIS_REST_TOKEN"] = "unit-token"
 			env["CORS_ALLOWED_ORIGINS"] = value
 			_, err := Load(func(k string) string { return env[k] })
 			if (err == nil) != (value == "https://aktau.market") {
