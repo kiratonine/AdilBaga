@@ -63,6 +63,27 @@ func (d *countedDB) QueryRow(ctx context.Context, s string, a ...any) pgx.Row {
 	d.count++
 	return d.pool.QueryRow(ctx, s, a...)
 }
+
+type countedTx struct {
+	pgx.Tx
+	owner *countedDB
+}
+
+func (d *countedDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	tx, err := d.pool.BeginTx(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return &countedTx{Tx: tx, owner: d}, nil
+}
+func (tx *countedTx) Query(ctx context.Context, s string, a ...any) (pgx.Rows, error) {
+	tx.owner.count++
+	return tx.Tx.Query(ctx, s, a...)
+}
+func (tx *countedTx) QueryRow(ctx context.Context, s string, a ...any) pgx.Row {
+	tx.owner.count++
+	return tx.Tx.QueryRow(ctx, s, a...)
+}
 func ids(products []catalog.Product) []string {
 	out := make([]string, 0, len(products))
 	for _, p := range products {
@@ -110,13 +131,13 @@ func TestDeterministicCatalog(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = admin.Close(context.Background()) })
 	var tables int
-	err = admin.QueryRow(ctx, `SELECT count(*) FROM pg_tables WHERE schemaname='public'`).Scan(&tables)
+	err = admin.QueryRow(ctx, `SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'_prisma_migrations'`).Scan(&tables)
 	if err != nil {
 		t.Fatal("local inspection failed")
 	}
 	// Initialize from the existing Prisma init/bootstrap/security artifacts BEFORE
 	// provisioning LOGIN membership. An activated reader must not bootstrap again.
-	if tables != 7 {
+	if tables != 9 {
 		t.Fatal("prepare the dedicated fixture schema and security before activating LOGIN")
 	}
 	var products int
@@ -131,7 +152,7 @@ func TestDeterministicCatalog(t *testing.T) {
 		t.Fatal("fixture inserts failed")
 	}
 	t.Cleanup(func() {
-		_, err := admin.Exec(context.Background(), `TRUNCATE offers,product_mappings,canonical_products,raw_products,store_locations,categories,stores CASCADE`)
+		_, err := admin.Exec(context.Background(), `TRUNCATE offers,product_mappings,canonical_products,raw_products,source_runs,snapshots,store_locations,categories,stores CASCADE`)
 		if err != nil {
 			t.Error("local fixture cleanup failed")
 		}
@@ -186,7 +207,7 @@ func TestDeterministicCatalog(t *testing.T) {
 			if err != nil || !reflect.DeepEqual(ids(p), c.want) {
 				t.Fatalf("query mismatch %v: %v", ids(p), err)
 			}
-			if db.count > 4 {
+			if db.count > 5 {
 				t.Fatal("N+1 roundtrips")
 			}
 		})
@@ -312,7 +333,7 @@ func TestBootstrapFailsClosed(t *testing.T) {
 			defer tx.Rollback(context.Background())
 			// Isolate the attribute being tested from the new intentional refusal
 			// of an already activated reader. All temporary revokes roll back.
-			if _, err = tx.Exec(ctx, `REVOKE aktau_api_reader FROM part04_api_login; REVOKE SELECT ON stores,store_locations,categories,canonical_products,offers FROM aktau_api_reader; REVOKE USAGE ON SCHEMA public FROM aktau_api_reader`); err != nil {
+			if _, err = tx.Exec(ctx, `REVOKE aktau_api_reader FROM part04_api_login; REVOKE SELECT ON stores,store_locations,categories,canonical_products,offers,snapshots FROM aktau_api_reader; REVOKE USAGE ON SCHEMA public FROM aktau_api_reader`); err != nil {
 				t.Fatal("local attribute-test isolation failed")
 			}
 			if _, err = tx.Exec(ctx, string(bootstrap)); err != nil {

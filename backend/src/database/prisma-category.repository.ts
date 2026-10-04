@@ -3,6 +3,7 @@ import type { CategoryDto, FilterDefinitionDto, FilterSchemaDto } from '../contr
 import type { CategoryRepository } from '../repositories';
 import { scalarAttributes, usableOffer } from './prisma-mappers';
 import { PrismaService } from './prisma.service';
+import { withPublishedSnapshot } from './prisma-snapshot';
 
 function definitions(value: unknown): FilterDefinitionDto[] {
   if (!value || typeof value !== 'object' || !('filters' in value) ||
@@ -30,14 +31,15 @@ export class PrismaCategoryRepository implements CategoryRepository {
   }
 
   async findFilters(slug: string): Promise<FilterSchemaDto | null> {
-    const category = await this.prisma.category.findUnique({ where: { slug } });
+    return withPublishedSnapshot(this.prisma, async (tx, snapshotId) => {
+    const category = await tx.category.findUnique({ where: { slug } });
     if (!category) return null;
     const schema = definitions(category.filterSchema);
     if (schema.length === 0) return { category: slug, filters: [] };
 
     // Backend 2's schema is the allowlist; discard stale options absent from usable products.
-    const rows = await this.prisma.canonicalProduct.findMany({
-      where: { categoryId: category.id, offers: { some: usableOffer } },
+    const rows = await tx.canonicalProduct.findMany({
+      where: { categoryId: category.id, offers: { some: { ...usableOffer, snapshotId } } },
       select: { brand: true, attributes: true },
     });
     const filters = schema.flatMap((filter): FilterDefinitionDto[] => {
@@ -50,5 +52,6 @@ export class PrismaCategoryRepository implements CategoryRepository {
       return options.length ? [{ ...filter, options }] : [];
     });
     return { category: slug, filters };
+    });
   }
 }

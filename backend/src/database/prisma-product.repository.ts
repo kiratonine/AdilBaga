@@ -4,6 +4,7 @@ import type { ProductCardDto, ProductQuery } from '../contracts/catalog';
 import type { ProductRepository } from '../repositories';
 import { mapProduct, usableOffer } from './prisma-mappers';
 import { PrismaService } from './prisma.service';
+import { withPublishedSnapshot } from './prisma-snapshot';
 
 function matchesFilters(product: ProductCardDto, filters: ProductQuery['filters']): boolean {
   return Object.entries(filters ?? {}).every(([key, options]) => {
@@ -17,16 +18,18 @@ export class PrismaProductRepository implements ProductRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findProducts(query: ProductQuery): Promise<ProductCardDto[]> {
+    return withPublishedSnapshot(this.prisma, async (tx, snapshotId) => {
+    const currentOffer = { ...usableOffer, snapshotId };
     const where: Prisma.CanonicalProductWhereInput = {
-      offers: { some: usableOffer },
+      offers: { some: currentOffer },
       ...(query.category ? { category: { slug: query.category } } : {}),
       ...(query.search ? { name: { contains: query.search, mode: 'insensitive' } } : {}),
     };
-    const rows = await this.prisma.canonicalProduct.findMany({
+    const rows = await tx.canonicalProduct.findMany({
       where,
       include: {
         category: true,
-        offers: { where: usableOffer, include: { store: true }, orderBy: { price: 'asc' } },
+        offers: { where: currentOffer, include: { store: true }, orderBy: { price: 'asc' } },
       },
     });
     const products = rows.map(mapProduct).filter((product): product is ProductCardDto =>
@@ -40,16 +43,19 @@ export class PrismaProductRepository implements ProductRepository {
     }
     const offset = query.offset ?? 0;
     return query.limit === undefined ? products.slice(offset) : products.slice(offset, offset + query.limit);
+    });
   }
 
   async findById(id: string): Promise<ProductCardDto | null> {
-    const row = await this.prisma.canonicalProduct.findUnique({
+    return withPublishedSnapshot(this.prisma, async (tx, snapshotId) => {
+    const row = await tx.canonicalProduct.findUnique({
       where: { id },
       include: {
         category: true,
-        offers: { where: usableOffer, include: { store: true }, orderBy: { price: 'asc' } },
+        offers: { where: { ...usableOffer, snapshotId }, include: { store: true }, orderBy: { price: 'asc' } },
       },
     });
     return row ? mapProduct(row) : null;
+    });
   }
 }

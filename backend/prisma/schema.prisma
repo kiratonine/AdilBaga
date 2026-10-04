@@ -27,22 +27,73 @@ enum ReviewStatus {
   rejected
 }
 
-model Store {
+enum SnapshotStatus {
+  building
+  validating
+  published
+  failed
+}
+
+enum SourceRunStatus {
+  pending
+  succeeded
+  failed
+}
+
+model Snapshot {
+  id            String         @id @default(uuid())
+  status        SnapshotStatus @default(building)
+  startedAt     DateTime       @default(now())
+  publishedAt   DateTime?
+  sourceStats   Json           @default("{}")
+  qualityReport Json           @default("{}")
+  createdAt     DateTime       @default(now())
+  rawProducts   RawProduct[]
+  offers        Offer[]
+  sourceRuns    SourceRun[]
+
+  @@index([status, publishedAt])
+  @@index([publishedAt])
+  @@map("snapshots")
+}
+
+model SourceRun {
   id           String          @id @default(uuid())
-  code         StoreCode       @unique
-  name         String
-  logoUrl      String?
-  locations    StoreLocation[]
-  rawProducts  RawProduct[]
-  offers       Offer[]
+  snapshotId   String
+  snapshot     Snapshot        @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  storeId      String
+  store        Store           @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  status       SourceRunStatus @default(pending)
+  startedAt    DateTime        @default(now())
+  finishedAt   DateTime?
+  capturedAt   DateTime?
+  productCount Int             @default(0)
+  errorCount   Int             @default(0)
+  errorSummary String?
+  sourceStats  Json            @default("{}")
+
+  @@unique([snapshotId, storeId])
+  @@index([storeId, status, capturedAt])
+  @@map("source_runs")
+}
+
+model Store {
+  id          String          @id @default(uuid())
+  code        StoreCode       @unique
+  name        String
+  logoUrl     String?
+  locations   StoreLocation[]
+  rawProducts RawProduct[]
+  offers      Offer[]
+  sourceRuns  SourceRun[]
 
   @@map("stores")
 }
 
 model StoreLocation {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   storeId   String
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
   name      String
   address   String
   latitude  Float
@@ -63,9 +114,11 @@ model Category {
 }
 
 model RawProduct {
-  id              String          @id @default(uuid())
+  id              String   @id @default(uuid())
+  snapshotId      String
+  snapshot        Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
   storeId         String
-  store           Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   sourceProductId String
   sourceUrl       String?
   rawName         String
@@ -75,29 +128,30 @@ model RawProduct {
   rawOldPrice     Int?
   rawImageUrl     String?
   rawPayload      Json?
-  createdAt       DateTime        @default(now())
+  createdAt       DateTime @default(now())
 
-  mappings        ProductMapping[]
-  offers          Offer[]
+  mappings ProductMapping[]
+  offers   Offer[]
 
-  @@unique([storeId, sourceProductId])
+  @@unique([snapshotId, storeId, sourceProductId])
+  @@unique([id, snapshotId])
   @@index([storeId])
   @@index([rawCategory])
   @@map("raw_products")
 }
 
 model CanonicalProduct {
-  id          String          @id @default(uuid())
-  name        String
-  brand       String?
-  categoryId  String
-  category    Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  imageUrl    String?
-  attributes  Json?
-  createdAt   DateTime        @default(now())
+  id         String   @id @default(uuid())
+  name       String
+  brand      String?
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  imageUrl   String?
+  attributes Json?
+  createdAt  DateTime @default(now())
 
-  mappings    ProductMapping[]
-  offers      Offer[]
+  mappings ProductMapping[]
+  offers   Offer[]
 
   @@index([categoryId])
   @@index([brand])
@@ -122,10 +176,12 @@ model ProductMapping {
 
 model Offer {
   id                 String           @id @default(uuid())
+  snapshotId         String
+  snapshot           Snapshot         @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
   canonicalProductId String
   canonicalProduct   CanonicalProduct @relation(fields: [canonicalProductId], references: [id], onDelete: Cascade)
   rawProductId       String
-  rawProduct         RawProduct       @relation(fields: [rawProductId], references: [id], onDelete: Cascade)
+  rawProduct         RawProduct       @relation(fields: [rawProductId, snapshotId], references: [id, snapshotId], onDelete: Cascade)
   storeId            String
   store              Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
   price              Int
@@ -137,5 +193,8 @@ model Offer {
   @@index([storeId])
   @@index([price])
   @@index([snapshotAt])
+  @@index([snapshotId])
+  @@index([snapshotId, canonicalProductId])
+  @@index([snapshotId, storeId])
   @@map("offers")
 }

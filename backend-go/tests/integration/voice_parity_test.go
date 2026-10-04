@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -92,12 +93,35 @@ func voiceParity(t *testing.T, target, reference string) {
 	defer pool.Close()
 	repo := postgres.NewRepository(pool)
 	var logs bytes.Buffer
+	const latitude = 43.63798231415926
+	const longitude = 51.16918027182818
+	const invalidLatitude = 91.63798231415926
+	const marker = "privacyprobeqzrvnxtkmwbdjlf"
+	sensitive := map[string][]string{
+		"coordinate_lat": {strconv.FormatFloat(latitude, 'f', -1, 64), strconv.FormatFloat(invalidLatitude, 'f', -1, 64)},
+		"coordinate_lon": {strconv.FormatFloat(longitude, 'f', -1, 64), strconv.FormatFloat(longitude, 'e', -1, 64)},
+		"voice_text":     {marker},
+		"session_id":     {},
+	}
 	svc := &voice.Service{Parser: voice.Fallback{}, Sessions: &paritySessions{states: map[string]voice.Session{}}, Categories: repo, Products: repo, Locations: repo}
 	c := config.Config{AppEnv: "test", RateRPS: 10000, RateBurst: 10000, VoiceRateRPS: 10000, VoiceRateBurst: 10000, VoiceConcurrency: 4}
 	candidate := httptest.NewServer(httpapi.Router(c, observability.New(&logs, "info"), httpapi.Dependencies{DB: pool, Categories: repo, Products: repo, Dashboard: repo, Voice: svc}))
 	defer candidate.Close()
 	post := func(base, path string, body any, want int) map[string]any {
 		t.Helper()
+		if fields, ok := body.(map[string]any); ok {
+			if text, ok := fields["text"].(string); ok && strings.TrimSpace(text) != "" && text != "x" {
+				fields["text"] = text + " " + marker
+			}
+			if base == candidate.URL {
+				if id, ok := fields["sessionId"].(string); ok && id != "" {
+					sensitive["session_id"] = append(sensitive["session_id"], id)
+				}
+				if text, ok := fields["text"].(string); ok && strings.Contains(text, marker) {
+					sensitive["voice_text"] = append(sensitive["voice_text"], text)
+				}
+			}
+		}
 		raw, err := json.Marshal(body)
 		if err != nil {
 			t.Fatal("request encoding failed")
@@ -125,6 +149,11 @@ func voiceParity(t *testing.T, target, reference string) {
 		if json.Unmarshal(data, &value) != nil {
 			t.Fatal("voice response invalid JSON")
 		}
+		if base == candidate.URL && value["status"] == "needs_clarification" {
+			if id, ok := value["sessionId"].(string); ok && id != "" {
+				sensitive["session_id"] = append(sensitive["session_id"], id)
+			}
+		}
 		if want >= 400 {
 			if value["statusCode"] != float64(want) || value["message"] == nil {
 				t.Fatal("incompatible error envelope")
@@ -134,10 +163,10 @@ func voiceParity(t *testing.T, target, reference string) {
 		return value
 	}
 	start := func(base, text string, coords bool) map[string]any {
-		lat, lon := any(43.6), any(51.1)
+		lat, lon := any(latitude), any(longitude)
 		if coords {
-			lat = " 43.6 "
-			lon = "5.11e1"
+			lat = " " + strconv.FormatFloat(latitude, 'f', -1, 64) + " "
+			lon = strconv.FormatFloat(longitude, 'e', -1, 64)
 		}
 		return post(base, "start", map[string]any{"text": text, "latitude": lat, "longitude": lon}, 201)
 	}
@@ -243,14 +272,40 @@ func voiceParity(t *testing.T, target, reference string) {
 	t.Run("errors", func(t *testing.T) {
 		for _, base := range []string{candidate.URL, reference} {
 			post(base, "continue", map[string]any{"sessionId": "unknown opaque session", "text": "литр"}, 404)
-			for _, body := range []any{map[string]any{"text": " ", "latitude": 43.6, "longitude": 51.1}, map[string]any{"text": "x", "latitude": 91, "longitude": 51.1}, map[string]any{"text": "x", "latitude": 43.6, "longitude": 51.1, "unknown": true}} {
+			for _, body := range []any{map[string]any{"text": " ", "latitude": latitude, "longitude": longitude}, map[string]any{"text": marker, "latitude": invalidLatitude, "longitude": longitude}, map[string]any{"text": marker, "latitude": latitude, "longitude": longitude, "unknown": true}} {
 				post(base, "start", body, 400)
 			}
 		}
 	})
-	for _, sentinel := range []string{"43.6", "51.1", "самое дешёвое", "молоко", "sessionId"} {
-		if strings.Contains(logs.String(), sentinel) {
-			t.Fatal("runtime logs leaked voice state")
+	if len(sensitive["session_id"]) < 4 {
+		t.Fatal("privacy proof requires real candidate clarification sessions")
+	}
+	if class := voicePrivacyFailure(logs.String(), sensitive); class != "" {
+		t.Fatal(class)
+	}
+}
+
+// Exact high-entropy values also detect values embedded in serialized payloads.
+// Never report the matched value or record: diagnostics are a closed class enum.
+func voicePrivacyFailure(logs string, sensitive map[string][]string) string {
+	for _, class := range []string{"coordinate_lat", "coordinate_lon", "voice_text", "session_id"} {
+		for _, value := range sensitive[class] {
+			if value != "" && strings.Contains(logs, value) {
+				return class
+			}
+		}
+	}
+	return ""
+}
+
+func TestVoicePrivacyProof(t *testing.T) {
+	sensitive := map[string][]string{"coordinate_lat": {"43.63798231415926"}, "coordinate_lon": {"51.16918027182818"}, "voice_text": {"privacyprobeqzrvnxtkmwbdjlf"}, "session_id": {"opaque-actual-7ed49f32-privacy"}}
+	if voicePrivacyFailure(`{"time":"2026-10-05T12:43.600Z","duration_ms":511,"field":"sessionId","path":"/api/voice/start"}`, sensitive) != "" {
+		t.Fatal("safe metadata false positive")
+	}
+	for class, values := range sensitive {
+		if voicePrivacyFailure(`{"nested":"`+values[0]+`"}`, sensitive) != class {
+			t.Fatal("sensitive class not detected")
 		}
 	}
 }

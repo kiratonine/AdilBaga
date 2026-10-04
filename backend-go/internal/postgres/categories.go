@@ -71,9 +71,17 @@ FROM public.canonical_products p
 CROSS JOIN unnest($2::text[]) AS k(key)
 CROSS JOIN LATERAL (SELECT CASE WHEN k.key='brand' THEN to_jsonb(p.brand) ELSE p.attributes->k.key END AS value) v
 WHERE p."categoryId"=$1 AND jsonb_typeof(v.value) IN ('string','number','boolean')
-AND EXISTS (SELECT 1 FROM public.offers o WHERE o."canonicalProductId"=p.id AND o."inStock" AND o.price>0)`
+AND EXISTS (SELECT 1 FROM public.offers o WHERE o."snapshotId"=$3 AND o."canonicalProductId"=p.id AND o."inStock" AND o.price>0)`
 
 func (r *Repository) GetFilterSchema(ctx context.Context, slug string) (catalog.FilterSchema, error) {
+	reader, snapshotID, end, err := r.snapshotReader(ctx)
+	if err != nil {
+		return catalog.FilterSchema{}, err
+	}
+	defer end()
+	return reader.filterSchemaAt(ctx, slug, snapshotID)
+}
+func (r *Repository) filterSchemaAt(ctx context.Context, slug, snapshotID string) (catalog.FilterSchema, error) {
 	out := catalog.FilterSchema{Category: slug, Filters: make([]catalog.FilterDefinition, 0)}
 	var id string
 	var raw []byte
@@ -92,7 +100,7 @@ func (r *Repository) GetFilterSchema(ctx context.Context, slug string) (catalog.
 	for _, d := range defs {
 		keys = append(keys, d.Key)
 	}
-	rows, err := r.db.Query(ctx, discoverySQL, id, keys)
+	rows, err := r.db.Query(ctx, discoverySQL, id, keys, snapshotID)
 	if err != nil {
 		return out, databaseError(err)
 	}

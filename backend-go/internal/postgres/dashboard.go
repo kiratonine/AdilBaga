@@ -9,10 +9,12 @@ import (
 var _ dashboard.Repository = (*Repository)(nil)
 
 // One roundtrip, final aggregates only. No Product DTO hydration or N+1.
-const dashboardSQL = `WITH usable AS MATERIALIZED (
+const dashboardSQL = `WITH current_snapshot AS (
+ SELECT id FROM public.snapshots WHERE status='published' AND "publishedAt" IS NOT NULL ORDER BY "publishedAt" DESC,id DESC LIMIT 1
+), usable AS MATERIALIZED (
  SELECT p.id,p.name,p."categoryId",p.attributes,o."storeId",o.price,o."snapshotAt"
  FROM public.canonical_products p JOIN public.offers o ON o."canonicalProductId"=p.id
- WHERE o."inStock" AND o.price>0
+ WHERE o."snapshotId"=(SELECT id FROM current_snapshot) AND o."inStock" AND o.price>0
 ), aggregates AS (
  SELECT id,name,min(price) min_price,max(price) max_price,
  count(DISTINCT "storeId") chains,max("snapshotAt") snapshot_at
@@ -51,7 +53,7 @@ SELECT jsonb_build_object(
  ORDER BY s.code,l.name,l.id) FROM public.store_locations l JOIN public.stores s ON s.id=l."storeId"),'[]'::jsonb),
  'baskets',coalesce((SELECT jsonb_agg(jsonb_build_object('storeCode',code,'storeName',name,'total',total,'items',items)
  ORDER BY CASE code WHEN 'DINA' THEN 1 WHEN 'DANA' THEN 2 WHEN 'FIX_PRICE' THEN 3 END)
- FROM baskets),'[]'::jsonb))`
+ FROM baskets),'[]'::jsonb)) FROM current_snapshot`
 
 func (r *Repository) GetDashboard(ctx context.Context) (dashboard.Dashboard, error) {
 	var result dashboard.Dashboard

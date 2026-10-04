@@ -15,7 +15,7 @@ const productBaseSQL = `WITH selected AS (
  MIN(o.price) AS min_price,MAX(o."snapshotAt" AT TIME ZONE 'UTC') AS snapshot_at
  FROM public.canonical_products p JOIN public.categories c ON c.id=p."categoryId"
  JOIN public.offers o ON o."canonicalProductId"=p.id AND o."inStock" AND o.price>0
- WHERE ($1::text='' OR c.slug=$1) AND ($2::text='' OR p.name ILIKE '%'||$2||'%')
+ WHERE o."snapshotId"=$7 AND ($1::text='' OR c.slug=$1) AND ($2::text='' OR p.name ILIKE '%'||$2||'%')
  AND NOT EXISTS (SELECT 1 FROM jsonb_each($3::jsonb) f WHERE NOT EXISTS (
   SELECT 1 FROM jsonb_array_elements(f.value) option WHERE option.value =
    CASE WHEN f.key='brand' THEN to_jsonb(p.brand) ELSE p.attributes->f.key END))
@@ -24,7 +24,7 @@ const productBaseSQL = `WITH selected AS (
  SELECT id,name,brand,slug,category_name,"imageUrl",attributes,min_price,snapshot_at FROM selected `
 const offersSQL = `SELECT o."canonicalProductId",s.code,s.name,o.price,o."oldPrice"
 FROM public.offers o JOIN public.stores s ON s.id=o."storeId"
-WHERE o."canonicalProductId"=ANY($1::text[]) AND o."inStock" AND o.price>0 ORDER BY o.price ASC`
+WHERE o."snapshotId"=$2 AND o."canonicalProductId"=ANY($1::text[]) AND o."inStock" AND o.price>0 ORDER BY o.price ASC`
 
 func sortSQL(sort catalog.Sort) (string, error) {
 	switch sort {
@@ -38,14 +38,14 @@ func sortSQL(sort catalog.Sort) (string, error) {
 		return "", catalog.ErrInvalidQuery
 	}
 }
-func (r *Repository) validateFilters(ctx context.Context, q catalog.ProductQuery) error {
+func (r *Repository) validateFilters(ctx context.Context, q catalog.ProductQuery, snapshotID string) error {
 	if len(q.Filters) == 0 {
 		return nil
 	}
 	if q.Category == "" {
 		return catalog.ErrInvalidQuery
 	}
-	schema, err := r.GetFilterSchema(ctx, q.Category)
+	schema, err := r.filterSchemaAt(ctx, q.Category, snapshotID)
 	if err != nil {
 		if err == catalog.ErrNotFound {
 			return catalog.ErrInvalidQuery
@@ -101,16 +101,26 @@ func (r *Repository) ListProducts(ctx context.Context, q catalog.ProductQuery) (
 	if err != nil {
 		return nil, err
 	}
-	if err := r.validateFilters(ctx, q); err != nil {
+	reader, snapshotID, end, err := r.snapshotReader(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return r.products(ctx, q, order, "")
+	defer end()
+	if err := reader.validateFilters(ctx, q, snapshotID); err != nil {
+		return nil, err
+	}
+	return reader.products(ctx, q, order, "", snapshotID)
 }
 func (r *Repository) GetProductByID(ctx context.Context, id string) (catalog.Product, error) {
 	if id == "" {
 		return catalog.Product{}, catalog.ErrNotFound
 	}
-	products, err := r.products(ctx, catalog.ProductQuery{Limit: 1}, `ORDER BY id COLLATE "ru-x-icu" ASC`, id)
+	reader, snapshotID, end, err := r.snapshotReader(ctx)
+	if err != nil {
+		return catalog.Product{}, err
+	}
+	defer end()
+	products, err := reader.products(ctx, catalog.ProductQuery{Limit: 1}, `ORDER BY id COLLATE "ru-x-icu" ASC`, id, snapshotID)
 	if err != nil {
 		return catalog.Product{}, err
 	}
@@ -119,7 +129,7 @@ func (r *Repository) GetProductByID(ctx context.Context, id string) (catalog.Pro
 	}
 	return products[0], nil
 }
-func (r *Repository) products(ctx context.Context, q catalog.ProductQuery, order, id string) ([]catalog.Product, error) {
+func (r *Repository) products(ctx context.Context, q catalog.ProductQuery, order, id, snapshotID string) ([]catalog.Product, error) {
 	filters := q.Filters
 	if filters == nil {
 		filters = make(catalog.DynamicFilter)
@@ -128,7 +138,7 @@ func (r *Repository) products(ctx context.Context, q catalog.ProductQuery, order
 	if err != nil {
 		return nil, catalog.ErrInvalidQuery
 	}
-	rows, err := r.db.Query(ctx, productBaseSQL+order+` LIMIT $5 OFFSET $6`, q.Category, q.Search, string(raw), id, q.Limit, q.Offset)
+	rows, err := r.db.Query(ctx, productBaseSQL+order+` LIMIT $5 OFFSET $6`, q.Category, q.Search, string(raw), id, q.Limit, q.Offset, snapshotID)
 	if err != nil {
 		return nil, databaseError(err)
 	}
@@ -157,7 +167,7 @@ func (r *Repository) products(ctx context.Context, q catalog.ProductQuery, order
 	if len(out) == 0 {
 		return out, nil
 	}
-	offers, err := r.db.Query(ctx, offersSQL, ids)
+	offers, err := r.db.Query(ctx, offersSQL, ids, snapshotID)
 	if err != nil {
 		return nil, databaseError(err)
 	}

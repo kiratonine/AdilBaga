@@ -40,11 +40,23 @@ func assertReaderSecurity(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 		t.Fatal("unexpected login role membership")
 	}
 	var secured int
-	err = pool.QueryRow(ctx, `SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND relname=ANY($1::text[]) AND relrowsecurity AND NOT relforcerowsecurity AND relowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user) AND relowner<>(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader')`, []string{"stores", "store_locations", "categories", "canonical_products", "offers", "raw_products", "product_mappings"}).Scan(&secured)
-	if err != nil || secured != 7 {
+	var snapshotSchema bool
+	if pool.QueryRow(ctx, `SELECT to_regclass('public.snapshots') IS NOT NULL`).Scan(&snapshotSchema) != nil {
+		t.Fatal("schema inspection")
+	}
+	appTables := []string{"stores", "store_locations", "categories", "canonical_products", "offers", "raw_products", "product_mappings"}
+	expectedTables := append([]string(nil), runtimeTables...)
+	deniedTables := []string{"raw_products", "product_mappings"}
+	if snapshotSchema {
+		appTables = append(appTables, "snapshots", "source_runs")
+		expectedTables = []string{"canonical_products", "categories", "offers", "snapshots", "store_locations", "stores"}
+		deniedTables = append(deniedTables, "source_runs")
+	}
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND relname=ANY($1::text[]) AND relrowsecurity AND NOT relforcerowsecurity AND relowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user) AND relowner<>(SELECT oid FROM pg_roles WHERE rolname='aktau_api_reader')`, appTables).Scan(&secured)
+	if err != nil || secured != len(appTables) {
 		t.Fatal("RLS flags or owner bypass")
 	}
-	rows, err := pool.Query(ctx, `SELECT tablename,cmd,roles,qual,with_check FROM pg_policies WHERE schemaname='public' ORDER BY tablename`)
+	rows, err := pool.Query(ctx, `SELECT tablename,cmd,roles,qual,with_check FROM pg_policies WHERE schemaname='public' AND 'aktau_api_reader'=ANY(roles) ORDER BY tablename`)
 	if err != nil {
 		t.Fatal("policy inspection failed")
 	}
@@ -63,16 +75,16 @@ func assertReaderSecurity(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 	}
 	err = rows.Err()
 	rows.Close()
-	if err != nil || !reflect.DeepEqual(tables, runtimeTables) {
-		t.Fatal("exactly five runtime-only policies required")
+	if err != nil || !reflect.DeepEqual(tables, expectedTables) {
+		t.Fatal("exact runtime-only reader policies required")
 	}
 	var usage, create bool
 	err = pool.QueryRow(ctx, `SELECT has_schema_privilege(current_user,'public','USAGE'),has_schema_privilege(current_user,'public','CREATE')`).Scan(&usage, &create)
 	if err != nil || !usage || create {
 		t.Fatal("schema privilege boundary")
 	}
-	for _, table := range append(append([]string(nil), runtimeTables...), "raw_products", "product_mappings") {
-		allowed := table != "raw_products" && table != "product_mappings"
+	for _, table := range append(append([]string(nil), expectedTables...), deniedTables...) {
+		allowed := table != "raw_products" && table != "product_mappings" && table != "source_runs"
 		var selectLogin, selectGroup, write bool
 		err = pool.QueryRow(ctx, `SELECT has_table_privilege(current_user,$1,'SELECT'),has_table_privilege('aktau_api_reader',$1,'SELECT'),has_table_privilege(current_user,$1,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')`, "public."+table).Scan(&selectLogin, &selectGroup, &write)
 		if err != nil || selectLogin != allowed || selectGroup != allowed || write {
@@ -101,7 +113,7 @@ func TestCloneRestrictedSecurity(t *testing.T) {
 	}
 	defer pool.Close()
 	assertReaderSecurity(t, ctx, pool)
-	for _, sql := range []string{`SELECT * FROM raw_products`, `SELECT * FROM product_mappings`} {
+	for _, sql := range []string{`SELECT * FROM raw_products`, `SELECT * FROM product_mappings`, `SELECT * FROM source_runs`} {
 		assertDenied(t, pool.Exec, ctx, sql, "42501")
 	}
 	// Independent privilege proof without pool read-only defaults; zero-row DML
@@ -114,5 +126,5 @@ func TestCloneRestrictedSecurity(t *testing.T) {
 	for _, sql := range []string{`UPDATE stores SET name=name WHERE false`, `DELETE FROM stores WHERE false`, `INSERT INTO stores(id,code,name) SELECT 'bad','DINA','bad' WHERE false`, `CREATE TABLE public.bad(id int)`, `ALTER TABLE stores ADD COLUMN bad int`} {
 		assertDenied(t, conn.Exec, ctx, sql, "42501")
 	}
-	t.Log("restricted login: group-only membership, RLS7/FORCE0/policies5, SELECT5, raw/mapping privilege denial and DML/DDL denial PASS")
+	t.Log("restricted login: exact reader membership/RLS/policies/SELECT matrix and private-table/DML/DDL denial PASS")
 }

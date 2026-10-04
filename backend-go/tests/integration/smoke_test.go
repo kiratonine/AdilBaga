@@ -122,7 +122,7 @@ func smoke(t *testing.T, target string, parity bool) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if len(page) > 100 || db.count > 2 {
+				if len(page) > 100 || db.count > 3 {
 					t.Fatal("page bound/N+1")
 				}
 				if parity {
