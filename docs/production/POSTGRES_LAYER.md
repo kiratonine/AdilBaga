@@ -2,7 +2,10 @@
 
 Status: **BLOCKED**. NestJS remains the reference/traffic owner. Go business HTTP
 API parity is not implemented. This document records inspected facts and a
-owner-approved Phase A access model, not permission to change Supabase.
+owner-approved access model, not permission to change Supabase. Historical Phase A
+sections below predate the retained production RLS/runtime rollout. Current Go
+pool remediation is LOCAL only; live validation awaits an immutable reviewed
+commit. See the latest section in the same Part 04 report.
 
 ## Schema and fresh clone
 
@@ -414,10 +417,30 @@ Primitive JSON types are preserved. Same-key OR and cross-key AND are explicit.
 SQL identifiers are static; keys, JSON values, category, search, id and pagination
 are bound parameters. Sort uses only internal enum-selected static fragments.
 
-`OpenReadOnly` sets default_transaction_read_only=on and statement_timeout=5000,
-retaining lazy max4/min0 pool/connect timeout2s. Even a local admin credential
-using this pool could not execute UPDATE. A real least-privilege role is still
-required; privileged users can override a session default.
+`OpenReadOnly` retains best-effort startup RuntimeParams, but those parameters
+alone are NOT effective-session proof. Before source changes, the existing
+restricted production credential was safely classified as **SUPAVISOR_SESSION**;
+startup diagnostics returned default/transaction read-only **off** and timeout
+**2min**, while explicit session SET worked. Classification used the actual
+private configuration, without target overrides, and the official
+[Supabase connection-mode documentation](https://supabase.com/docs/guides/database/connecting-to-postgres).
+No endpoint, project reference or credential is recorded here.
+
+Local remediation registers pgxpool `AfterConnect`: fixed SETs enforce
+default_transaction_read_only=on and statement_timeout=5000, then both SHOWs must
+confirm on/5s-equivalent before a physical connection can enter the usable pool.
+Initialization shares a bounded 2s child context; SET/SHOW/mismatch failures return
+only a sanitized error and pgxpool closes the rejected connection. Lazy
+max4/min0/connect-timeout2s behavior is retained. The connected local proof holds
+four distinct physical sessions, including startup parameters omitted against
+local role defaults off/2min, and verifies ordinary transactions inherit read-only.
+
+Role/ACL/RLS least privilege remains primary authorization, not replaced by
+session defaults that privileged users can override. Transaction-pooler or unknown
+mode is a STOP condition, not silently considered session-compatible. No modified
+Go code has run against production: live restricted session-policy/parity
+validation still needs external review, an immutable commit and separate owner
+authorization. Part04 is incomplete; NestJS remains traffic owner.
 
 ## Collation and query plans
 

@@ -2,14 +2,15 @@
 
 Status: **BLOCKED**
 
-Current continuation: **Reader creator-membership remediation — local proof PASS**.
-Overall blocker:
-`AWAITING_EXPLICIT_PRODUCTION_RLS_RESUME_APPROVAL_AFTER_OPERATOR_MEMBERSHIP_REVIEW`.
-Corrected bootstrap/pending-migration/rollback guards and non-superuser operator
-proof PASS locally. Production was ONLY READ-ONLY audited in this continuation:
-the existing inert reader/automatic anchor remains, RLS pending, runtime absent.
-See the final local-remediation section. The stopped production bootstrap and all
-prior failures/proof/history remain below; Part04 is not complete.
+Current continuation: **Go read-only pool session-policy remediation — local proof**.
+Current blocker: `AWAITING_EXTERNAL_REVIEW_AND_IMMUTABLE_COMMIT_FOR_LIVE_POOL_VALIDATION`.
+Pre-change restricted connection mode: SUPAVISOR_SESSION; startup-policy failure
+reproduced safely. Minimal physical-connection initialization and all required
+LOCAL proofs/quality gates PASS. Production security metadata remains applied and
+unchanged. Modified Go source has NOT run against production, so live policy and
+repository parity acceptance remain pending; Part04 is NOT DONE. See the final
+remediation section. All previous blockers, local proofs and stopped runs remain
+historical evidence below, including LIVE_GO_READ_ONLY_POOL_SESSION_POLICY_FAILED.
 Sections A–T preserve the initial stopped run; current Phase A evidence follows
 in “External-review approved RLS design — Phase A”; those historical sections
 predate the production baseline and the final bootstrap attempt.
@@ -1634,3 +1635,388 @@ outputs, temporary WSL workspace or Go binaries/profiles.
 **Status: BLOCKED —
 AWAITING_EXPLICIT_PRODUCTION_RLS_RESUME_APPROVAL_AFTER_OPERATOR_MEMBERSHIP_REVIEW.**
 Stop for external review; no production resume or Part05 under this authorization.
+
+## Owner-approved RLS resume after creator-membership review — STOP
+
+### Authority, immutable source and preserved history
+
+Executed ONLY `TODO/PRODUCTION_PART_04_RLS_RESUME_AFTER_CREATOR_MEMBERSHIP_REVIEW.md`.
+The owner explicitly approved the corrected security rollout. This supersedes
+the preceding approval-only blocker; it does not erase earlier missing-history,
+bootstrap-membership or local-test failures. No superseded prompt was executed.
+
+Fetch/prune PASS initially and again during final PRE. Branch integrate/full-stack,
+clean tree before all production actions; HEAD=origin=
+`a8f96dcaacd6c12d07a6ee5f9601718883ff8824`, message
+`fix(db): handle PostgreSQL creator role membership`. SHA/tree/hashes were checked
+again immediately before forward actions. Prisma5.22.0, Go1.27.1 linux/amd64,
+PG client17.10, Docker29.1.3 preserved. No reviewed source/SQL was hot-edited.
+
+| Exact reviewed artifact | Verified SHA-256 |
+| --- | --- |
+| init migration | `a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92` |
+| pending RLS migration | `aa5d016c002f9b9d7d1feb3de2b77bd667879466ec3e808f6452b620afe09e79` |
+| reader bootstrap | `bd09e6cbdbe0fb292e721573184cacadde7d339be68845df8ca5d8e1cfd10a0d` |
+| guarded rollback | `6d9d8bc377f985c37dc9e81252a0af79f80f5debe338cdb8544b3e4fa5f1a545` |
+
+### Fresh backup, restore and PRE — PASS
+
+NEW public schema-only and custom-format backup retained privately outside repo,
+under the private backups/part04-rls-resume timestamp directory. Directory0700,
+all dump/canonical-evidence files0600. Dump --schema=public --no-owner --no-acl;
+no internal Supabase schemas or whole-platform recovery claim. Private canonical
+metadata includes structure, ownership, full table ACL (MAINTAIN/grantors/options),
+schema/database ACL/PUBLIC CONNECT, RLS/FORCE/policies, roles/both membership
+directions, successful init history and seven counts. Before/after dump identical.
+
+NEW task-owned postgres:17-alpine clone on loopback15440 used random disposable
+credentials only. Restore as non-superuser CREATEROLE part04_operator, owning the
+DB/all7 app tables, with --no-owner --no-acl --exit-on-error: exit0. Seven counts
+and application structure match fresh live and reviewed init structural evidence;
+init history restored as one successful baseline row. A separate clean fixture
+cluster on loopback15439 used the unchanged init + INSERT-only fixture.
+
+Because --no-acl omits privileges, the full canonical table/schema/database ACL
+matrix was reconstructed locally and compared exactly, mapping production object
+owner/grantor postgres to local part04_operator. MAINTAIN/options and special
+pg_database_owner schema grantor were preserved; managed roles simulated as
+safe NOLOGIN roles. No production credentials entered either container.
+
+Both fresh paths passed the CURRENT committed artifacts/tests:
+
+| Local profile | Clean fixture | Fresh restored clone |
+| --- | --- | --- |
+| TestReaderRolloutLifecycle (supplemental superuser Case A) | PASS:1 top-level +85 subtests | PASS:1 +85 |
+| TestReaderCreatorAnchorLifecycle (primary non-superuser Case B) | PASS:1 +49 | PASS:1 +49 |
+
+Actual forward→rollback→forward→rollback cycles, malformed-anchor refusals,
+guard atomicity and exact count/ACL/ownership baseline preservation all passed.
+The non-superuser topology was not weakened. No production repair/revoke used.
+
+Fresh/final PRE matched the reviewed stopped state: RLS7/FORCE0/policies0,
+safe NOLOGIN reader, no parents/ownership/direct/default ACL, runtime absent,
+managed ACL/PUBLIC CONNECT unchanged. Reader had exactly one creator child:
+role aktau_api_reader, member/current operator postgres, grantor supabase_admin
+(superuser), ADMIN=true/INHERIT=false/SET=false. Operator non-superuser CREATEROLE;
+MEMBER=true/USAGE=false/SET=false. Exactly init successful steps0/checksum above;
+Prisma status exit1 listed ONLY 20261004000000_rls_runtime_access pending.
+The pending exit was expected, not labelled up-to-date.
+
+All application catalog/count batches explicitly SET default read-only on,
+statement_timeout5000, then BEGIN READ ONLY; effective values checked. Startup
+settings-only diagnostic below is separately identified, not an enforced catalog
+batch or successful Go pool policy proof.
+
+### Exact forward actions and immediate verification
+
+1. Exact reviewed bootstrap executed once, psql ON_ERROR_STOP: exit0. Existing
+   anchored reader verification/no-op PASS: full PRE/post security, roles,
+   memberships, ACLs, counts, structure and Prisma history identical.
+2. After renewed sole-pending/hash checks, `backend/: rtk pnpm exec prisma migrate
+   deploy` executed ONCE, exit0. Applied ONLY 20261004000000_rls_runtime_access;
+   init NOT replayed, no extra/failed/rolled-back record. Postcheck confirmed:
+
+| Migration | Finished | Rolled back | Steps | Checksum |
+| --- | --- | --- | ---: | --- |
+| 20260923000000_init | true | false | 0 | init SHA-256 above |
+| 20261004000000_rls_runtime_access | true | false | 1 | RLS SHA-256 above |
+
+RLS7/FORCE0; exactly five permissive aktau_api_reader_select policies, SELECT,
+TO reader only, USING(true), no WITH CHECK, only on the five runtime tables.
+Reader has SELECT5 (grantor postgres) and public USAGE (grantor existing schema
+owner pg_database_owner), all non-grantable. No raw/mapping policy/grant, database/
+column/routine/type/default ACL, ownership or extra authority. Managed ACLs and
+structure/counts unchanged; original creator anchor retained.
+
+**Temporary verifier failure retained:** an outside-repo postcheck incorrectly
+assumed the new schema-USAGE grantor would be postgres. It stopped on actual
+pg_database_owner. Read-only inventory proved the grantor equals the existing
+schema owner; this was not unexpected privilege/managed ACL drift. Corrected only
+that temporary verifier assumption, then full postcheck PASS. No committed source
+or reviewed SQL edited; no deploy retry, GRANT repair or production cleanup.
+
+3. Only after full post-migration verification, created exactly one LOGIN
+   aktau_api_runtime: INHERIT, NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/
+   NOBYPASSRLS. Granted ONLY reader membership WITH ADMIN FALSE, INHERIT TRUE,
+   SET FALSE. Runtime sole parent reader; MEMBER/USAGE=true, SET/ADMIN=false.
+   No ownership or direct/default application/schema/database/routine/type ACL.
+   High-entropy password retained ONLY in a private0600 file outside repo,
+   enclosing directory0700. No password/DSN printed, passed as argv, committed,
+   added to backend/.env, report, archive or diagnostic log.
+
+PostgreSQL17 created a separate child/admin anchor on the LOGIN: role
+aktau_api_runtime → member postgres, grantor supabase_admin, ADMIN=true,
+INHERIT=false, SET=false. This is NOT a privileged runtime parent. Reader retains
+its original operator anchor and the exact intended runtime child. No unknown
+membership and no ad-hoc membership cleanup occurred.
+
+### Restricted verification and first unresolved STOP
+
+Through the actual restricted credential current_user=aktau_api_runtime:
+explicit default/transaction read-only=on, timeout5s; SELECT5 returns full counts.
+raw_products and product_mappings SELECT each denied42501, NOT zero rows.
+SET ROLE reader denied42501. Catalog privilege metadata proves no seven-table
+write/MAINTAIN permission, public CREATE, ownership or BYPASSRLS. No production
+INSERT/UPDATE/DELETE/DDL denial experiment was attempted.
+
+Local NestJS GET-only reference on3002 used unchanged existing production config,
+49 byte-identical compiled files in an ephemeral native-WSL runtime/dependencies
+copy. No .env copied, provider variables absent; categories GET200/6. No voice,
+Gemini, Redis or POST calls. Owner access is NOT restricted Go proof.
+
+Existing explicit live profile ran with ONLY restricted LIVE_DATABASE_URL,
+LIVE_READONLY_CONFIRM=1 and local GET reference; destructive TEST/SMOKE/SECURITY/
+OPERATOR credentials were absent:
+
+```text
+go test -count=1 -tags=integration ./tests/integration \
+  -run '^TestLiveReadOnlyParity$' -v
+exit 1
+smoke_test.go:63: read-only policy
+FAIL TestLiveReadOnlyParity
+```
+
+**STOP: LIVE_GO_READ_ONLY_POOL_SESSION_POLICY_FAILED.** The profile fails its
+first SHOW default_transaction_read_only assertion BEFORE category/product
+repository queries or any parity comparison. All849 product/order/DTO/search/
+filter/detail live parity is therefore NOT VERIFIED. No mock/owner substitute,
+test suppression, runtime source fix, extra migration or production repair.
+
+One sanitized restricted startup-settings-only probe with requested PGOPTIONS
+read-only on/timeout5000 returned defaults **off / 2min**. After explicit SET on/
+5000 and BEGIN READ ONLY, effective defaults/transaction=on, timeout5s. This
+reproduces the connection/provider startup-settings issue already recorded in
+Phase A, before this security rollout. It is corroborating psql evidence, not a
+claim that the failing Go assertion logged its exact returned value/error.
+The reviewed Go pool uses startup RuntimeParams; that enforcement gate needs
+separately reviewed investigation/hardening. Do NOT hot-edit it or weaken the
+test under this immutable production-apply authorization.
+
+Restricted current Go local health smoke actually PASS: /health/live200 statusok,
+/health/ready200 statusready, /api/categories structured JSON404 remains unwired.
+Connectivity/readiness success does NOT establish the read-only pool gate or
+repository parity. No Go deploy/traffic cutover occurred.
+
+### Final STOP-state production audit and rollback decision
+
+Final READ-ONLY audit PASS: successful history2/steps0+1/exact checksums, Prisma
+status exit0/up-to-date, RLS7/FORCE0/policies5, exact reader SELECT5+USAGE, safe
+runtime/sole parent and both expected creator anchors. Zero owned objects,
+unexpected direct/default ACL, role flag or membership. Application structure,
+ownership, managed table/schema/database ACL incl MAINTAIN/grantors/PUBLIC CONNECT
+remain equivalent to PRE, excluding only reviewed reader additions.
+
+| Application table | PRE/dump/restored | Post-deploy/runtime/final |
+| --- | ---: | ---: |
+| stores | 3 | 3 |
+| store_locations | 15 | 15 |
+| categories | 6 | 6 |
+| raw_products | 863 | 863 |
+| canonical_products | 849 | 849 |
+| product_mappings | 863 | 863 |
+| offers | 863 | 863 |
+
+No rollback executed: no RLS/ACL/authorization/count failure or repository-query
+failure caused by DB security was observed. Failure is the pre-query session
+policy gate, with the startup-setting effect independently recorded before this
+rollout; no reviewed rollback trigger established. Reader/runtime and successful
+migration are retained. Runtime password remains private. Do NOT rerun the
+PRE-activation bootstrap, replay init/RLS or edit/resolve Prisma history. If a
+later separately reviewed decision requires guarded rollback after applied RLS,
+its successful migration marker MUST remain; reconciliation needs separate review.
+
+### Actual checks, protection and cleanup
+
+| Gate executed in this continuation | Actual result |
+| --- | --- |
+| Immutable SHA/clean tree/reviewed hashes | PASS, repeated before production actions |
+| Fresh private backup + restore/count/schema/full local ACL reconstruction | PASS |
+| Current Case A + primary Case B lifecycle, clean and clone | PASS as detailed above |
+| Full tagged fixture `go test -count=1 -tags=integration ./... -v` | PASS:25 top-level +103 subtests; unmatched explicit profiles honestly SKIP |
+| Full tagged restored clone same command | PASS:26 top-level +87 subtests; restricted smoke/security +9 local EXPLAIN cases; other profiles SKIP |
+| Existing live TestLiveReadOnlyParity | FAIL:first read-only policy gate; comparisons NOT RUN |
+| Local restricted Go health/ready/unwired404 | PASS, not parity/pool-enforcement proof |
+| Final live READ-ONLY security/count/ACL/history audit + migrate status | PASS; rollout retained |
+| Final plain go test/race/gofmt/tidy/verify/vet/staticcheck/govulncheck | NOT RUN after STOP; historical results not relabelled |
+| Final contracts lint | NOT RUN after STOP |
+| Protected source / git diff --check | PASS |
+
+Supplemental tagged suites are NOT substituted for missing mandatory final plain
+Go/security gates. Prior full-Go/Docker foundation proofs remain historical only.
+No production EXPLAIN ANALYZE ran; all new plans/denial-DML/lifecycle probes local.
+
+Own NestJS/Go clients stopped; native workspace/temp Go binary removed. Both
+new labelled disposable containers/volumes removed with ownership checks; final
+local ports free. Private backups/canonical evidence and runtime secret retained.
+No production cleanup/write beyond exact reviewed migration + LOGIN/membership.
+No application DML, seed/parser/import, unrelated role/managed ACL change, schema
+redesign, index/extension/collation addition, config/.env edit, Go business route,
+frozen contract/Frontend/NestJS source change, commit/push/merge/tag/deploy.
+Only THIS report changes in Git; reviewed SQL/Go source remain byte-unchanged.
+
+### Review archive and final status
+
+Permanent target production-part-04: artifacts/production-part-04-review.tar.gz.
+Rebuild and verification PASS: all305 archived files byte-match current source,
+including this SAME report; exact reviewed SQL/tests/frozen contracts present.
+Exclusion/credential scan includes all six new disposable passwords and the new
+private runtime password. No real .env, secrets, dumps/backups/private canonical
+snapshots, node_modules, build/test outputs, Go binaries/profiles, Docker volumes
+or temporary native workspace. Archive is a BLOCKED review artifact, NOT completed
+Part04 acceptance and NOT a database backup. Final git diff --check PASS; only
+this report modified, all reviewed runtime/security/contract source unchanged.
+
+**Status: BLOCKED — LIVE_GO_READ_ONLY_POOL_SESSION_POLICY_FAILED.**
+Security metadata actions and least-privilege SQL verification PASS; full live
+repository/session-policy and parity acceptance INCOMPLETE. Part04 is NOT DONE;
+Part05 NOT STARTED. NestJS remains traffic owner. No Go production traffic cutover.
+STOP for external review of the exact retained rollout state and a separately
+scoped/immutable Go session-initialization hardening task, not ad-hoc repair.
+
+## Go read-only pool session-policy remediation — local proof
+
+### Immutable PRE and production diagnosis
+
+Scope: TODO/PRODUCTION_PART_04_GO_POOL_SESSION_POLICY_REMEDIATION.md only.
+Fetch --prune PASS; branch integrate/full-stack; HEAD=origin=
+`a8f96dcaacd6c12d07a6ee5f9601718883ff8824`. Initial dirty tree contained only
+the SAME preceding stopped-run report; it was preserved. Go1.27.1 linux/amd64;
+no toolchain/dependency/version change. The four protected SHA-256 values matched
+both before diagnosis and after source changes:
+
+| Protected artifact | SHA-256 |
+| --- | --- |
+| init migration | a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92 |
+| RLS migration | aa5d016c002f9b9d7d1feb3de2b77bd667879466ec3e808f6452b620afe09e79 |
+| reader bootstrap | bd09e6cbdbe0fb292e721573184cacadde7d339be68845df8ca5d8e1cfd10a0d |
+| guarded rollback | 6d9d8bc377f985c37dc9e81252a0af79f80f5debe338cdb8544b3e4fa5f1a545 |
+
+**Restricted connection mode: SUPAVISOR_SESSION.** Private DSN endpoint/port/user
+shape matched the official shared-session mapping; target overrides were absent.
+Classification used actual private configuration and the
+[official Supabase connection-mode documentation](https://supabase.com/docs/guides/database/connecting-to-postgres),
+not a guess based on connectivity. No DSN/host/project reference was printed or
+recorded. Transaction/unknown mode would have stopped this task without a pool fix.
+
+Before source edits, restricted current_user=aktau_api_runtime; startup-only
+diagnostic SHOW returned default_transaction_read_only=off,
+transaction_read_only=off, statement_timeout=2min. Explicit session SET plus
+BEGIN READ ONLY returned on/on/5s. Subsequent restricted PRE queries were bounded,
+explicitly READ ONLY and matched the last retained security evidence: RLS7/FORCE0,
+exact policies5, table ownership, complete relevant table/schema/database ACLs
+(including grantors/MAINTAIN), safe reader/runtime flags and memberships/anchors,
+five allowed table counts. Restricted login cannot read raw_products,
+product_mappings or Prisma history: seven-table counts/history above remain prior
+verified rollout evidence, NOT newly claimed queries in this continuation.
+No owner/operator production session was used; production diagnostics ended
+before code edits. No production security/data/history/password change occurred.
+
+### Root cause and minimal source changes
+
+Previously OpenReadOnly configured RuntimeParams(on/5000) and a lazy pool.
+Its config-object unit assertion did not prove effective physical-session values;
+the earlier live assertion correctly exposed that gap and remains unchanged.
+
+Changed source:
+
+- backend-go/internal/postgres/pool.go
+- backend-go/internal/postgres/pool_test.go
+- backend-go/internal/postgres/pool_integration_test.go (new, integration-tagged)
+
+Changed documentation: POSTGRES_LAYER.md and this SAME report only.
+
+The pgxpool AfterConnect hook now executes fixed SETs then both SHOWs under a
+shared bounded 2s child context. It requires readonly=on and timeout=5s-equivalent;
+SET/SHOW/parse/mismatch failures return only a sanitized fixed error. pgxpool
+rejects/closes a connection whose hook fails before handing it out. URL validation,
+lazy MaxConns4/MinConns0, connect timeout2s and best-effort startup parameters remain.
+No retry loop, timeout inflation, proxy dependency, SET ROLE or authorization bypass.
+Role/ACL/RLS remains primary authorization; session policy is defense in depth.
+No business SQL, HTTP route, live assertion or frozen contract changed.
+
+Normal unit coverage retains config/redaction/outage cases and adds eight
+initializer cases: success/equivalent milliseconds, SET failure, both SHOW failures,
+readonly mismatch, timeout mismatch and malformed timeout. Errors do not expose
+driver details; ordinary unit tests have no network/environment fallback.
+
+### Connected LOCAL proof and regression results
+
+Two fresh labelled loopback-only disposable postgres:17-alpine targets were created
+with disposable credentials. Existing private public-schema backup was restored
+again into the clone: exit0, all seven application counts/schema/history matched
+its saved PRE evidence. No fresh production backup or production mutation in this
+task. Counts: stores3/locations15/categories6/raw863/canonical849/mappings863/offers863.
+
+The connected proof requires only explicit POOL_POLICY_DATABASE_URL, dedicated
+local DB/restricted login and effective loopback targets (including fallbacks);
+it never falls back to DATABASE_URL or an env file. Four acquisitions are held
+simultaneously; distinct backend PIDs plus acquired/total stats4 prove physical
+sessions rather than reusing one connection. All four report default readonly=on,
+timeout5s, and ordinary transactions readonly=on. Both variants PASS:
+actual OpenReadOnly startup parameters intact, and test-only startup parameters
+omitted against verified LOCAL login defaults off/2min. A real closed physical
+connection cannot complete initialization: acquisition fails with the sanitized
+error and no usable/acquired connection. Production live profile was NOT RUN.
+
+| Executed gate | Actual result |
+| --- | --- |
+| gofmt -w cmd internal tests; gofmt -l . | PASS; listing empty |
+| go mod tidy; go mod verify | PASS; go.mod/go.sum unchanged |
+| Full go test -count=1 -json ./... | PASS:23 top-level +86 subtests, failed0 |
+| Full go test -count=1 -json -race ./... | PASS:23 top-level +86 subtests, failed0 |
+| go vet ./...; pinned go tool staticcheck ./... | PASS |
+| pinned go tool govulncheck ./... | PASS exit0: No vulnerabilities found |
+| Full tagged fixture go test -count=1 -tags=integration ./... -v | PASS:26 top-level +111 subtests |
+| Full tagged restricted clone same command, physical pool + NestJS reference | PASS:29 top-level +98 subtests |
+| Existing legacy lifecycle clean + restored clone | PASS:85 subtests each |
+| Primary non-superuser creator-anchor lifecycle clean + restored clone | PASS:49 subtests each |
+| contracts rtk pnpm lint (Node24) | PASS |
+| Protected source diff / four reviewed SQL hashes | PASS: unchanged |
+| git diff --check | PASS |
+
+Profile-specific tests without their explicit environment honestly SKIP; independent
+profile runs above supply their proofs. The first legacy clone launch accidentally
+overlapped LOCAL restore/managed-ACL preparation and failed its PUBLIC CONNECT
+precondition. After preparation completed, the unchanged suite was rerun sequentially
+and passed both targets; no assertion or SQL artifact was weakened. No production
+access was involved in that harness sequencing error.
+
+Restricted clone repository/security checks PASS: categories, discovery, detail,
+typed filters/brand/OR-AND, offers/minPrice/snapshot, bounded roundtrips, LOCAL write
+denial, raw/mapping and SET ROLE denial. All849 usable products matched the LOCAL
+NestJS reference exactly for price_asc/price_desc/name_asc, via bounded pages.
+Wildcard searches matched: МОЛОКО44, %849, _849, backslash4, Молок%44, Молок_44,
+escaped-percent168, escaped-underscore0, absent literal0 and injection attempt0.
+Nine LOCAL EXPLAIN ANALYZE cases PASS. Reference used the restricted LOCAL clone
+credential; 49 copied compiled NestJS files were byte-identical, no env/secrets copied.
+
+### Production boundary, archive and final status
+
+TestLiveReadOnlyParity with modified source: **NOT RUN — explicitly forbidden**.
+Production RLS/runtime state was retained; no migration/bootstrap/rollback, role,
+grant/policy/ACL, password, application DML, seed/parser/import, Prisma-history or
+config/.env mutation against production. No Supabase call after source edits.
+No backend/frontend/contracts/config/catalog/repository-business source change;
+no public Go catalog route, Part05, traffic cutover, commit/push/merge/tag/deploy.
+
+Cleanup PASS: only the two ownership-labelled disposable containers/volumes and
+the task's native NestJS reference workspace were removed. Local reference and DB
+ports are free; private backup/evidence and existing runtime secret remain outside
+repo. No production cleanup or mutation was performed.
+
+Permanent target production-part-04 rebuilt artifacts/production-part-04-review.tar.gz.
+Verification PASS: all306 files byte-match current source, including this SAME
+report and all three changed/new Go files; required reviewed SQL is present.
+No real env, DSN/private host/project reference/runtime password, known disposable
+credentials, private-key patterns, dumps/backups/canonical private evidence,
+node_modules, build/test output, Go binaries/profiles, Docker volumes or native
+workspace. Exclusions, known-value secret scan and ELF scan PASS. Final protected
+source diff empty, reviewed hashes unchanged, git diff --check PASS; only the five
+allowed source/docs files differ. This is a BLOCKED review artifact, not a DB backup
+or completed Part04 acceptance.
+
+**Status: BLOCKED — AWAITING_EXTERNAL_REVIEW_AND_IMMUTABLE_COMMIT_FOR_LIVE_POOL_VALIDATION.**
+Local Go pool session-policy remediation PASS. Modified Go source has NOT run
+against production. Part04 is incomplete; Part05 NOT STARTED. Next boundary:
+external review → owner commit/push of immutable source → separately owner-approved
+read-only live session-policy and parity validation. STOP for external review.
