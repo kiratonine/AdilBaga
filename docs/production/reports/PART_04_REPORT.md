@@ -1,9 +1,19 @@
 # Production Part 04 — PostgreSQL production layer
 
-Status: **BLOCKED**
+Status: **READY_FOR_EXTERNAL_REVIEW — PART04_FINAL_VALIDATION_PASS**
 
-Current continuation: **Live parity harness deadline remediation — LOCAL proof**.
-Current blocker: `AWAITING_EXTERNAL_REVIEW_AND_IMMUTABLE_COMMIT_FOR_FINAL_LIVE_PARITY_RERUN`.
+Current continuation: **Final immutable READ-ONLY live parity validation**.
+Immutable HEAD=origin=4082a92912cba37e7e020d714f1709f06b378c74, directly based on
+d7f1c58ff413cdf1d95623ba403a94b9b807ef4a. Both fresh-process live profiles fully
+PASS; restricted Go live/ready/404, canonical PRE/POST audits and all final local
+quality/integration gates PASS. Production state unchanged; no source hot-fix.
+NestJS remains traffic owner. Part04 awaits final external acceptance, not DONE;
+Part05 NOT STARTED. See the final validation section below.
+
+### Historical preceding blocker (resolved by this immutable validation)
+
+Previous continuation: **Live parity harness deadline remediation — LOCAL proof**.
+Previous blocker: `AWAITING_EXTERNAL_REVIEW_AND_IMMUTABLE_COMMIT_FOR_FINAL_LIVE_PARITY_RERUN`.
 Starting HEAD=origin=d7f1c58ff413cdf1d95623ba403a94b9b807ef4a; preceding report-only
 stopped-run evidence preserved. Shared120s lifetime removed from the test harness;
 independent bounded operations, finite pagination and sanitized diagnostics added.
@@ -2336,3 +2346,175 @@ PASS remains valid evidence; final complete production parity is still pending.
 Next boundary: external review → owner manual commit/push → new immutable SHA →
 separately owner-authorized final READ-ONLY validation. Part04 NOT DONE;
 Part05 NOT STARTED. STOP for external review.
+
+## Final immutable live parity rerun after harness remediation
+
+Validation completed 2026-10-04. Scope: only the owner-authorized final READ-ONLY
+validation in TODO/PRODUCTION_PART_04_FINAL_LIVE_PARITY_RERUN_AFTER_HARNESS_FIX.md.
+All preceding blocker/stopped-run/remediation sections above remain historical.
+
+### Immutable provenance and source protection
+
+Fetch origin --prune PASS; branch integrate/full-stack; starting working tree clean.
+HEAD=origin/integrate/full-stack:
+`4082a92912cba37e7e020d714f1709f06b378c74` (`test(go): harden live parity time budgets`).
+Direct parent: `d7f1c58ff413cdf1d95623ba403a94b9b807ef4a`.
+Parent-to-HEAD delta is exactly:
+
+- backend-go/tests/integration/smoke_test.go
+- backend-go/tests/integration/smoke_helpers_test.go
+- docs/production/reports/PART_04_REPORT.md
+
+Committed source byte-matched the reviewed archive; parent diff --check PASS.
+Reviewed harness has fresh bounded15s operation/reference contexts, finite page
+ceiling, named sequential phases and sanitized diagnostics; all original parity
+assertions/search cases remain. Pool/runtime/repositories/NestJS/frontend/contracts
+are unchanged from the reviewed parent. No source hot-fix was made.
+
+Reviewed SHA-256 values verified before live access and again after local gates:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| init migration | a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92 |
+| RLS migration | aa5d016c002f9b9d7d1feb3de2b77bd667879466ec3e808f6452b620afe09e79 |
+| reader bootstrap | bd09e6cbdbe0fb292e721573184cacadde7d339be68845df8ca5d8e1cfd10a0d |
+| guarded rollback | 6d9d8bc377f985c37dc9e81252a0af79f80f5debe338cdb8544b3e4fa5f1a545 |
+
+These SQL artifacts were NOT executed against production in this validation.
+
+### Fresh production READ-ONLY PRE and POST audits
+
+Both canonical catalog audits PASS. Audit connection-local policy verified
+default/transaction read-only on and statement_timeout5s inside BEGIN READ ONLY.
+PRE matches the retained reviewed state; POST exactly matches PRE:
+
+- Seven ordinary public application tables and owners unchanged; RLS7/FORCE0.
+- Exact five SELECT policies TO aktau_api_reader, USING(true), no WITH CHECK;
+  no raw_products/product_mappings reader policy or permission.
+- Reader safe NOLOGIN and runtime safe LOGIN flags unchanged; exact sole runtime
+  reader membership, MEMBER/USAGE true and SET/ADMIN false; only reviewed
+  PostgreSQL17 creator/control-plane anchors retained.
+- Reader SELECT5 plus public USAGE only; no unexpected ownership, direct/column/
+  default ACL or grant option. Managed table ACLs including MAINTAIN and grantors,
+  schema/database ACLs and PUBLIC CONNECT unchanged.
+- Prisma history exactly two successful, non-rolled-back rows: init steps0,
+  RLS steps1, exact reviewed checksums; no extra/failed row.
+- Prisma migrate **status only**, PRE and POST: exit0, database up to date.
+
+| Application table | PRE | POST | LOCAL restored clone |
+| --- | ---: | ---: | ---: |
+| stores | 3 | 3 | 3 |
+| store_locations | 15 | 15 | 15 |
+| categories | 6 | 6 | 6 |
+| raw_products | 863 | 863 | 863 |
+| canonical_products | 849 | 849 | 849 |
+| product_mappings | 863 | 863 | 863 |
+| offers | 863 | 863 | 863 |
+
+Restricted credential precheck PASS: SUPAVISOR_SESSION, actual identity
+aktau_api_runtime. Raw provider startup defaults off/off/2min were observed;
+no manual SET priming preceded the Go pool test. Private connection details and
+canonical ACL evidence remain outside repo and are not included here.
+
+### Two independent committed live parity runs
+
+Unchanged local loopback NestJS GET-only reference: categories200/six; 49 compiled
+files byte-identical in a native WSL workspace. No voice, POST, Gemini or Upstash
+calls; no .env copied. The committed Go command was invoked twice with -count=1,
+integration tag and exact TestLiveReadOnlyParity selection. Each invocation used
+a fresh process/pool/physical session and the existing restricted credential;
+destructive/operator/local profile variables were excluded.
+
+| Gate | Run #1 | Run #2 |
+| --- | --- | --- |
+| Complete test, exit0 | PASS, 258.56s | PASS, 211.53s |
+| Committed pool session policy | PASS | PASS |
+| price_asc, all849 exact DTO/order parity | PASS | PASS |
+| price_desc, all849 exact DTO/order parity | PASS | PASS |
+| name_asc, all849 exact DTO/order parity | PASS | PASS |
+| Categories, six filter schemas, dynamic filters, details | PASS | PASS |
+| All ten search cases | PASS | PASS |
+
+Pool initialized and verified its own read-only session and5s statement timeout.
+Usable offers/minPrice/latest snapshot, offer order, bounded SQL roundtrips,
+page limit<=100, finite pagination and duplicate-ID protection assertions PASS.
+No transport/deadline failure or semantic mismatch; no third retry or source fix.
+
+| Search case | Products in each live run and LOCAL parity |
+| --- | ---: |
+| МОЛОКО | 44 |
+| % | 849 |
+| _ | 849 |
+| Single backslash | 4 |
+| Молок% | 44 |
+| Молок_ | 44 |
+| Escaped percent | 168 |
+| Escaped underscore | 0 |
+| Absent literal | 0 |
+| Injection-shaped literal | 0 |
+
+### Restricted Go health and final local gates
+
+Committed Go API, local loopback with the existing restricted credential:
+live200/status ok, ready200/status ready, /api/categories structured JSON404.
+Go process stopped cleanly. Public business routes are intentionally unwired;
+this is repository parity, not Go public API/traffic-cutover acceptance.
+
+All mandatory final gates were executed after production validation:
+
+| Local gate/profile | Result |
+| --- | --- |
+| gofmt -w cmd internal tests; gofmt -l . | PASS, listing empty, source unchanged |
+| go mod tidy; go mod verify | PASS, go.mod/go.sum unchanged |
+| Full go test ./... | PASS, 26 top-level +86 subtests, failed0 |
+| Full go test -race ./... | PASS, 26 top-level +86 subtests, failed0 |
+| go vet ./... | PASS |
+| staticcheck ./... and -tags=integration ./... | PASS both |
+| govulncheck ./... | PASS, no vulnerabilities found |
+| Legacy reader lifecycle, fresh fixture and restored clone | PASS, 85 subtests each |
+| Non-superuser creator-anchor lifecycle, fixture and clone | PASS, 49 subtests each |
+| Full tagged deterministic fixture ./... | PASS, 29 top-level +111 subtests |
+| Full tagged restricted clone ./... | PASS, 32 top-level +132 subtests |
+| Physical pool policy integration | PASS: four distinct held connections in each intact/omitted startup case; failed initialization not acquirable |
+| LOCAL Go/NestJS clone parity | PASS, all849×three sorts, filters/detail, all ten searches |
+| Restricted clone security | PASS |
+| LOCAL query plans | PASS, all nine EXPLAIN ANALYZE cases; no index/schema change proposed |
+| contracts pnpm lint | PASS |
+| Final git diff --check and source protection before report edit | PASS; clean tree |
+
+Unselected opt-in profiles in full tagged suites honestly SKIP; their required
+profiles were separately run with explicit correct credentials, not counted as
+PASS through a skip. Local lifecycle SQL, fixture inserts and ANALYZE targeted
+only disposable loopback PostgreSQL17. Production credentials were not passed to
+local integration children. Fresh restored clone counts remained unchanged.
+
+### Cleanup, archive and final boundary
+
+Only this task's ownership-labelled LOCAL containers/volumes and generated native
+workspaces/Go binary were removed. Owned ports are free; private existing backup,
+runtime secret and redacted evidence remain outside repo. No production cleanup.
+
+Permanent target production-part-04 rebuilt
+artifacts/production-part-04-review.tar.gz. Verification PASS: all307 files
+byte-match current tree/report; all tracked source other than this updated report
+byte-match immutable4082a929. Both committed harness files and pool remediation
+are included, reviewed SQL/frozen contract unchanged. Root AGENTS.md is intentionally
+ignored/untracked; its bytes/hash match the preceding reviewed archive rather than
+a nonexistent Git object. This was a private verifier scope correction, not a source
+or archive change; no other nontracked archive member exists.
+No real .env, private production DSN/host/project ref/password, dumps/backups/private
+evidence, node_modules, build/test output, Go binary/profile/ELF, Docker volume or
+temporary workspace. Known private/LOCAL credential and private-key pattern scans
+PASS. Final report byte-match and git diff --check PASS. Only the SAME report is
+modified in Git; ignored review archive is not staged.
+
+Production received no DDL/DML/security/history mutation. No runtime password
+change, migration resolve/deploy, role/grant/policy action, bootstrap or rollback.
+Only authorized SELECT/SHOW, read-only transactions and connection-local safety
+settings were used. No source hot-fix, commit/push, deploy or traffic cutover.
+NestJS remains traffic owner; Part05 NOT STARTED. Part04 is not marked DONE until
+final external acceptance.
+
+**Status: READY_FOR_EXTERNAL_REVIEW — PART04_FINAL_VALIDATION_PASS.**
+Immutable harness remediation validated against production in two fresh processes.
+Production security/data/Prisma state unchanged. STOP for final external review.
