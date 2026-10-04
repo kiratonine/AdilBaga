@@ -296,9 +296,21 @@ If security migration is recorded applied and an emergency guarded rollback is
 later needed, do not modify/delete `_prisma_migrations`, replay the migration or
 mark it resolved ad hoc. Stop for separately reviewed history reconciliation.
 
+The local proof above did NOT change production. Subsequently, under the separate
+`PRODUCTION_PART_04_PROD_PRISMA_BASELINE_APPLY.md` authorization from immutable
+commit `4a46fbb0ba9a11cf70212027bc766deb41fa1269`, production baseline ONLY was
+applied after a new private backup/restore and final read-only PRE checks.
+Prisma5.22.0 `migrate resolve --applied 20260923000000_init` exited0. Exactly init
+is now recorded successfully, checksum equals the init SHA-256 above, steps0,
+finished_at non-null/rolled_back_at null. Only the RLS migration remains pending.
+All app structure/counts/ownership/RLS7/FORCE0/policies0/full managed ACLs/role
+state remain equal to PRE. Reader/runtime roles remain absent. No deploy or
+security SQL was executed, no application data was changed.
+
 Current overall blocker:
-`AWAITING_EXPLICIT_PRODUCTION_PRISMA_BASELINE_APPROVAL`.
-Production resolve/deploy/roles/policies/data were NOT changed by this proof.
+`AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL_AFTER_BASELINE`.
+Do not repeat baseline or manually edit history. The next production RLS/security
+flow requires separate explicit approval/review; step7 above was NOT executed.
 The full observed results are in the same Part04 report; live least-privilege
 parity still awaits future production security apply. NestJS is traffic owner.
 

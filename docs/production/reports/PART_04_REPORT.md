@@ -2,11 +2,11 @@
 
 Status: **BLOCKED**
 
-Current continuation: **Prisma baseline reconciliation local proof PASS**.
-Overall blocker: `AWAITING_EXPLICIT_PRODUCTION_PRISMA_BASELINE_APPROVAL`.
-The missing-history Phase B PRE blocker was reproduced and a safe reconciliation
-path proven ONLY on a disposable clone. Production resolve/deploy remain NOT RUN.
-See the final reconciliation section. Prior failures and approval history remain.
+Current continuation: **Production Prisma baseline apply PASS**.
+Overall blocker: `AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL_AFTER_BASELINE`.
+Separately authorized production resolve recorded ONLY init as applied; application
+state stayed unchanged. RLS deploy and API-role provisioning remain NOT RUN.
+See the final production baseline section. Prior failures/proof/history remain.
 Sections A–T preserve the initial stopped run; current Phase A evidence follows
 in “External-review approved RLS design — Phase A”. No Supabase security apply.
 
@@ -1123,3 +1123,153 @@ workspace, node_modules, binaries/profiles or build/test artifacts.
 Local reconciliation proof PASS, ready for owner/external review. Production
 history/security apply NOT RUN; live least-privilege parity NOT RUN; Part05 NOT
 STARTED. Stop for review; do not execute the proposed production sequence yet.
+
+## Production Prisma baseline apply
+
+### Narrow authorization and immutable source
+
+Executed `TODO/PRODUCTION_PART_04_PROD_PRISMA_BASELINE_APPLY.md`, which separately
+authorizes ONLY the Prisma metadata baseline marker, not RLS apply/API roles.
+Fetch/prune PASS; clean initial working tree; branch integrate/full-stack;
+HEAD=origin=`4a46fbb0ba9a11cf70212027bc766deb41fa1269`, message
+`docs(db): prove Prisma baseline reconciliation`. All prior findings/proof above
+remain historical evidence; earlier approval blockers are not erased.
+
+All four artifact SHA-256 checks PASS before backup and immediately before write:
+
+| Immutable artifact | SHA-256 |
+| --- | --- |
+| init migration | `a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92` |
+| RLS migration | `804feb74cfaab9b9262fd5c873432e1dc61a6004a48d89010df02cdf7c524bc7` |
+| reader bootstrap | `bc67db66b06753c95c154405d2cd391a1705c50dcfabac5febd78965d75b5ac8` |
+| guarded rollback | `04faeb0e6196cd542e2fb58b5268f6f157630b8022096a88a8054aeff54c5a60` |
+
+Prisma5.22.0, PostgreSQL clients17.10, Docker29.1.3 verified. Prisma CLI skill
+guided the existing status/resolve workflow, without config/dependency changes.
+Private DIRECT_URL migration target/schema was checked against the exact
+endpoint/database used by the read-only audit; values were never printed.
+Existing local .env was read privately, not modified or copied into repo/logs.
+
+### Fresh PRE backup and restore
+
+New private backup directory:
+`/home/denis/.local/share/aktau-market/backups/part04-prod-baseline/2026-10-04T01-00-12-970Z/`.
+Fresh public schema-only/custom dumps used --schema=public/--no-owner/--no-acl.
+Current canonical security/catalog and application-structure snapshots saved
+privately alongside them. Actual directory0700 and files0600 verified.
+No dump/private snapshot is included in repo/archive.
+
+Read-only production audit batches explicitly SET default_transaction_read_only=on,
+statement_timeout=5000, BEGIN READ ONLY; inspected defaults+transaction on/timeout5s.
+Fresh application structure equals the reviewed clone/init structure (3 enums,
+7 tables,48 columns,15 constraints/8 FKs,21 indexes). Reviewed existing RLS7 vs
+init RLS0 remains the sole known structural-security difference; no init SQL was
+rerun, and the preceding local baselining design/parity proof was not broadened.
+
+A NEW labelled disposable postgres:17-alpine container/volume on loopback15435
+used private random local credentials, no production credentials. Its verified
+empty public schema was removed locally before dump restore creates public.
+`pg_restore --no-owner --no-acl --exit-on-error` exited0, all seven live/clone
+counts equal, restored application structure equal PRE. No local baseline or
+security deploy was repeated; this was fresh backup validation only.
+
+### Final live PRE — PASS
+
+Immediately before the production write, exact source SHA/clean tree/hashes were
+checked again. Canonical snapshot equals fresh PRE; exactly7 ordinary app tables,
+same ownership, RLS7/FORCE0/policies0. Reader/runtime absent. Catalog search proves
+`_prisma_migrations` absent in EVERY schema. PUBLIC CONNECT unchanged. Full table
+ACL via aclexplode including MAINTAIN/grantor, schema/database ACLs, relevant
+role flags/memberships and seven counts all equal fresh PRE. Production structural
+audit still matches the reviewed init baseline evidence.
+
+Actual `rtk pnpm exec prisma migrate status` PRE:exit1, exactly init + RLS pending.
+Pending exit1 was interpreted using names/catalog state, not labelled a command
+failure or converted to an up-to-date PASS.
+
+### The sole production write — PASS
+
+From backend/ with the private existing production migration environment:
+
+```text
+rtk pnpm exec prisma migrate resolve --applied 20260923000000_init
+exit 0
+Migration 20260923000000_init marked as applied.
+```
+
+Executed ONCE. The redacting wrapper allowed only status or this exact init
+resolve, with an attempt marker preventing retry. No production migrate deploy,
+init/RLS SQL, bootstrap/rollback artifact, manual history SQL, role creation,
+application DDL/DML/grant/policy operation or schema replay was executed.
+The intended metadata addition is retained; no attempt was made to undo it.
+
+### Immediate post-resolve + final read-only verification — PASS
+
+History relation now exists only in public, with EXACTLY one row:
+
+| Safe production history field | Actual verified value |
+| --- | --- |
+| migration_name | 20260923000000_init |
+| checksum | `a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92` |
+| finished_at IS NOT NULL | true |
+| rolled_back_at IS NULL | true |
+| applied_steps_count | 0 |
+
+No failed/rolled-back/extra row. Immediate postcheck and final canonical audit
+both proved equality with PRE except the intentional Prisma history existence.
+Application structure unchanged; all seven ordinary tables still owned by the
+same owner, RLS7/FORCE0/policies0; reader/runtime absent. Full managed ACLs incl
+MAINTAIN/grantor, schema/database ACLs/PUBLIC CONNECT and role memberships equal.
+
+| Application table | PRE/dump/restored count | POST/final count |
+| --- | ---: | ---: |
+| stores | 3 | 3 |
+| store_locations | 15 | 15 |
+| categories | 6 | 6 |
+| raw_products | 863 | 863 |
+| canonical_products | 849 | 849 |
+| product_mappings | 863 | 863 |
+| offers | 863 | 863 |
+
+Post-resolve/final Prisma status both returned exit1 with ONLY
+`20261004000000_rls_runtime_access` pending. Init is recorded applied, no RLS
+marker/deploy, no unexpected migration. The expected pending exit does not negate
+the successfully verified baseline. No application data was changed.
+
+### Required quality/source protection — PASS
+
+| Actual command/gate after baseline apply | Result |
+| --- | --- |
+| full go test ./... | PASS:100 tests in7 packages |
+| full go test -race ./... | PASS:100 tests in7 packages |
+| go vet ./... | PASS |
+| pinned go tool staticcheck ./... | PASS |
+| pinned go tool govulncheck ./... | PASS:exit0, No vulnerabilities found |
+| contracts pnpm lint | PASS |
+| protected-source diff / git diff --check | PASS |
+
+All backend/**, backend-go/**, frontend/**, contracts/**, scripts/** and frozen
+API_V1_CONTRACT.md remain unchanged. Only this report and POSTGRES_LAYER.md factual
+status update changed. No unnecessary repository/API/voice matrix was rerun for
+the metadata-only write; no Go traffic-owner/parity/cutover claim is made.
+
+Task-owned restore container/volume removed with ownership checks; private backup
+and canonical evidence retained outside repo. No API process was started and no
+runtime secret provisioned. No secrets printed/stored in report/repo/archive/logs.
+No commit/push/deploy, RLS rollout, API-role provisioning or Part05 work.
+
+### Review artifact and current status
+
+Permanent production-part-04 target rebuilt:
+`artifacts/production-part-04-review.tar.gz`.
+Verification PASS:305 archived files byte-match current source/report/runbook;
+all reviewed SQL/source present. Secret scan includes known live credentials and
+this task's disposable credential. No real .env, DB dump/backup/private canonical
+snapshot, secret directory, Docker volume, node_modules, generated build/test
+output or Go binary/profile. Archive is a review artifact, not a DB backup.
+
+**Status: BLOCKED. Production Prisma baseline apply PASS.**
+**Overall blocker: AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL_AFTER_BASELINE.**
+Part04 is NOT complete; RLS migration still pending, reader/runtime absent, live
+least-privilege parity NOT RUN. Stop for external review; do not proceed to RLS
+apply, API roles, Go deploy/cutover or Part05 under this authorization.
