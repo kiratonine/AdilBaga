@@ -2,8 +2,11 @@
 
 Status: **BLOCKED**
 
-Current continuation: **Phase A final local proof READY FOR OWNER/EXTERNAL REVIEW**.
-Overall blocker: `AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL`.
+Current continuation: **Prisma baseline reconciliation local proof PASS**.
+Overall blocker: `AWAITING_EXPLICIT_PRODUCTION_PRISMA_BASELINE_APPROVAL`.
+The missing-history Phase B PRE blocker was reproduced and a safe reconciliation
+path proven ONLY on a disposable clone. Production resolve/deploy remain NOT RUN.
+See the final reconciliation section. Prior failures and approval history remain.
 Sections A–T preserve the initial stopped run; current Phase A evidence follows
 in “External-review approved RLS design — Phase A”. No Supabase security apply.
 
@@ -754,3 +757,369 @@ binaries/profiles, build/test outputs, dependencies or temporary workspaces.
 
 **Overall Part 04: BLOCKED — `AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL`.**
 STOP for external review. No production apply from this uncommitted working tree.
+
+## Production Phase B — exact commit apply
+
+### Authorization and immutable source
+
+Owner explicitly authorized production security metadata apply, subject to every
+Phase B prerequisite in `TODO/PRODUCTION_PART_04_PHASE_B.md`. This resolves the
+historical `AWAITING_EXPLICIT_PRODUCTION_RLS_APPLY_APPROVAL` blocker; all prior
+Phase A findings, failures and local proof above are retained, not overwritten.
+
+Fetch/prune PASS. Branch `integrate/full-stack`, initial working tree clean,
+HEAD = origin = `60c5e40c2dcca4866478f7fe7b4501f4b080726f`.
+Reviewed commit message: `feat(go): add production PostgreSQL read layer`.
+All three SHA-256 checks PASS, reconfirmed before read-only status diagnosis:
+
+| Reviewed artifact | SHA-256 |
+| --- | --- |
+| security migration.sql | `804feb74cfaab9b9262fd5c873432e1dc61a6004a48d89010df02cdf7c524bc7` |
+| aktau_api_reader_role.sql | `bc67db66b06753c95c154405d2cd391a1705c50dcfabac5febd78965d75b5ac8` |
+| rollback_aktau_api_reader_access.sql | `04faeb0e6196cd542e2fb58b5268f6f157630b8022096a88a8054aeff54c5a60` |
+
+Tooling preflight PASS: Go1.27.1 linux/amd64, PostgreSQL clients17.10,
+Docker client/server29.1.3. Reviewed SQL/source, NestJS credentials and frozen
+contracts were not edited. Only this existing report changes in the repository.
+
+### Live read-only PRE inspection
+
+All catalog/count audit batches explicitly SET default_transaction_read_only=on,
+statement_timeout=5000, then BEGIN READ ONLY. Inspected defaults/transaction were
+both on; timeout5s. Identity current_user=session_user=postgres. Exactly seven
+ordinary public app tables, all owned by postgres, RLS7/FORCE0/policies0.
+Both aktau_api_reader and aktau_api_runtime absent; no memberships involving them.
+No application data was extracted into this report.
+
+| Table | Current live count |
+| --- | ---: |
+| stores | 3 |
+| store_locations | 15 |
+| categories | 6 |
+| raw_products | 863 |
+| canonical_products | 849 |
+| product_mappings | 863 |
+| offers | 863 |
+
+Like-for-like comparison with Phase A's saved information_schema.table_privileges
+projection PASS; schema/database ACL projection PASS, including existing PUBLIC
+CONNECT. Full current aclexplode table/schema/database ACLs including grantors
+were captured privately outside repo (0600 metadata file).
+
+**Audit precision limitation:** the previous information_schema table projection
+does not enumerate PostgreSQL17 MAINTAIN and represents owner grantability
+differently from the stored ACL. Current aclexplode additionally reports MAINTAIN
+for anon/authenticated/postgres/service_role on all seven tables and explicit
+non-grantable entries for postgres. An initial cross-projection assertion failed;
+like-for-like inspection confirmed the previously recorded projection matches.
+This is not evidence that MAINTAIN was newly granted, and no ACL was repaired or
+revoked. Complete historical grantor/MAINTAIN parity cannot be certified from the
+old table projection; external review should reconcile this baseline evidence
+before a future forward attempt. No full managed-ACL PRE PASS is claimed.
+
+### Mandatory migration-history gate — FAIL / STOP
+
+Read-only catalog proved `public._prisma_migrations` absent. A catalog search
+found no `_prisma_migrations` relation in any schema. The first SELECT of the
+expected table returned undefined relation; safe catalog existence checks then
+confirmed absence without creating any metadata table.
+
+Actual command executed using the existing private environment and Prisma CLI
+workflow, with datasource/secret output withheld:
+
+```text
+backend/: rtk pnpm exec prisma migrate status
+exit: 1
+2 migrations found
+pending:
+  20260923000000_init
+  20261004000000_rls_runtime_access
+```
+
+Required state was init **applied** and **only** RLS migration pending.
+It is not satisfied. Existing application tables/data do not prove Prisma has
+recorded init. Deploy would include the unapproved init, not only the approved
+security migration. Therefore Phase B stops BEFORE bootstrap and all production
+writes. No migrate deploy/dev/reset/db push, migrate resolve, metadata insertion,
+replay or history repair was attempted. This requires a separately reviewed
+Prisma baseline/reconciliation procedure and owner authorization, not a hot fix.
+
+### Remaining gates — NOT RUN after PRE STOP
+
+| Gate | Actual Phase B result |
+| --- | --- |
+| Git clean/exact SHA + three artifact hashes | PASS |
+| Live RLS/FORCE/policies/role absence/count inspection | PASS |
+| Like-for-like previously captured managed ACL projection | PASS; full historic ACL limitation above |
+| Init applied / only RLS migration pending | FAIL: both migrations pending, history table absent |
+| Fresh Phase B backup + restore/count/lifecycle proof | NOT RUN: PRE blocker discovered first |
+| Exact group bootstrap | NOT RUN |
+| Prisma security migration deploy | NOT RUN |
+| Runtime LOGIN/password provisioning | NOT RUN; no new secret generated |
+| Restricted SELECT5/raw+mapping denial/privilege metadata | NOT RUN |
+| Live TestLiveReadOnlyParity / local restricted Go readiness | NOT RUN |
+| Final Phase B Go unit/race/vet/staticcheck/govulncheck/contracts lint | NOT RUN after STOP; historic Phase A PASS retained, not relabelled |
+| Emergency rollback | NOT NEEDED: no forward production mutation |
+
+No new Docker resources or local API processes were created. Existing private
+backups are retained, but are not claimed as a fresh Phase B backup/restore PASS.
+Only SELECT/catalog inspection, read-only Prisma status and connection-local
+read-only controls were used against production. No data/schema/RLS/policy/role/
+ACL/history mutation, credentials change, traffic cutover, deploy, Part05,
+commit or push occurred.
+
+### Review artifact and final status
+
+Permanent `production-part-04` archive target rebuilt:
+`artifacts/production-part-04-review.tar.gz`.
+Verification PASS: all305 archived files byte-match current source, including
+this report; exact reviewed SQL and required source present. No real .env,
+known credentials/private-key patterns, DB dumps/backups, secret directories,
+node_modules, build/test outputs, binaries/profiles or temporary workspaces.
+Protected source diff empty; final git diff --check PASS.
+
+**Status: BLOCKED — `PRODUCTION_PRISMA_INIT_HISTORY_MISSING`.**
+Phase B production security apply: NOT RUN. Part04 implementation gates are not
+COMPLETE; Part05 NOT STARTED. Stop for external review of migration provenance
+and full historical ACL baseline before any production write.
+
+## Phase A prompt re-entry — preflight scope mismatch
+
+The owner requested execution of the original
+`TODO/PRODUCTION_PART_04_RLS_PHASE_A_FIX_PROMPT.md` after the Phase B PRE stop.
+The prompt was reread with root AGENTS.md and the current report changes.
+Fetch/prune completed; branch integrate/full-stack; HEAD=origin remains
+`60c5e40c2dcca4866478f7fe7b4501f4b080726f`, not the original prompt's expected
+`fa985f3312802995ff3bf6dfec31a180727f3c0e`. The only working-tree modification
+was the known Phase B report above; protected source diff was empty.
+Go1.27.1, PG clients17.10 and Docker29.1.3 were verified again.
+
+The original Phase A design and its subsequent hardening are already in the
+current reviewed commit, with the local PASS evidence preserved above. No
+duplicate migration, source rewrite, reset/rebase or replay was performed.
+This older read-only/local-only prompt does not authorize production Prisma
+history reconciliation and cannot override the failed Phase B prerequisite.
+Execution stops at the baseline/scope mismatch rather than treating the old
+approval-only blocker as the current state. No new DB access, local integration
+rerun or production mutation occurred in this re-entry; historical tests are not
+claimed as newly run.
+
+Overall status remains **BLOCKED — PRODUCTION_PRISMA_INIT_HISTORY_MISSING**,
+with the full historical ACL evidence limitation retained. A separately reviewed
+baseline/reconciliation scope is needed before Phase B can resume. Part05 was
+not started; no commit/push/deploy. The same permanent production-part-04 archive
+was rebuilt and verified:305 files byte-match current source/report, reviewed SQL
+present, exclusions and known-secret scan PASS. git diff --check PASS.
+
+## Prisma baseline reconciliation — local proof
+
+### Scope, preflight and immutable evidence
+
+Executed the CURRENT reconciliation prompt, not the superseded Phase A prompts.
+Fetch/prune PASS; branch integrate/full-stack; HEAD=origin=
+`60c5e40c2dcca4866478f7fe7b4501f4b080726f`
+(`feat(go): add production PostgreSQL read layer`). Initial working tree had
+only this report's known previous-run changes. No unknown source changes.
+Prisma CLI skill guided status/resolve/deploy usage; existing Prisma5.22.0 was
+verified and preserved. No config/dependency/SQL changes were required.
+
+All three reviewed bootstrap/security/rollback hashes still match the Phase B
+table above. Checked-in init SHA-256:
+`a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92`.
+No init SQL was edited or executed against production.
+
+### Fresh canonical production baseline — READ ONLY
+
+Fresh private audit enforced SET default_transaction_read_only=on,
+statement_timeout=5000, BEGIN READ ONLY; inspected defaults/transaction on and
+timeout5s. Identity current_user=session_user=postgres, active_role=none.
+All seven exact ordinary public app tables remain owned by postgres,
+RLS7/FORCE0/policies0. Reader/runtime roles absent; `_prisma_migrations` absent.
+Existing PUBLIC CONNECT present. Relevant existing role flags and memberships
+were captured privately, without passwords or any provider secret.
+
+**The current complete aclexplode snapshot is canonical**, as the CURRENT prompt
+requires. The historical information_schema projection was not used to infer
+past MAINTAIN/grantor values. This resolves the evidentiary limitation for a
+future rollout baseline without pretending the older audit was complete:
+
+- anon/authenticated/postgres/service_role each have eight stored privileges on
+  all seven tables: SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN;
+  explicit is_grantable=false, grantor=postgres, no PUBLIC table ACL.
+- public schema: PUBLIC/anon/authenticated/postgres/service_role USAGE;
+  pg_database_owner USAGE+CREATE; explicit grantor=pg_database_owner,
+  is_grantable=false. No PUBLIC CREATE.
+- database: PUBLIC CONNECT+TEMPORARY; postgres/dashboard_user CONNECT+CREATE+
+  TEMPORARY; supabase_etl_admin/supabase_storage_admin CREATE; all stored
+  grantor=postgres, is_grantable=false. No new database grants.
+
+Owner authority explains information_schema's different owner grantability;
+it is not an explicit grant option in the stored ACL. No managed grant was
+repaired/revoked. These exact full ACLs, ownership, roles/memberships, policies
+and counts were captured in a private0600 metadata snapshot outside the repo.
+
+### Fresh private backup, restore and schema proof
+
+New backup directory:
+`/home/denis/.local/share/aktau-market/backups/part04-prisma-baseline/2026-10-04T00-25-53-644Z/`.
+Contains public schema-only SQL and custom-format data dump with --no-owner/
+--no-acl, plus private canonical catalog metadata. Directory0700/files0600
+verified. Before/after production audit and counts unchanged. Dumps/data/ACL
+snapshot are NOT in repo or archive. No whole-Supabase disaster-recovery claim.
+
+New task-owned postgres:17-alpine container/volume with loopback-only port15434,
+random private disposable credentials; no production credentials in Docker.
+Verified empty clone public schema was removed locally before restore because
+the dump creates it. Restore --no-owner/--no-acl/--exit-on-error exited0, no ignored
+errors. Restored structure matches fresh live structure.
+
+| Table | Live before/after dump/final | Fresh clone before/after resolve/deploy |
+| --- | ---: | ---: |
+| stores | 3 | 3 |
+| store_locations | 15 | 15 |
+| categories | 6 | 6 |
+| raw_products | 863 | 863 |
+| canonical_products | 849 | 849 |
+| product_mappings | 863 | 863 |
+| offers | 863 | 863 |
+
+A second clean disposable database used ONLY the checked-in init migration.
+Semantic comparison PASS: 3 enums/ordered values,7 tables,48 columns/types/
+nullability/defaults,15 PK/FK constraints including8 FK cascade actions,21 indexes
+including PK/unique definitions. The only allowed security difference was
+restored clone RLS7/FORCE0/policies0 vs init-only RLS0/FORCE0/policies0.
+No other application structure difference was ignored.
+
+Because --no-acl dumps omit privileges, the complete CURRENT live table/schema/
+database ACL baseline was reproduced ONLY on clone before reconciliation.
+This includes MAINTAIN, actual grantors, explicit grantability and schema/table
+ownership. Managed roles were simulated as safe NOLOGIN roles; no production
+credentials/admin memberships copied. Full cloned managed ACL matrix matched
+canonical live before local resolve; subsequent comparisons used that snapshot.
+
+### Missing-history reproduction and local resolve
+
+Actual Prisma5.22.0 status on production (READ ONLY) and restored clone both
+returned exit1 and pending init + RLS migration; history table absent. This is
+the required blocker reproduction, not a hidden failure. Prisma mutation wrapper
+asserted task-owned Docker label, loopback host/port and disposable DB target,
+overriding BOTH DATABASE_URL and DIRECT_URL in process memory. Production helper
+allowed only `migrate status`; no resolve/deploy path to production.
+
+LOCAL clone command:
+
+```text
+rtk pnpm exec prisma migrate resolve --applied 20260923000000_init
+exit 0
+```
+
+Immediate verification PASS: `_prisma_migrations` newly exists, exactly init
+recorded, finished_at non-null, rolled_back_at null, applied_steps_count=0.
+Observed checksum:
+`a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92`,
+exactly equals checked-in file SHA-256. This is observed Prisma/file evidence,
+not an invented checksum algorithm. No manual history SQL was used.
+
+Pre/post local resolve application structure, counts, ownership, RLS7/FORCE0/
+policies0, complete table/schema/database ACLs, relevant role flags/memberships
+all equal; reader/runtime absent. Only migration metadata was added.
+Post-resolve `rtk pnpm exec prisma migrate status` returned exit1 with ONLY
+`20261004000000_rls_runtime_access` pending; no failed/rolled-back/extra record.
+
+### Local deploy and restricted parity proof
+
+On clone only, executed the exact reviewed group bootstrap using psql
+ON_ERROR_STOP, then `rtk pnpm exec prisma migrate deploy`. Deploy exit0; output
+and records prove ONLY RLS migration ran, not init. Exactly two records:
+
+| Local record | Finished | Rolled back | Applied steps | Observed checksum |
+| --- | --- | --- | ---: | --- |
+| 20260923000000_init | true | false | 0 | init SHA-256 above |
+| 20261004000000_rls_runtime_access | true | false | 1 | `804feb74cfaab9b9262fd5c873432e1dc61a6004a48d89010df02cdf7c524bc7` |
+
+Security verification PASS: RLS7/FORCE0, exactly5 named reader-only SELECT/
+USING(true)/no-WITH-CHECK policies, reader SELECT5 + public USAGE only.
+No raw/mapping reader grant/policy; no database direct grant. Managed ACLs,
+application structure/ownership and seven counts unchanged except reviewed
+reader additions. No index/extension/collation was added.
+
+Disposable LOCAL part04_api_login: group-only reader membership, no owner/admin/
+superuser/role-creation/database-creation/replication/BYPASSRLS. Allowed SELECT5
+sees full clone counts; raw/mapping SELECT returns SQLSTATE42501, not empty rows.
+The existing local-only security test also proves DML/DDL denial independent of
+pool read-only defaults. No forbidden-write test ran against production.
+
+Rebuilt current committed NestJS reference (`pnpm build` PASS), no source edits.
+Native-WSL temporary runtime/dependencies copy:49 compiled files byte-identical;
+copied symlinks already valid, no repair/dependency change needed. Both NestJS
+and Go parity used the same LOCAL restricted clone credential, GET-only.
+No production env/DSN copied into the workspace; Gemini/Upstash variables absent;
+no voice/provider calls. No live repository profile enabled.
+
+Explicit existing integration profile:
+`go test -count=1 -tags=integration ./tests/integration -run '^(TestProductionClone|TestLocalCloneParity|TestCloneRestrictedSecurity)$' -v`.
+PASS:3 top-level tests,0 failed. It proves read-only pool policy, categories/
+all category filters/detail, typed dynamic options, usable offer/minPrice/UTC
+snapshot semantics, bounded SQL roundtrips and all849 IDs in exact order for
+price_asc/price_desc/name_asc. Offer ties compared per existing frozen semantics.
+
+| Search | Exact local NestJS/Go paginated count | Result |
+| --- | ---: | --- |
+| МОЛОКО | 44 | PASS |
+| `%` | 849 | PASS |
+| `_` | 849 | PASS |
+| single backslash | 4 | PASS |
+| `Молок%` / `Молок_` | 44 each | PASS |
+| backslash + `%` | 168 | PASS |
+| backslash + `_` | 0 | PASS |
+| `literal%_` + backslash + `not-present` | 0 | PASS |
+| injection-shaped string | 0 | PASS |
+
+### Quality, cleanup, protection and final live audit
+
+| Gate actually executed in this reconciliation | Result |
+| --- | --- |
+| Full go test ./... | PASS:100 tests in7 packages |
+| Full go test -race ./... | PASS:100 tests in7 packages |
+| go vet ./... | PASS |
+| pinned go tool staticcheck ./... | PASS |
+| pinned go tool govulncheck ./... | PASS:exit0, No vulnerabilities found |
+| contracts pnpm lint | PASS |
+| local clone/security/HTTP parity profile | PASS:3 tests,0 failed |
+| final production read-only canonical baseline + app structure | PASS:equal to fresh pre-backup snapshot |
+| protected source diff / git diff --check | PASS |
+
+Final production still has RLS7/FORCE0/policies0, reader/runtime absent,
+`_prisma_migrations` absent, unchanged counts/full managed ACL/role state.
+No production resolve/deploy, DDL/DML/grant/role/policy mutation or application
+repository run occurred. No secret was printed or placed in report/repo/logs.
+Own local reference stopped and generated native workspace removed; only
+ownership-labelled task container/volume removed. Fresh private backup/catalog
+evidence retained outside repo. Runtime production secret was not generated.
+
+Protected backend/src, schema/seed/init/security migration/bootstrap/rollback,
+all backend-go source, frontend and contracts remain unchanged. Only this report
+and POSTGRES_LAYER.md runbook change. No commit/push/deploy or Part05 work.
+
+### Future production gate and status
+
+POSTGRES_LAYER.md now records the proposal: fresh backup/restore + final canonical
+read-only baseline + absent history/both-pending check + init structure comparison
+→ separately approved production `resolve --applied init`
+→ verify only RLS pending/app state unchanged
+→ resume reviewed Phase B security flow. No manual history edit/replay.
+**Production resolve is a metadata write and remains separately approval-gated.**
+The earlier Phase B approval did not cover baseline history creation; this proof
+does not broaden it or count production least-privilege parity as PASS.
+
+Permanent production-part-04 target rebuilt:
+`artifacts/production-part-04-review.tar.gz`.
+Archive verification PASS:305 files byte-match current source including report
+and runbook; required reviewed SQL present; no real .env, known live/current
+disposable credentials, private ACL snapshots/backups/dumps, volumes, native
+workspace, node_modules, binaries/profiles or build/test artifacts.
+
+**Status: BLOCKED — AWAITING_EXPLICIT_PRODUCTION_PRISMA_BASELINE_APPROVAL.**
+Local reconciliation proof PASS, ready for owner/external review. Production
+history/security apply NOT RUN; live least-privilege parity NOT RUN; Part05 NOT
+STARTED. Stop for review; do not execute the proposed production sequence yet.

@@ -231,6 +231,77 @@ ROLLBACK (operator-only, exact reviewed artifact):
 No step above was applied to Supabase in Phase A. Phase B and live least-privilege
 parity remain blocked pending explicit approval; no Part 05 work is authorized.
 
+## Prisma baseline reconciliation — locally proven, production NOT applied
+
+Current immutable implementation SHA:
+`60c5e40c2dcca4866478f7fe7b4501f4b080726f`. The Phase B PRE audit found
+production has the existing application schema/data but no `_prisma_migrations`
+relation. Prisma5.22.0 reports BOTH init and security migrations pending.
+Do not run deploy in this state: it would include init, not only the approved
+security migration. Do not manually create/edit migration records.
+
+The current complete READ-ONLY aclexplode snapshot, not an inferred historical
+information_schema projection, is now the canonical security baseline. It
+includes MAINTAIN, explicit grantability and grantors. Current managed table ACL
+contains eight privileges per table for anon/authenticated/postgres/service_role,
+all explicitly non-grantable, grantor postgres. Table ownership still supplies
+owner authority; information_schema's owner grantability is not the stored ACL.
+Schema/database ACLs and relevant role attributes/memberships are also captured.
+Canonical metadata and fresh public dumps are private outside repo (0700/0600).
+No historical MAINTAIN values were guessed and no managed grant was revoked.
+
+Fresh PG17 clone restore exited0, seven counts matched live, and the init-only
+reference matched 3 enums, 7 tables, 48 columns, 15 constraints/8 FKs and21 indexes
+including FK actions/defaults/nullability. Only allowed security difference:
+clone RLS7/FORCE0/policies0 vs init RLS0/FORCE0/policies0.
+Init file SHA-256:
+`a5515ab64d6f8307df96971eb9ee1f7f41d6873e877d591167bde6450e881a92`.
+
+On the LOCAL clone only, Prisma `migrate resolve --applied 20260923000000_init`
+exited0, created exactly one successful record and left application structure,
+counts, RLS/policies/ownership/full managed ACL unchanged. Observed Prisma
+checksum equals that file SHA-256; no checksum algorithm was assumed.
+Status then showed only the RLS migration pending. Exact reviewed bootstrap and
+Prisma deploy applied only RLS, exited0, and produced two successful records.
+Restricted local group-only login passed repository/NestJS parity for all849 IDs
+in each sort, categories/filters/detail and wildcard/backslash search; raw/mapping
+denied. Current complete managed ACLs including grantors/MAINTAIN were reproduced
+locally before resolve because --no-acl dumps omit them, then verified unchanged
+except the reviewed reader additions. Local disposable resources were removed.
+
+### Proposed future production baseline gate — DO NOT EXECUTE yet
+
+This sequence is a proposal for separately reviewed owner approval, **not** a
+production action authorized by the local proof:
+
+1. Recheck immutable reviewed SHA/source, fresh private public backup and restore
+   PASS with seven-count equality.
+2. Capture final READ-ONLY canonical complete ACL/RLS/role/count baseline; require
+   RLS7/FORCE0/policies0, reader/runtime absent, existing PUBLIC CONNECT.
+3. Verify production `_prisma_migrations` absent and BOTH expected migrations
+   pending; STOP on any failed/rolled-back/unexpected migration or state change.
+4. Reconfirm production application structure equals checked-in init except the
+   reviewed existing RLS state; STOP on any other application drift.
+5. **Only under separate explicit approval**, execute production Prisma5.22.0
+   `migrate resolve --applied 20260923000000_init`. This is a production metadata
+   write, not read-only verification. No manual history SQL or init replay.
+6. Verify exactly init successfully recorded, observed checksum/file evidence,
+   only RLS pending, and application structure/count/security/managed ACL baseline
+   unchanged. STOP on any mismatch; no blind retry or metadata cleanup.
+7. Only then resume the previously reviewed Phase B PRE/bootstrap/security-deploy/
+   restricted LOGIN/live-verification flow with its own exact artifact hashes and
+   backup/rollback gates. Do not deploy Go or start Part05 automatically.
+
+If security migration is recorded applied and an emergency guarded rollback is
+later needed, do not modify/delete `_prisma_migrations`, replay the migration or
+mark it resolved ad hoc. Stop for separately reviewed history reconciliation.
+
+Current overall blocker:
+`AWAITING_EXPLICIT_PRODUCTION_PRISMA_BASELINE_APPROVAL`.
+Production resolve/deploy/roles/policies/data were NOT changed by this proof.
+The full observed results are in the same Part04 report; live least-privilege
+parity still awaits future production security apply. NestJS is traffic owner.
+
 ## Repository implementation (HTTP still unwired)
 
 `internal/catalog` contains domain models and category/product interfaces.
