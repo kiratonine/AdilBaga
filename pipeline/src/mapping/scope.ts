@@ -13,6 +13,8 @@ export function publishCategories(env: string | undefined = process.env.PUBLISH_
   for (const raw of env.split(',')) {
     const slug = raw.trim()
     if (!isCategorySlug(slug)) throw new Error(`PUBLISH_CATEGORIES: unknown category ${slug}`)
+    // ingest требует строку в public.categories; расширение охвата = сначала миграция, потом env
+    if (!DEFAULT_PUBLISH_CATEGORIES.includes(slug)) throw new Error(`PUBLISH_CATEGORIES: category ${slug} has no row in the taxonomy migration; add it to the migration first`)
     out.add(slug)
   }
   return out
