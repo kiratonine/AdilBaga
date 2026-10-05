@@ -1,0 +1,10 @@
+# PLANNED / NOT ACTIVATED — NOT ACTIVE, placeholder-only, do not run.
+# api.aktau.market: PLANNED ONLY / NOT OWNED / NOT RESOLVED / NOT ACTIVE.
+# Host-placement illustration; requires verified loopback-only Docker publish.
+# HSTS: DEFERRED. No actual credential path or tunnel has been created.
+tunnel: <TUNNEL_UUID>
+credentials-file: <PRIVATE_CREDENTIALS_FILE_OUTSIDE_REPO>
+ingress:
+  - hostname: api.aktau.market
+    service: http://127.0.0.1:8080
+  - service: http_status:404
