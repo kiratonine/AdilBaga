@@ -108,3 +108,18 @@ func TestCanonicalIdentityAndQuality(t *testing.T) {
 		t.Fatal("unknown category")
 	}
 }
+
+func TestDecodeAcceptsPipelineBundle(t *testing.T) {
+	f, err := os.Open("testdata/pipeline_bundle.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	b, err := Decode(f)
+	if err != nil {
+		t.Fatalf("pipeline bundle rejected: %v", err)
+	}
+	if len(b.RawProducts) != 3 || len(b.Groups) != 2 || len(b.Sources) != 3 {
+		t.Fatalf("unexpected shape: %d raw, %d groups, %d sources", len(b.RawProducts), len(b.Groups), len(b.Sources))
+	}
+}
