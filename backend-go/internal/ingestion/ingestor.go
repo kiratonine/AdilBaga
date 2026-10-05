@@ -16,13 +16,15 @@ const AdvisoryLockKey int64 = 0x414b54415508
 type Ingestor struct {
 	conn    *pgx.Conn
 	maxDrop float64
+	// recluster включает разовую детерминированную политику слияний/разделений canonical
+	recluster bool
 }
 
-func New(conn *pgx.Conn, maxDrop float64) (*Ingestor, error) {
+func New(conn *pgx.Conn, maxDrop float64, recluster bool) (*Ingestor, error) {
 	if conn == nil || math.IsNaN(maxDrop) || math.IsInf(maxDrop, 0) || maxDrop < 0 || maxDrop > 100 {
 		return nil, errors.New("ingestion configuration invalid")
 	}
-	return &Ingestor{conn: conn, maxDrop: maxDrop}, nil
+	return &Ingestor{conn: conn, maxDrop: maxDrop, recluster: recluster}, nil
 }
 func (e *Ingestor) lock(ctx context.Context) error {
 	var ok bool
@@ -143,7 +145,7 @@ func (e *Ingestor) DryRun(ctx context.Context, b Bundle) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	_, report, err := resolve(b, previous.Identities, previous.Counts, previous.Categories, e.maxDrop)
+	_, report, err := resolve(b, previous.Identities, previous.Counts, previous.Categories, e.maxDrop, e.recluster)
 	return report, err
 }
 
@@ -280,7 +282,7 @@ func (e *Ingestor) Stage(ctx context.Context, b Bundle) (*Staged, error) {
 		e.unlock()
 		return nil, errors.New("snapshot staging unavailable")
 	}
-	s.groups, s.Report, err = resolve(b, previous.Identities, previous.Counts, previous.Categories, e.maxDrop)
+	s.groups, s.Report, err = resolve(b, previous.Identities, previous.Counts, previous.Categories, e.maxDrop, e.recluster)
 	if err != nil {
 		failure := s.fail(s.Report.FailureCode)
 		s.Close()
