@@ -6,6 +6,8 @@
 
 **Architecture:** Новый офлайн-пакет `pipeline/` на TypeScript, независимый от NestJS: NestJS удаляется при cutover на Go (roadmap Part 19), поэтому пакет к нему не привязан. Пайплайн состоит из трёх стадий: `scrape:<store>` → `data/sources/<store>.json`, `agent:classify` (LLM-категоризация и атрибуты), `agent:match` (блокировка кандидатов → LLM-сопоставление → жёсткие guard'ы) → `data/agent/bundle.json`. Публикацию делает уже готовый `backend-go/cmd/ingest` (staging, quality gates, атомарный publish, advisory lock). Анвар подключается вторым этапом (Phase B), после разведки API мобильного приложения. Phase A (3 сети) не зависит от исхода этой разведки.
 
+**Обновление 2026-10-06 (решение команды, Phase A2):** LLM используется **один раз** — разовые `agent:classify` + `agent:match` на бесплатных ключах Gemini. Их результат сохраняется в git как **словарь соответствий** `data/mapping/dictionary.json`: `магазин:id → карточка, категория, атрибуты`. Регулярное обновление цен 1–2 раза в сутки — команда `pnpm sync`: адаптеры + словарь → bundle → `cmd/ingest`, **без LLM**. Товары, которых нет в словаре, публикуются одиночными карточками с `reviewStatus=pending` и попадают в `data/sync/unmapped.json`. Их еженедельная обработка (`agent:new`) — отдельное решение Дениса о выборе агента, в этом плане она только описана (Task 18).
+
 **Tech Stack:** Node 24 + TypeScript 5.8 + tsx, pnpm 10, vitest 3, zod 3, cheerio 1; Gemini REST (`GEMINI_MODEL`, ключи `GEMINI_API_KEY*` — уже используются в проекте); Go 1.27.1 + pgx v5 (`backend-go`); PostgreSQL 17 (Supabase `adil-baga`, ref `yowrsuztaadurovqvxmv`); Prisma 5.22 (только SQL-миграции); docker `postgres:17-alpine` в роли тестовой БД.
 
 **Spec:** Jira [SCRUM-7](https://cryptonite.atlassian.net/browse/SCRUM-7) (эпик SCRUM-5 «Aktau Market», спринт «Подготовка к пилоту»). Требования к data layer: `docs/context/04_BACKEND_2_SCOPE.md`. Архитектура ingestion: `docs/PRODUCTION_ROADMAP_AKTAU_MARKET.md` (Part 08–09) и `docs/production/reports/PART_08_REPORT.md`.
@@ -57,8 +59,20 @@
 - Никогда не матчить два raw **одной сети** в один canonical. Никогда не матчить разный объём, вес или количество в упаковке.
 - Bundle должен проходить `ingestion.Decode` без изменений формата: `version: "1.0"`, поля `rawProducts`, `canonicalProducts`, `sourceRuns`.
 - Сначала тестовая БД (локальный docker `postgres:17-alpine`), затем `-apply` без флага на Supabase (dry-run), и только после явного «ок» от Denis Andersen — `-apply` в production.
-- Сгенерированные данные (`data/sources/*.json`, `data/agent/**`) в git не коммитятся. Коммитятся только скрипты, фикстуры и отчёт.
+- Сгенерированные данные (`data/sources/*.json`, `data/agent/**`, `data/sync/**`) в git не коммитятся. Коммитятся только скрипты, фикстуры, отчёт и **словарь** `data/mapping/dictionary.json`.
+- LLM (Gemini, бесплатные ключи) вызывается только в разовых командах `agent:classify` / `agent:match`. `pnpm sync` и всё, что он импортирует, не должны вызывать LLM и не должны требовать `GEMINI_API_KEY*`. Это решение Дениса от 2026-10-06.
+- `sourceProductId` у каждого товара обязан быть стабильным между запусками: на нём держится словарь. Смена адаптера (например, Dana HTML → JSON) не должна менять формат id.
 - Предварительные требования на машине: pnpm 10 (`corepack enable`), Go 1.27.1, Docker. На текущей Windows-машине сейчас установлен только Node 24.
+
+## Порядок выполнения после обновления 2026-10-06
+
+Task 1–10 выполнены. Дальше в таком порядке:
+1. Task 11 Step 2: дорастить `agent:classify` (Gemini, кэш уже на 82%), но `agent:match` **пока не запускать**.
+2. **Task 15** (словарь) — чтобы `agent:match` сразу писал и bundle, и словарь.
+3. Task 11 Step 2: запустить `agent:match` (Gemini). Затем Task 11 Step 3–5 на тестовой БД. Step 6 (production) по-прежнему только после «ок» Дениса.
+4. **Task 16** (`pnpm sync` без LLM) + проверка на тестовой БД.
+5. **Task 17** (разведка JSON API у Dana).
+6. Task 18 — не выполнять: это решение Дениса. Phase B — позже.
 
 ## Review Focus
 
@@ -67,6 +81,8 @@
 3. **LLM вернула мусор**: невалидный JSON, чужой `id`, категорию вне таксономии, объём, который противоречит названию. Ожидание: ответ отбрасывается, повторяется один раз, затем товар уходит в `other` или в одиночную группу, без падения. Тесты: Task 7, `rejects unknown ids and categories`, `regex size wins over llm size`.
 4. **Ложное сопоставление**: «Молоко 2.5% 1 л» и «Молоко 3.2% 1 л» одного бренда, или два товара одной сети в одной группе. Ожидание: группы разделены. Тесты: Task 8, `guard splits different fat`, `guard never merges same store`.
 5. **«Анвар» как бренд, а не сеть.** Сахар «АНВАР» продаётся в Dina. Ожидание: он остаётся товаром Dina с брендом «Анвар», а его `storeCode` не превращается в ANVAR. Тест: Task 7, `keeps brand Анвар for non-anvar store`.
+6. **Ежедневный `sync` на устаревших или неполных файлах.** Скрапер одной сети упал, а `sync` взял вчерашний файл или опубликовал snapshot без сети. Ожидание: отказ с понятной ошибкой. Тест: Task 16, `refuses stale or missing source files`.
+7. **Повторный `sync` без новых товаров плодит новые карточки или меняет ID.** Ожидание: dry-run `cmd/ingest` в строгом режиме (без `-recluster`) показывает `newCanonicalCount: 0`. Проверка: Task 16 Step 5.
 
 ---
 
@@ -109,6 +125,15 @@ backend-go/internal/catalog/models.go, internal/postgres/dashboard.go  # Task 13
 contracts/openapi.yaml, frontend/src/api/types.ts, frontend/src/lib/stores.ts, frontend/src/lib/categoryIcons.ts
 docs/data/ANVAR_SOURCE.md, docs/data/FIXPRICE_SOURCE.md, docs/data/SCRUM-7_REPORT.md
 .gitignore
+
+# Phase A2 (обновление 2026-10-06)
+pipeline/src/mapping/dictionary.ts          # Task 15: словарь из bundle, чтение/запись, детерминированный формат
+pipeline/src/sync/sync.ts                   # Task 16: bundle из свежих файлов + словарь, без LLM
+pipeline/src/cli/sync.ts                    # Task 16: pnpm sync
+pipeline/scripts/daily-sync.sh              # Task 16: scrape → sync → ingest (для cron/systemd в SCRUM-8)
+data/mapping/dictionary.json                # Task 15: коммитится в git
+docs/data/SYNC_RUNBOOK.md                   # Task 16
+docs/data/DANA_SOURCE.md                    # Task 17
 ```
 
 ---
@@ -1913,6 +1938,466 @@ Expected: JSON с `"applied":true`, без `failureCode`.
 git add docs/data/SCRUM-7_REPORT.md backend-go/scripts/local-ingest-db.sh
 git commit -m "docs(data): SCRUM-7 phase A full-catalog import report"
 ```
+
+---
+
+# PHASE A2 — словарь и ежедневное обновление без LLM (обновление 2026-10-06)
+
+Решение Дениса (голосовые от 2026-10-06): LLM один раз раскладывает и сопоставляет товары, результат «прописан» в словаре, а регулярно цены обновляет обычный код. Новые товары копятся в логе, раз в неделю их вручную прогоняют через агента. Порядок выполнения — в разделе «Порядок выполнения после обновления 2026-10-06» в начале плана.
+
+### Task 15: Словарь соответствий из bundle
+
+**Files:**
+- Create: `pipeline/src/mapping/dictionary.ts`
+- Modify: `pipeline/src/cli/match.ts` (после bundle записать словарь)
+- Modify: `.gitignore` (добавить `data/sync/`; `data/mapping/` **не** игнорировать)
+- Test: `pipeline/test/dictionary.test.ts`
+
+**Interfaces:**
+- Consumes: `Bundle`, `buildBundle` (Task 9), `isCategorySlug` (Task 6), `StoreCode`
+- Produces:
+  - `type Dictionary = { version: 1; generatedAt: string; canonicals: Record<string, DictionaryCanonical>; products: Record<string, string>; storeCategories: Record<string, CategorySlug> }`
+  - `type DictionaryCanonical = { name: string; brand: string | null; category: CategorySlug; attributes: Record<string, number>; method: 'deterministic' | 'ai'; confidence: number; review: 'approved' | 'pending' }`
+  - `identity(store, sourceProductId): string` → `"DINA:5865"`
+  - `storeCategoryKey(store, path: string[] | string | null): string` → `"DINA|Молоко, яйца, масло / Молоко"`
+  - `canonicalKey(memberIds: string[]): string` → `"c_<16 hex>"`, стабилен при любом порядке участников
+  - `buildDictionary(bundle: Bundle): Dictionary`, `writeDictionary(path, d)`, `readDictionary(path): Dictionary`
+
+Словарь строится **из bundle**, а не из кластеров. Тогда название, бренд и атрибуты карточки в словаре совпадают с тем, что опубликовано через `cmd/ingest`. `storeCategories` — это категория магазина → наш слаг большинством голосов. Её использует `sync`, чтобы положить незнакомый товар хотя бы в правильную категорию.
+
+- [ ] **Step 1: Падающий тест** — `pipeline/test/dictionary.test.ts`:
+
+```ts
+import { mkdtempSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { buildBundle } from '../src/agent/bundle.js'
+import { buildDictionary, canonicalKey, identity, readDictionary, storeCategoryKey, writeDictionary } from '../src/mapping/dictionary.js'
+import { cp } from './helpers.js'
+
+const a = cp('DINA', '1', 'Молоко FoodMaster 3.2% 1 л', { volumeMl: 1000, fatPercent: 3.2 })
+const b = cp('DANA', 'dana_2', 'FoodMaster молоко 3,2% 1л', { volumeMl: 1000, fatPercent: 3.2 })
+const s = cp('DINA', '3', 'Сахар 1 кг', { weightGrams: 1000 }, null, 'сахар')
+a.product.sourceCategoryPath = ['Молоко, яйца, масло', 'Молоко']
+b.product.sourceCategoryPath = ['Продукты питания']
+s.product.sourceCategoryPath = ['Бакалея']
+const sources = (['DINA', 'DANA', 'FIX_PRICE'] as const).map((x) => ({ storeCode: x, city: 'Aktau' as const, capturedAt: '2026-10-06T06:00:00.000Z', errorCount: 0, sourceStats: {} }))
+const bundle = buildBundle([
+  { members: [a, b], method: 'ai', confidence: 0.97, review: 'approved' },
+  { members: [s], method: 'deterministic', confidence: 1, review: 'approved' },
+], sources, '2026-10-06T07:00:00.000Z')
+
+describe('dictionary', () => {
+  it('canonical key does not depend on member order', () => {
+    expect(canonicalKey(['DINA:1', 'DANA:dana_2'])).toBe(canonicalKey(['DANA:dana_2', 'DINA:1']))
+    expect(canonicalKey(['DINA:1'])).toMatch(/^c_[0-9a-f]{16}$/)
+  })
+  it('maps every bundle raw to its canonical, word order in names does not matter', () => {
+    const d = buildDictionary(bundle)
+    expect(Object.keys(d.products)).toHaveLength(3)
+    expect(d.products[identity('DINA', '1')]).toBe(d.products[identity('DANA', 'dana_2')])
+    const milk = d.canonicals[d.products[identity('DINA', '1')]!]!
+    expect(milk).toMatchObject({ name: bundle.canonicalProducts[0]!.canonicalName, category: 'milk', method: 'ai', review: 'approved', attributes: { volumeMl: 1000, fatPercent: 3.2 } })
+  })
+  it('learns store category → slug', () => {
+    const d = buildDictionary(bundle)
+    expect(d.storeCategories[storeCategoryKey('DINA', ['Молоко, яйца, масло', 'Молоко'])]).toBe('milk')
+    expect(d.storeCategories[storeCategoryKey('DINA', ['Бакалея'])]).toBe('sugar')
+  })
+  it('writes a deterministic, diff-friendly file and reads it back', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'dict-')), 'dictionary.json')
+    const d = buildDictionary(bundle)
+    writeDictionary(path, d)
+    const first = readFileSync(path, 'utf8')
+    writeDictionary(path, readDictionary(path))
+    expect(readFileSync(path, 'utf8')).toBe(first)
+    expect(first.split('\n').filter((l) => l.includes('"DINA:1"'))).toHaveLength(1)
+  })
+  it('rejects a product pointing to a missing canonical', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'dict-')), 'dictionary.json')
+    const d = buildDictionary(bundle)
+    d.products['DINA:999'] = 'c_0000000000000000'
+    writeDictionary(path, d)
+    expect(() => readDictionary(path)).toThrow(/missing canonical/)
+  })
+})
+```
+
+Run: `cd pipeline && pnpm test dictionary` → Expected: FAIL (`Cannot find module '../src/mapping/dictionary.js'`).
+
+- [ ] **Step 2: Реализация** `pipeline/src/mapping/dictionary.ts`:
+
+```ts
+import { createHash } from 'node:crypto'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { z } from 'zod'
+import type { Bundle } from '../agent/bundle.js'
+import { isCategorySlug, type CategorySlug } from '../agent/taxonomy.js'
+import type { StoreCode } from '../types.js'
+
+const Slug = z.string().refine(isCategorySlug, 'unknown category').transform((s) => s as CategorySlug)
+const Canonical = z.object({
+  name: z.string().min(1), brand: z.string().nullable(), category: Slug, attributes: z.record(z.number()),
+  method: z.enum(['deterministic', 'ai']), confidence: z.number().min(0).max(1), review: z.enum(['approved', 'pending']),
+})
+export const DictionarySchema = z.object({
+  version: z.literal(1), generatedAt: z.string().datetime(),
+  canonicals: z.record(Canonical), products: z.record(z.string()), storeCategories: z.record(Slug),
+})
+export type Dictionary = z.infer<typeof DictionarySchema>
+export type DictionaryCanonical = z.infer<typeof Canonical>
+
+export const identity = (store: StoreCode, sourceProductId: string) => `${store}:${sourceProductId}`
+export const storeCategoryKey = (store: StoreCode, path: string[] | string | null) =>
+  `${store}|${Array.isArray(path) ? path.join(' / ') : path ?? ''}`
+
+/** Ключ задаётся один раз при создании карточки и дальше не пересчитывается — новые участники его не меняют */
+export function canonicalKey(memberIds: string[]): string {
+  const first = [...memberIds].sort()[0]
+  if (!first) throw new Error('canonical without members')
+  return `c_${createHash('sha256').update(first).digest('hex').slice(0, 16)}`
+}
+
+export function buildDictionary(bundle: Bundle): Dictionary {
+  const d = { version: 1 as const, generatedAt: bundle.generatedAt, canonicals: {} as Record<string, unknown>,
+    products: {} as Record<string, string>, storeCategories: {} as Record<string, string> }
+  const votes = new Map<string, Map<string, number>>()
+  for (const g of bundle.canonicalProducts) {
+    const ids = g.members.map((m) => identity(m.rawProduct.storeCode, m.rawProduct.sourceProductId))
+    const key = canonicalKey(ids)
+    if (d.canonicals[key]) throw new Error(`canonical key collision ${key}`)
+    const first = g.members[0]!
+    d.canonicals[key] = { name: g.canonicalName, brand: g.brand, category: g.category, attributes: g.attributes,
+      method: first.matchMethod, confidence: first.matchConfidence, review: first.reviewStatus }
+    g.members.forEach((m, i) => {
+      d.products[ids[i]!] = key
+      if (!m.rawProduct.category) return
+      const k = storeCategoryKey(m.rawProduct.storeCode, m.rawProduct.category)
+      const v = votes.get(k) ?? new Map<string, number>()
+      v.set(g.category, (v.get(g.category) ?? 0) + 1)
+      votes.set(k, v)
+    })
+  }
+  for (const [k, v] of votes) d.storeCategories[k] = [...v.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))[0]![0]
+  return DictionarySchema.parse(d)
+}
+
+/** Одна запись — одна строка, ключи отсортированы: diff в git показывает ровно изменённые товары */
+function lines(obj: Record<string, unknown>): string {
+  const keys = Object.keys(obj).sort()
+  return keys.length ? `{\n${keys.map((k) => `    ${JSON.stringify(k)}: ${JSON.stringify(obj[k])}`).join(',\n')}\n  }` : '{}'
+}
+
+export function writeDictionary(path: string, d: Dictionary): void {
+  const v = DictionarySchema.parse(d)
+  const text = `{\n  "version": 1,\n  "generatedAt": ${JSON.stringify(v.generatedAt)},\n  "canonicals": ${lines(v.canonicals)},\n` +
+    `  "products": ${lines(v.products)},\n  "storeCategories": ${lines(v.storeCategories)}\n}\n`
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(`${path}.tmp`, text, 'utf8')
+  renameSync(`${path}.tmp`, path)
+}
+
+export function readDictionary(path: string): Dictionary {
+  const d = DictionarySchema.parse(JSON.parse(readFileSync(path, 'utf8')))
+  for (const [id, key] of Object.entries(d.products)) if (!d.canonicals[key]) throw new Error(`${id}: missing canonical ${key}`)
+  return d
+}
+```
+
+В `pipeline/src/cli/match.ts` после записи `report.md` добавить:
+```ts
+import { buildDictionary, writeDictionary } from '../mapping/dictionary.js'
+// ...
+writeDictionary(resolve(DATA, 'mapping/dictionary.json'), buildDictionary(bundle))
+console.log(`[match] dictionary → ${resolve(DATA, 'mapping/dictionary.json')}`)
+```
+
+В `.gitignore` добавить строку `data/sync/`.
+
+- [ ] **Step 3: Тесты** — `pnpm test dictionary && pnpm typecheck` → PASS. Затем `pnpm test`: все прежние тесты зелёные.
+- [ ] **Step 4: Commit**
+
+```bash
+git add pipeline/src/mapping/dictionary.ts pipeline/src/cli/match.ts pipeline/test/dictionary.test.ts .gitignore
+git commit -m "feat(pipeline): product mapping dictionary built from the ingest bundle"
+```
+
+- [ ] **Step 5: Разовый прогон агента (Task 11 Step 2, Gemini).** `pnpm agent:match` → в `data/agent/` появятся `bundle.json` и `report.md`, в `data/mapping/` — `dictionary.json`. Проверить: число записей `products` в словаре равно `rawProducts.length` bundle. Словарь коммитится **после** успешных quality gates Task 11 Step 4:
+
+```bash
+git add data/mapping/dictionary.json
+git commit -m "data: initial product mapping dictionary (Dina, Dana, Fix Price)"
+```
+
+---
+
+### Task 16: `pnpm sync` — ежедневное обновление цен без LLM
+
+**Files:**
+- Create: `pipeline/src/sync/sync.ts`, `pipeline/src/cli/sync.ts`
+- Create: `pipeline/scripts/daily-sync.sh`, `docs/data/SYNC_RUNBOOK.md`
+- Modify: `pipeline/package.json` (скрипт `"sync": "tsx src/cli/sync.ts"`)
+- Test: `pipeline/test/sync.test.ts`
+
+**Interfaces:**
+- Consumes: `Dictionary`, `identity`, `storeCategoryKey`, `readDictionary` (Task 15); `buildBundle`, `Bundle` (Task 9); `extractSize`, `extractFat` (Task 5); `SourceFile`, `readSourceFile` (Task 1); `ClassifiedProduct` и `Cluster` — **только как типы**
+- Produces:
+  - `type Unmapped = { storeCode: StoreCode; sourceProductId: string; name: string; price: number; sourceCategoryPath: string[]; guessedCategory: CategorySlug }`
+  - `assertFresh(files: SourceFile[], required: StoreCode[], now: Date, maxAgeHours: number): void`
+  - `buildSyncBundle(files: SourceFile[], dict: Dictionary, generatedAt: string): { bundle: Bundle; unmapped: Unmapped[] }`
+
+**Правила:**
+- Известный товар (есть в `dict.products`) попадает в группу своей карточки. Название, бренд, категория, атрибуты, метод и уверенность берутся из словаря, цена и картинка — из сегодняшнего файла.
+- Незнакомый товар становится одиночной карточкой: категория по `storeCategories` (иначе `other`), атрибуты из regex Task 5, `matchMethod=deterministic`, `confidence=1`, `reviewStatus=pending`. Он записывается в `data/sync/unmapped.json` и выводится в лог (`[sync] unmapped: N`).
+- Товары словаря, которых сегодня нет в файле, просто не публикуются: у карточки в этом snapshot нет офферов.
+- Повторный `sync` на тех же данных даёт тот же состав групп, поэтому Go `cmd/ingest` в **строгом** режиме переиспользует все прежние ID карточек.
+- Если словарь меняли (например, после будущего `agent:new` объединились карточки), запуск `cmd/ingest` идёт с `-recluster` (Task 10).
+
+- [ ] **Step 1: Падающий тест** — `pipeline/test/sync.test.ts`:
+
+```ts
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+import { buildBundle } from '../src/agent/bundle.js'
+import { buildDictionary } from '../src/mapping/dictionary.js'
+import { assertFresh, buildSyncBundle } from '../src/sync/sync.js'
+import type { SourceFile } from '../src/types.js'
+import { cp } from './helpers.js'
+
+const a = cp('DINA', '1', 'Молоко FoodMaster 3.2% 1 л', { volumeMl: 1000, fatPercent: 3.2 })
+const b = cp('DANA', 'dana_2', 'FoodMaster молоко 3,2% 1л', { volumeMl: 1000, fatPercent: 3.2 })
+const f = cp('FIX_PRICE', 'fp_3', 'Сахар 1 кг', { weightGrams: 1000 }, null, 'сахар')
+a.product.sourceCategoryPath = ['Молоко']
+const day0 = '2026-10-06T06:00:00.000Z'
+const meta = (s: SourceFile['storeCode']) => ({ storeCode: s, city: 'Aktau' as const, capturedAt: day0, errorCount: 0, sourceStats: {} })
+const dict = buildDictionary(buildBundle([
+  { members: [a, b], method: 'ai', confidence: 0.97, review: 'approved' },
+  { members: [f], method: 'deterministic', confidence: 1, review: 'approved' },
+], (['DINA', 'DANA', 'FIX_PRICE'] as const).map(meta), day0))
+
+const today = (dinaExtra: SourceFile['products'] = []): SourceFile[] => [
+  { ...meta('DINA'), products: [{ ...a.product, price: 610 }, ...dinaExtra] },
+  { ...meta('DANA'), products: [b.product] },
+  { ...meta('FIX_PRICE'), products: [f.product] },
+]
+
+describe('sync', () => {
+  it('known products keep their dictionary card and take today prices', () => {
+    const { bundle, unmapped } = buildSyncBundle(today(), dict, '2026-10-07T06:00:00.000Z')
+    expect(unmapped).toEqual([])
+    const milk = bundle.canonicalProducts.find((g) => g.category === 'milk')!
+    expect(milk.members.map((m) => m.rawProduct.storeCode).sort()).toEqual(['DANA', 'DINA'])
+    expect(milk.members.find((m) => m.rawProduct.storeCode === 'DINA')!.rawProduct.price).toBe(610)
+    expect(milk).toMatchObject({ canonicalName: Object.values(dict.canonicals).find((c) => c.category === 'milk')!.name, attributes: { volumeMl: 1000, fatPercent: 3.2 } })
+    expect(milk.members[0]).toMatchObject({ matchMethod: 'ai', matchConfidence: 0.97, reviewStatus: 'approved' })
+  })
+  it('unknown product becomes a pending singleton in the learned store category', () => {
+    const fresh = { ...a.product, sourceProductId: '99', name: 'Молоко Новое 2.5% 900 мл', sourceCategoryPath: ['Молоко'] }
+    const { bundle, unmapped } = buildSyncBundle(today([fresh]), dict, '2026-10-07T06:00:00.000Z')
+    expect(unmapped).toEqual([expect.objectContaining({ storeCode: 'DINA', sourceProductId: '99', guessedCategory: 'milk' })])
+    const g = bundle.canonicalProducts.find((x) => x.members.some((m) => m.rawProduct.sourceProductId === '99'))!
+    expect(g).toMatchObject({ category: 'milk', attributes: { volumeMl: 900, fatPercent: 2.5 } })
+    expect(g.members).toHaveLength(1)
+    expect(g.members[0]).toMatchObject({ matchMethod: 'deterministic', reviewStatus: 'pending' })
+  })
+  it('every raw appears in exactly one group (Go bundle contract)', () => {
+    const { bundle } = buildSyncBundle(today(), dict, '2026-10-07T06:00:00.000Z')
+    expect(bundle.canonicalProducts.flatMap((g) => g.members)).toHaveLength(bundle.rawProducts.length)
+    expect(bundle.sourceRuns.map((s) => s.storeCode).sort()).toEqual(['DANA', 'DINA', 'FIX_PRICE'])
+  })
+  it('refuses stale or missing source files', () => {
+    const now = new Date('2026-10-07T06:00:00.000Z')
+    expect(() => assertFresh(today(), ['DINA', 'DANA', 'FIX_PRICE'], now, 36)).not.toThrow()
+    expect(() => assertFresh(today().slice(0, 2), ['DINA', 'DANA', 'FIX_PRICE'], now, 36)).toThrow(/FIX_PRICE: source file missing/)
+    expect(() => assertFresh(today(), ['DINA', 'DANA', 'FIX_PRICE'], new Date('2026-10-09T06:00:00.000Z'), 36)).toThrow(/stale/)
+  })
+  it('sync code never touches the LLM', () => {
+    for (const file of ['../src/sync/sync.ts', '../src/cli/sync.ts', '../src/mapping/dictionary.ts']) {
+      const src = readFileSync(new URL(file, import.meta.url), 'utf8')
+      expect(src).not.toMatch(/gemini|classifyBatch|matchBlock|GEMINI_API_KEY/)
+    }
+  })
+})
+```
+
+Run: `pnpm test sync` → Expected: FAIL (модуль не найден).
+
+- [ ] **Step 2: Реализация** `pipeline/src/sync/sync.ts`:
+
+```ts
+import { buildBundle, type Bundle } from '../agent/bundle.js'
+import type { Attributes, ClassifiedProduct } from '../agent/classify.js'
+import type { Cluster } from '../agent/match.js'
+import type { CategorySlug } from '../agent/taxonomy.js'
+import { extractFat, extractSize } from '../agent/units.js'
+import { identity, storeCategoryKey, type Dictionary } from '../mapping/dictionary.js'
+import type { SourceFile, StoreCode } from '../types.js'
+
+export type Unmapped = { storeCode: StoreCode; sourceProductId: string; name: string; price: number
+  sourceCategoryPath: string[]; guessedCategory: CategorySlug }
+
+export function assertFresh(files: SourceFile[], required: StoreCode[], now: Date, maxAgeHours: number): void {
+  for (const store of required) {
+    const file = files.find((f) => f.storeCode === store)
+    if (!file) throw new Error(`${store}: source file missing — run pnpm scrape:${store.toLowerCase().replace('_', '')}`)
+    const ageHours = (now.getTime() - Date.parse(file.capturedAt)) / 3_600_000
+    if (ageHours > maxAgeHours) throw new Error(`${store}: source file is stale (${Math.round(ageHours)} h old)`)
+  }
+}
+
+export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generatedAt: string): { bundle: Bundle; unmapped: Unmapped[] } {
+  const known = new Map<string, ClassifiedProduct[]>()
+  const clusters: Cluster[] = []
+  const unmapped: Unmapped[] = []
+  for (const file of files) {
+    for (const product of file.products) {
+      const key = dict.products[identity(file.storeCode, product.sourceProductId)]
+      const card = key ? dict.canonicals[key] : undefined
+      if (key && card) {
+        // Все участники несут данные карточки из словаря → buildBundle выдаст то же название/бренд/атрибуты
+        known.set(key, [...(known.get(key) ?? []), { storeCode: file.storeCode, product, category: card.category,
+          productType: 'dictionary', brand: card.brand, attributes: card.attributes as Attributes, displayName: card.name, flags: [] }])
+        continue
+      }
+      const guessed = dict.storeCategories[storeCategoryKey(file.storeCode, product.sourceCategoryPath)] ?? 'other'
+      const fat = extractFat(product.name)
+      unmapped.push({ storeCode: file.storeCode, sourceProductId: product.sourceProductId, name: product.name,
+        price: product.price, sourceCategoryPath: product.sourceCategoryPath, guessedCategory: guessed })
+      clusters.push({ method: 'deterministic', confidence: 1, review: 'pending', members: [{ storeCode: file.storeCode, product,
+        category: guessed, productType: 'unmapped', brand: product.brand,
+        attributes: { ...extractSize(product.name), ...(fat !== null ? { fatPercent: fat } : {}) }, displayName: product.name, flags: ['unmapped'] }] })
+    }
+  }
+  for (const key of [...known.keys()].sort()) {
+    const card = dict.canonicals[key]!
+    clusters.push({ members: known.get(key)!, method: card.method, confidence: card.confidence, review: card.review })
+  }
+  const sources = files.map(({ products: _products, ...meta }) => meta)
+  return { bundle: buildBundle(clusters, sources, generatedAt), unmapped }
+}
+```
+
+`pipeline/src/cli/sync.ts`:
+```ts
+import 'dotenv/config'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { qualityReport } from '../agent/bundle.js'
+import { readDictionary } from '../mapping/dictionary.js'
+import { readSourceFile } from '../source-file.js'
+import { assertFresh, buildSyncBundle } from '../sync/sync.js'
+import { STORE_CODES, type StoreCode } from '../types.js'
+
+const DATA = resolve(import.meta.dirname, '../../../data')
+// Пока ANVAR не подключён (Phase B), обязательны три сети; список меняется через env без правки кода
+const required = (process.env.SYNC_STORES ?? 'DINA,DANA,FIX_PRICE').split(',').map((s) => s.trim()) as StoreCode[]
+if (!required.every((s) => STORE_CODES.includes(s))) throw new Error(`SYNC_STORES invalid: ${required.join(',')}`)
+const maxAge = Number(process.env.SYNC_MAX_SOURCE_AGE_HOURS ?? 36)
+
+const files = required.map((s) => readSourceFile(resolve(DATA, 'sources', `${s.toLowerCase()}.json`)))
+assertFresh(files, required, new Date(), maxAge)
+const dict = readDictionary(resolve(DATA, 'mapping/dictionary.json'))
+const { bundle, unmapped } = buildSyncBundle(files, dict, new Date().toISOString())
+
+mkdirSync(resolve(DATA, 'sync'), { recursive: true })
+writeFileSync(resolve(DATA, 'sync/bundle.json'), JSON.stringify(bundle), 'utf8')
+writeFileSync(resolve(DATA, 'sync/unmapped.json'), JSON.stringify(unmapped, null, 2), 'utf8')
+console.log(qualityReport(bundle))
+console.log(`[sync] unmapped: ${unmapped.length} → data/sync/unmapped.json`)
+```
+
+Имена файлов источников: `scrape.ts` пишет `${code.toLowerCase()}.json`, то есть `dina.json`, `dana.json`, `fix_price.json`. `cli/sync.ts` читает те же имена.
+
+В `pipeline/package.json` добавить `"sync": "tsx src/cli/sync.ts"`.
+
+- [ ] **Step 3: Тесты** — `pnpm test sync && pnpm test && pnpm typecheck` → PASS.
+
+- [ ] **Step 4: Скрипт и runbook**
+
+`pipeline/scripts/daily-sync.sh`:
+```bash
+#!/usr/bin/env bash
+# Ежедневное обновление цен: адаптеры → словарь → cmd/ingest. Без LLM.
+# Нужные env: APP_ENV, INGEST_DATABASE_URL, INGEST_MAX_STORE_DROP_PERCENT (+ INGEST_PRODUCTION_APPLY_CONFIRM=1 в production).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+pnpm scrape:dina
+pnpm scrape:dana
+pnpm scrape:fixprice
+pnpm sync
+cd ../backend-go
+go run ./cmd/ingest -bundle ../data/sync/bundle.json            # dry-run: quality gates без записи
+go run ./cmd/ingest -bundle ../data/sync/bundle.json -apply
+```
+
+`docs/data/SYNC_RUNBOOK.md` — разделы:
+1. **Что делает** — схема выше; LLM не используется.
+2. **Запуск вручную** — `bash pipeline/scripts/daily-sync.sh` с env.
+3. **Расписание (SCRUM-8)** — пример `systemd` unit и timer на 06:00 и 18:00 по Актау (`OnCalendar=*-*-* 01,13:00:00 UTC`), `User=` отдельный, env из файла с правами 600. Одновременный запуск двух ingest исключён advisory lock в `cmd/ingest`.
+4. **Если упало** — по `failureCode` из JSON-вывода: `store_count_drop`, `required_source_missing`, `canonical_merge_conflict` (словарь меняли → запуск с `-recluster`), падение скрапера (snapshot не публикуется, на сайте остаются вчерашние цены).
+5. **Новые товары** — `data/sync/unmapped.json`; раз в неделю их обработку запускает `agent:new` (Task 18, выбор агента за Денисом). До этого они видны на сайте одиночными карточками.
+
+- [ ] **Step 5: Проверка на тестовой БД** (после Task 11 Step 3, где bundle агента уже опубликован с `-recluster`):
+
+```bash
+cd pipeline && pnpm sync
+cd ../backend-go
+export APP_ENV=development INGEST_MAX_STORE_DROP_PERCENT=10 INGEST_DATABASE_URL=<тестовая БД>
+go run ./cmd/ingest -bundle ../data/sync/bundle.json        # строгий режим, без -recluster
+```
+
+Expected: `failureCode` нет, `newCanonicalCount: 0`, `reusedCanonicalCount` = `canonicalCount`, `[sync] unmapped: 0` (файлы источников те же, что ушли в агента). Затем `-apply`, и API отдаёт те же карточки с теми же ID. Затем повторить `pnpm scrape:*` + `sync` на **свежих** данных. Ожидается небольшое число `unmapped` и dry-run без `failureCode`. Числа записать в `docs/data/SCRUM-7_REPORT.md`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add pipeline/src/sync pipeline/src/cli/sync.ts pipeline/test/sync.test.ts pipeline/package.json pipeline/scripts/daily-sync.sh docs/data/SYNC_RUNBOOK.md docs/data/SCRUM-7_REPORT.md
+git commit -m "feat(pipeline): deterministic daily price sync from mapping dictionary"
+```
+
+---
+
+### Task 17: Dana — есть ли JSON API (разведка, таймбокс 2 часа)
+
+**Files:**
+- Create: `docs/data/DANA_SOURCE.md`
+- При исходе A: Create `pipeline/test/fixtures/dana-api.json`; Modify `pipeline/src/scrapers/dana.ts`, `pipeline/test/dana.test.ts`
+
+- [ ] **Step 1 (вручную, человек):** открыть `https://dana-market.kz/catalog/produkty_pitaniya_/bakaleya/krupy/` в Chrome, DevTools → Network → Fetch/XHR. Перелистнуть страницу, поменять сортировку, открыть карточку товара, добавить товар в корзину. Записать в `docs/data/DANA_SOURCE.md` все запросы, возвращающие JSON с товарами: URL, параметры, нужные заголовки и cookie, есть ли выбор города или магазина, пример ответа на 3 товара (без cookie).
+- [ ] **Step 2: Решение**
+
+| Исход | Действие |
+|---|---|
+| A. Есть JSON со списком товаров и id Bitrix-элемента | Новый адаптер `parseDanaJson` рядом с `parseDanaPage` + фикстура `dana-api.json`. **`sourceProductId` остаётся `dana_<id элемента Bitrix>`** — тот же, что у HTML-адаптера, иначе весь словарь Dana «потеряется» |
+| B. JSON нет или он требует сессию | Оставить HTML-адаптер (он уже работает: 248 страниц, 5 корней). Зафиксировать в `DANA_SOURCE.md`, что при изменении вёрстки `sync` упадёт на `writeSourceFile` (0 товаров) и вчерашний snapshot останется опубликованным |
+
+- [ ] **Step 3 (только исход A): тест на совпадение id.** Для товара, который есть и в `dana-page.html`, и в `dana-api.json`, `parseDanaJson(...)` и `parseDanaPage(...)` дают одинаковый `sourceProductId` и цену:
+
+```ts
+it('json adapter keeps the same ids as the html adapter', () => {
+  const fromHtml = new Map(parseDanaPage(html, ['X']).map((p) => [p.sourceProductId, p.price]))
+  const fromJson = parseDanaJson(JSON.parse(readFileSync(new URL('./fixtures/dana-api.json', import.meta.url), 'utf8')), ['X'])
+  const common = fromJson.filter((p) => fromHtml.has(p.sourceProductId))
+  expect(common.length).toBeGreaterThan(0)
+  for (const p of common) expect(p.price).toBe(fromHtml.get(p.sourceProductId))
+})
+```
+Обе фикстуры для этого теста снимаются в один день с одной и той же страницы каталога. `parseDanaJson` пишется по полям реального ответа из Step 1 по образцу `mapFixPriceItem` (Task 4).
+
+- [ ] **Step 4: Commit** — `git add docs/data/DANA_SOURCE.md pipeline/src/scrapers/dana.ts pipeline/test && git commit -m "docs(data): Dana JSON API discovery"` (при исходе B — только `DANA_SOURCE.md`).
+
+---
+
+### Task 18: `agent:new` — еженедельная обработка новых товаров (НЕ ВЫПОЛНЯТЬ: выбор агента за Денисом)
+
+Задача зафиксирована как контракт: реализует её тот, кого выберет Денис, с тем агентом, который он выберет.
+
+- **Вход:** `data/sync/unmapped.json` (тип `Unmapped[]`, Task 16) + `data/mapping/dictionary.json`.
+- **Работа:** для каждого незнакомого товара определить категорию и либо привязать его к существующей карточке словаря (тот же товар другой сети), либо создать новую карточку. Можно переиспользовать `classifyBatch` / `matchBlock` (Task 7–8) с любым провайдером, реализующим `LlmCall = (prompt, schema) => Promise<unknown>`. Действуют те же правила: не матчить одну сеть дважды, не матчить разный размер или жирность, confidence ≥ 0.95 → `approved`, 0.80–0.949 → `pending`.
+- **Выход:** дополненный `dictionary.json`. Ключи существующих карточек не меняются; ключ новой — `canonicalKey(ids)`. Изменение словаря коммитится в git, чтобы diff было видно на ревью.
+- **После:** ближайший `daily-sync.sh` запускается с `-recluster` у `cmd/ingest`: прежние одиночные карточки сливаются с существующими.
 
 ---
 
