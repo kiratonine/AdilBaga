@@ -7,6 +7,8 @@ UPDATE public.categories SET name = 'Молоко и сливки' WHERE slug = 
 UPDATE public.categories SET name = 'Прочие товары' WHERE slug = 'other';
 
 INSERT INTO public.categories (id, slug, name, "filterSchema") VALUES
+ ('cat-milk','milk','Молоко и сливки','{"filters":[{"key":"volumeMl","label":"Объём","type":"multi-select"},{"key":"fatPercent","label":"Жирность","type":"multi-select"},{"key":"brand","label":"Бренд","type":"multi-select"}]}'),
+ ('cat-other','other','Прочие товары','{"filters":[]}'),
  ('cat-bread','bread','Хлеб и выпечка','{"filters":[{"key":"weightGrams","label":"Вес","type":"multi-select"},{"key":"brand","label":"Бренд","type":"multi-select"}]}'),
  ('cat-eggs','eggs','Яйца','{"filters":[{"key":"packageCount","label":"Количество","type":"multi-select"}]}'),
  ('cat-sugar','sugar','Сахар и соль','{"filters":[{"key":"weightGrams","label":"Вес","type":"multi-select"}]}'),
