@@ -50,6 +50,66 @@ func TestProxy(t *testing.T) {
 	}
 }
 
+func TestProxyExactPeerCFHeaders(t *testing.T) {
+	trusted := NewIPResolver([]netip.Prefix{netip.MustParsePrefix("192.0.2.5/32")})
+	for _, tt := range []struct {
+		name string
+		peer string
+		cf   []string
+		want string
+	}{
+		{"duplicate", "192.0.2.5:12", []string{"203.0.113.10", "203.0.113.10"}, "192.0.2.5"},
+		{"comma joined", "192.0.2.5:12", []string{"203.0.113.10, 203.0.113.11"}, "192.0.2.5"},
+		{"empty present", "192.0.2.5:12", []string{""}, "192.0.2.5"},
+		{"zoned ipv6", "192.0.2.5:12", []string{"fe80::1%eth0"}, "192.0.2.5"},
+		{"mapped client", "[::ffff:192.0.2.5]:12", []string{"::ffff:203.0.113.10"}, "203.0.113.10"},
+		{"adjacent untrusted peer", "192.0.2.6:12", []string{"203.0.113.10"}, "192.0.2.6"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r := httptest.NewRequest("GET", "/", nil)
+			r.RemoteAddr = tt.peer
+			for _, value := range tt.cf {
+				r.Header.Add("CF-Connecting-IP", value)
+			}
+			r.Header.Set("X-Forwarded-For", "203.0.113.99")
+			if got := trusted.Resolve(r); got != tt.want {
+				t.Fatalf("got %s want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCORSNonBrowserVoice(t *testing.T) {
+	for _, tt := range []struct {
+		name, origin, method string
+		want                 int
+	}{
+		{"Shortcut without Origin", "", "POST", 201},
+		{"exact browser", "https://aktau.market", "POST", 201},
+		{"unapproved browser", "https://evil.example", "POST", 403},
+		{"browser preflight", "https://aktau.market", "OPTIONS", 204},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r := httptest.NewRequest(tt.method, "/api/voice/start", nil)
+			if tt.origin != "" {
+				r.Header.Set("Origin", tt.origin)
+			}
+			r.Header.Set("Access-Control-Request-Method", "POST")
+			r.Header.Set("Access-Control-Request-Headers", "Content-Type,X-Request-ID")
+			w := httptest.NewRecorder()
+			CORS([]string{"https://aktau.market"})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(201)
+			})).ServeHTTP(w, r)
+			if w.Code != tt.want {
+				t.Fatalf("got %d want %d", w.Code, tt.want)
+			}
+			if tt.origin == "" && w.Header().Get("Access-Control-Allow-Origin") != "" {
+				t.Fatal("non-browser request gained CORS origin")
+			}
+		})
+	}
+}
+
 func TestRequestID(t *testing.T) {
 	for _, id := range []string{"", "safe-ID_123.abc", "bad value", strings.Repeat("a", 65), "кириллица"} {
 		t.Run(id, func(t *testing.T) {
