@@ -6,6 +6,7 @@ import type { IconName } from '../components/ui/Icon'
  */
 const ICONS: Record<string, IconName> = {
   milk: 'milk',
+  dairy: 'milk',
   bread: 'bread',
   eggs: 'egg',
   sugar: 'sugar',
