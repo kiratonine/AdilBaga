@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
@@ -36,6 +37,24 @@ func RequestIDValue(ctx context.Context) string {
 func ClientIPValue(ctx context.Context) string {
 	value, _ := ctx.Value(clientIPKey).(string)
 	return value
+}
+
+func SecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Log only router templates, never user-controlled IDs or unknown paths.
+func logPath(r *http.Request) string {
+	if rc := chi.RouteContext(r.Context()); rc != nil {
+		if pattern := rc.RoutePattern(); pattern != "" {
+			return pattern
+		}
+	}
+	return "unmatched"
 }
 
 func WriteError(w http.ResponseWriter, status int) {
@@ -88,7 +107,7 @@ func AccessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 			if status == 0 {
 				status = 200
 			}
-			logger.InfoContext(r.Context(), "http_request", "request_id", RequestIDValue(r.Context()), "method", r.Method, "path", r.URL.Path, "status", status, "duration_ms", time.Since(start).Milliseconds(), "client_ip", ClientIPValue(r.Context()))
+			logger.InfoContext(r.Context(), "http_request", "request_id", RequestIDValue(r.Context()), "method", r.Method, "path", logPath(r), "status", status, "duration_ms", time.Since(start).Milliseconds())
 		})
 	}
 }
@@ -99,7 +118,7 @@ func Recover(logger *slog.Logger) func(http.Handler) http.Handler {
 			ww := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			defer func() {
 				if recover() != nil {
-					logger.ErrorContext(r.Context(), "http_error", "request_id", RequestIDValue(r.Context()), "path", r.URL.Path, "error_class", "panic")
+					logger.ErrorContext(r.Context(), "http_error", "request_id", RequestIDValue(r.Context()), "path", logPath(r), "error_class", "panic")
 					if ww.Status() == 0 {
 						WriteError(ww, 500)
 					}

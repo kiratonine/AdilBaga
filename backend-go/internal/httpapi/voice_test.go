@@ -61,7 +61,9 @@ func TestVoiceHTTP(t *testing.T) {
 			d := testDependencies(pingFunc(func(context.Context) error { return nil }))
 			d.Voice = f
 			w := httptest.NewRecorder()
-			Router(testConfig(), observability.New(&logs, "info"), d).ServeHTTP(w, httptest.NewRequest("POST", "/api/voice/"+tt.path, strings.NewReader(tt.body)))
+			r := httptest.NewRequest("POST", "/api/voice/"+tt.path, strings.NewReader(tt.body))
+			r.Header.Set("Content-Type", "application/json")
+			Router(testConfig(), observability.New(&logs, "info"), d).ServeHTTP(w, r)
 			if w.Code != tt.status || w.Header().Get("Cache-Control") != "no-store" {
 				t.Fatalf("unexpected status %d", w.Code)
 			}
@@ -89,7 +91,9 @@ func TestVoiceErrorsAndPrivacy(t *testing.T) {
 			d := testDependencies(pingFunc(func(context.Context) error { return nil }))
 			d.Voice = &fakeVoice{err: tt.err, panic: tt.panic}
 			w := httptest.NewRecorder()
-			Router(testConfig(), observability.New(&logs, "info"), d).ServeHTTP(w, httptest.NewRequest("POST", "/api/voice/start", strings.NewReader(`{"text":"private-voice-text","latitude":12.3456789,"longitude":23.456789}`)))
+			r := httptest.NewRequest("POST", "/api/voice/start", strings.NewReader(`{"text":"private-voice-text","latitude":12.3456789,"longitude":23.456789}`))
+			r.Header.Set("Content-Type", "application/json")
+			Router(testConfig(), observability.New(&logs, "info"), d).ServeHTTP(w, r)
 			if w.Code != tt.status {
 				t.Fatal("error mapping")
 			}

@@ -93,6 +93,7 @@ paths:
           schema: { type: string }
         - name: search
           in: query
+          allowReserved: false
           description: Single trimmed case-insensitive name substring; no new length bound in v1
           schema: { type: string }
         - name: sort

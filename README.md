@@ -154,7 +154,7 @@ Adil Bağa сокращает путь от поиска до конкретно
 - три Gemini API key с failover;
 - Upstash Redis для коротких voice sessions;
 - rich notification Siri с изображением товара;
-- публичный frontend и backend;
+- frontend и backend работают локально;
 - unit, integration и Playwright E2E проверки.
 
 ---
@@ -189,9 +189,10 @@ PostgreSQL
 
 ### Voice flow
 
-`backend-go/` — отдельный production Go foundation: health/readiness и HTTP
-hardening, пока **без public business API parity**. NestJS `backend/` остаётся
-reference и владельцем traffic. Запуск и проверки: [backend-go/README.md](backend-go/README.md).
+`backend-go/` уже реализует frozen v1 business parity для catalog/dashboard/voice.
+Backend сейчас **local-only**: VPS и production-домены ещё не provisioned,
+Railway retired. NestJS `backend/` остаётся reference до отдельного reviewed
+cutover. Запуск и проверки: [backend-go/README.md](backend-go/README.md).
 
 ```text
 Siri
@@ -221,7 +222,7 @@ Siri speech + notification
 | UI / routing | Tailwind CSS, Next.js routing, ru/kk URL prefixes |
 | Data fetching | TanStack Query |
 | Карта | Leaflet / React Leaflet |
-| Backend | NestJS 11, TypeScript — reference для будущего Go parity |
+| Backend | Go — frozen v1 business parity; NestJS 11 / TypeScript — reference до cutover |
 | Database | PostgreSQL / Supabase |
 | ORM | Prisma |
 | Voice NLP | Gemini API |
@@ -229,7 +230,8 @@ Siri speech + notification
 | Geolocation | Haversine distance |
 | Tests | Node Test Runner, Vitest, Playwright |
 | Frontend deploy | Vercel |
-| Backend deploy | Railway |
+| Backend production target | Сейчас local-only; будущий VPS / immutable Go container, VPS и домены ещё не provisioned |
+| Railway | Retired; not a production target |
 
 ---
 
@@ -480,7 +482,7 @@ AdilBaga/
 - [x] ближайшая точка магазина;
 - [x] интеграция с Siri;
 - [x] Gemini NLP + deterministic fallback;
-- [x] публичный frontend и backend;
+- [x] локальный end-to-end frontend/backend flow;
 - [x] end-to-end demo flow.
 
 ### Следующие шаги

@@ -5,10 +5,12 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && !['production-part-08', 'production-part-07', 'production-part-05', 'production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
+if (process.argv[2] && !['production-part-10', 'production-part-08', 'production-part-07', 'production-part-05', 'production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-data-quality-v2', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
-const output = join(outputDir, process.argv[2] === 'production-part-08'
+const output = join(outputDir, process.argv[2] === 'production-part-10'
+  ? 'production-part-10-review.tar.gz'
+  : process.argv[2] === 'production-part-08'
   ? 'production-part-08-review.tar.gz'
   : process.argv[2] === 'production-part-07'
   ? 'production-part-07-review.tar.gz'
@@ -41,7 +43,7 @@ const excludedDirs = new Set([
   '.git', 'TODO', 'artifacts', 'node_modules', 'dist', 'build', '.next',
   'coverage', 'tmp', 'temp', 'logs', 'playwright-report', 'test-results',
   'traces', '.cache', '.vite', '.vitest', '.turbo', 'cache', 'caches', '.pnpm-store',
-  '.ssh', '.aws', '.config', 'credentials', 'secrets', 'backups', 'Presentation',
+  '.ssh', '.aws', '.config', '.railway', 'credentials', 'secrets', 'backups', 'Presentation',
 ]);
 const excludedNames = new Set([
   'id_rsa', 'id_ed25519', 'credentials.json', 'service-account.json',

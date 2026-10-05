@@ -1,20 +1,18 @@
-# Go production foundation / PostgreSQL layer
+# Go backend — local-only production candidate
 
-This is a separate Go service beside `backend/`. NestJS remains the reference
-implementation and traffic owner. **Public business API parity is NOT implemented
-yet.** No catalog/dashboard/voice routes, Go migration history, Redis or Gemini.
-`GET /api/categories` intentionally returns JSON 404; health routes are operational
-and intentionally outside the frozen OpenAPI.
+This is a separate Go service beside `backend/`, with frozen v1 catalog,
+dashboard and Voice business parity implemented. NestJS remains the reference
+until a separately reviewed cutover. Backend is currently local-only: Railway is
+retired; the future VPS and production domains are not provisioned. Health routes
+are operational and intentionally outside the frozen OpenAPI.
 
-Part 04 adds internal read-only catalog repositories. Overall Part 04 remains
-BLOCKED pending separately approved production security apply. The original
-clone failure (RLS enabled without policies; restricted role saw zero rows) is
-preserved in the report. Phase A supplies a reviewed NOLOGIN reader bootstrap
-and Prisma security migration, applied **only to disposable local databases**.
+Part 04 added internal read-only catalog repositories and received external PASS
+after reviewed production security apply. The original clone failure and its
+remediation history are preserved in the report.
 See [PostgreSQL layer](../docs/production/POSTGRES_LAYER.md) and
-[Part 04 report](../docs/production/reports/PART_04_REPORT.md). Do not claim live
-repository parity or deploy these changes before external review and explicit
-production approval. No Supabase schema/data/role changes were made.
+[Part 04 report](../docs/production/reports/PART_04_REPORT.md). No deploy or traffic
+ownership is implied by parity. Historical Part03/04 commands below are scoped
+local profiles, not authorization for production mutations.
 
 ## Configuration and local run
 
@@ -52,7 +50,8 @@ APP_ENV=development CORS_ALLOWED_ORIGINS=http://localhost:3100 \
 Missing/invalid configuration fails startup. Pool creation is lazy: temporary DB
 outage does not terminate the process. Pool max 4/min 0, connect timeout 2s;
 `OpenReadOnly` forces `default_transaction_read_only=on` and a 5s statement
-timeout. HTTP runtime still uses DB only for readiness, not business queries.
+timeout. Production also validates the restricted `aktau_api_runtime` identity
+on every physical connection; business reads use snapshot-aware repositories.
 Read-only session defaults are defense-in-depth, not a replacement for a
 least-privilege role: a privileged credential could explicitly override them.
 

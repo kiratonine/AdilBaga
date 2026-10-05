@@ -34,7 +34,11 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return err
 	}
 	logger := observability.New(os.Stdout, c.LogLevel)
-	pool, err := postgres.OpenReadOnly(ctx, c.DatabaseURL)
+	openPool := postgres.OpenReadOnly
+	if c.AppEnv == "production" {
+		openPool = postgres.OpenProductionReadOnly
+	}
+	pool, err := openPool(ctx, c.DatabaseURL)
 	if err != nil {
 		return err
 	}

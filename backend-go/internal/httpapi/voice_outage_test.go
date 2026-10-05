@@ -72,7 +72,11 @@ func TestVoiceProviderOutages(t *testing.T) {
 				{"GET", "/api/categories", "", 200}, {"GET", "/api/dashboard", "", 200}, {"GET", "/health/ready", "", 200},
 			} {
 				w := httptest.NewRecorder()
-				h.ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body)))
+				r := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+				if tt.method == "POST" {
+					r.Header.Set("Content-Type", "application/json")
+				}
+				h.ServeHTTP(w, r)
 				if w.Code != tt.want {
 					t.Fatalf("outage status want=%d got=%d", tt.want, w.Code)
 				}
@@ -101,6 +105,9 @@ func TestVoiceAdditionalRateLimit(t *testing.T) {
 	}{{"POST", "/api/voice/start", "192.0.2.1:1234", 201}, {"POST", "/api/voice/start", "192.0.2.1:1234", 429}, {"POST", "/api/voice/start", "192.0.2.2:1234", 201}, {"GET", "/api/categories", "192.0.2.1:1234", 200}, {"GET", "/health/ready", "192.0.2.1:1234", 200}} {
 		r := httptest.NewRequest(tt.method, tt.path, strings.NewReader(`{"text":"x","latitude":0,"longitude":0}`))
 		r.RemoteAddr = tt.ip
+		if tt.method == "POST" {
+			r.Header.Set("Content-Type", "application/json")
+		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		if w.Code != tt.want {

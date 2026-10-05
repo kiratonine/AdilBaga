@@ -5,6 +5,8 @@ import (
 	"adilbaga/backend-go/internal/voice"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -12,6 +14,11 @@ import (
 )
 
 const MaxResponseBytes = 1 << 20
+
+func sessionKey(id string) string {
+	digest := sha256.Sum256([]byte(id))
+	return "voice-session:v1:" + hex.EncodeToString(digest[:])
+}
 
 type Store struct {
 	url, token string
@@ -66,7 +73,7 @@ func (s *Store) Set(ctx context.Context, id string, state voice.Session, ttl tim
 	if err != nil {
 		return voice.ErrSessionUnavailable
 	}
-	result, err := s.command(ctx, []any{"SET", "voice-session:" + id, string(raw), "EX", 600})
+	result, err := s.command(ctx, []any{"SET", sessionKey(id), string(raw), "EX", 600})
 	if err != nil {
 		return err
 	}
@@ -77,7 +84,7 @@ func (s *Store) Set(ctx context.Context, id string, state voice.Session, ttl tim
 	return nil
 }
 func (s *Store) Get(ctx context.Context, id string) (voice.Session, bool, error) {
-	result, err := s.command(ctx, []any{"GET", "voice-session:" + id})
+	result, err := s.command(ctx, []any{"GET", sessionKey(id)})
 	if err != nil {
 		return voice.Session{}, false, err
 	}
@@ -92,7 +99,7 @@ func (s *Store) Get(ctx context.Context, id string) (voice.Session, bool, error)
 	return state, true, nil
 }
 func (s *Store) Delete(ctx context.Context, id string) error {
-	result, err := s.command(ctx, []any{"DEL", "voice-session:" + id})
+	result, err := s.command(ctx, []any{"DEL", sessionKey(id)})
 	if err != nil {
 		return err
 	}

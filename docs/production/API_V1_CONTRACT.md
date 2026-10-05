@@ -43,6 +43,12 @@ Default sort `price_asc`; also `price_desc`, `name_asc`. Price sorts use minPric
 ties id ASC. Name sort uses Russian locale-compatible comparison, then id ASC.
 Pagination happens after filtering/sorting. Standard query repeats → 400.
 
+Canonical v1 query values use URL percent-encoding for reserved characters
+(`allowReserved: false`). A literal semicolon in search is sent as
+`search=a%3Bb`, preserving the literal substring and NestJS↔Go 200 parity.
+Unescaped `search=a;b` is non-canonical transport; Go may fail closed with 400.
+This clarifies serialization, not search semantics or a new input bound.
+
 Dynamic filters are discovered from `/api/categories/{slug}/filters`; keys are not
 globally fixed. FilterDefinition is a discriminated union: multi-select requires
 key/label/type=multi-select/options, with a nonempty array of string/number/boolean

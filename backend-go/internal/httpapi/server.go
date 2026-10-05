@@ -37,7 +37,7 @@ type Dependencies struct {
 
 func Router(c config.Config, logger *slog.Logger, d Dependencies) http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.NewIPResolver(c.TrustedProxies).Middleware, middleware.AccessLog(logger), middleware.Recover(logger), middleware.Timeout, middleware.Limits, middleware.CORS(c.CORSOrigins), middleware.NewLimiter(c.RateRPS, c.RateBurst).Middleware)
+	r.Use(middleware.SecurityHeaders, middleware.RequestID, middleware.NewIPResolver(c.TrustedProxies).Middleware, middleware.AccessLog(logger), middleware.Recover(logger), middleware.Timeout, middleware.Limits, middleware.CORS(c.CORSOrigins), middleware.NewLimiter(c.RateRPS, c.RateBurst).Middleware)
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { middleware.WriteError(w, 404) })
 	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) { middleware.WriteError(w, 405) })
 	r.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { health(w, 200, "ok") })

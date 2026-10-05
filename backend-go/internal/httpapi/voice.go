@@ -8,7 +8,9 @@ import (
 	"errors"
 	"io"
 	"math"
+	"mime"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,7 +44,40 @@ func (c *coordinate) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 func decodeVoice(r *http.Request, target any) error {
-	dec := json.NewDecoder(r.Body)
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		return voice.ErrInvalid
+	}
+	var reader io.Reader = r.Body
+	switch mediaType {
+	case "application/json":
+	case "application/x-www-form-urlencoded":
+		// NestJS also accepts forms. Preserve that existing wire behavior without
+		// merging URL query values into the body or introducing a 415 response.
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			return voice.ErrInvalid
+		}
+		values, err := url.ParseQuery(string(raw))
+		if err != nil {
+			return voice.ErrInvalid
+		}
+		body := map[string]string{}
+		for key, options := range values {
+			if len(options) != 1 {
+				return voice.ErrInvalid
+			}
+			body[key] = options[0]
+		}
+		raw, err = json.Marshal(body)
+		if err != nil {
+			return voice.ErrInvalid
+		}
+		reader = strings.NewReader(string(raw))
+	default:
+		return voice.ErrInvalid
+	}
+	dec := json.NewDecoder(reader)
 	dec.DisallowUnknownFields()
 	if dec.Decode(target) != nil || dec.Decode(new(any)) != io.EOF {
 		return voice.ErrInvalid

@@ -24,7 +24,7 @@ func TestSessions(t *testing.T) {
 		if json.NewDecoder(r.Body).Decode(&args) != nil {
 			t.Error("command")
 		}
-		if args[1] != "voice-session:private-session" {
+		if args[1] != sessionKey("private-session") || strings.Contains(args[1].(string), "private-session") {
 			t.Error("key")
 		}
 		var result any
@@ -65,6 +65,17 @@ func TestSessions(t *testing.T) {
 	_, found, err = s.Get(ctx, "private-session")
 	if err != nil || found {
 		t.Fatal("not absent")
+	}
+}
+
+func TestOpaqueSessionKey(t *testing.T) {
+	seen := map[string]bool{}
+	for _, id := range []string{"not uuid / opaque", "ключ:with spaces", strings.Repeat("long", 300000)} {
+		key := sessionKey(id)
+		if key != sessionKey(id) || len(key) != len("voice-session:v1:")+64 || !strings.HasPrefix(key, "voice-session:v1:") || strings.Contains(key, id) || seen[key] {
+			t.Fatal("session key derivation must be fixed-size, deterministic and opaque")
+		}
+		seen[key] = true
 	}
 }
 func TestUnavailable(t *testing.T) {
