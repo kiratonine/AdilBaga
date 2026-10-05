@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { qualityReport } from '../agent/bundle.js'
 import { readDictionary } from '../mapping/dictionary.js'
+import { publishCategories } from '../mapping/scope.js'
 import { readSourceFile } from '../source-file.js'
 import { assertFresh, buildSyncBundle } from '../sync/sync.js'
 import { STORE_CODES, type StoreCode } from '../types.js'
@@ -16,7 +17,7 @@ const maxAge = Number(process.env.SYNC_MAX_SOURCE_AGE_HOURS ?? 36)
 const files = required.map((s) => readSourceFile(resolve(DATA, 'sources', `${s.toLowerCase()}.json`)))
 assertFresh(files, required, new Date(), maxAge)
 const dict = readDictionary(resolve(DATA, 'mapping/dictionary.json'))
-const { bundle, unmapped } = buildSyncBundle(files, dict, new Date().toISOString())
+const { bundle, unmapped } = buildSyncBundle(files, dict, new Date().toISOString(), publishCategories())
 
 mkdirSync(resolve(DATA, 'sync'), { recursive: true })
 writeFileSync(resolve(DATA, 'sync/bundle.json'), JSON.stringify(bundle), 'utf8')

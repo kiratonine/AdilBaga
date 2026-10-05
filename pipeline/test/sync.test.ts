@@ -47,6 +47,15 @@ describe('sync', () => {
     expect(bundle.canonicalProducts.flatMap((g) => g.members)).toHaveLength(bundle.rawProducts.length)
     expect(bundle.sourceRuns.map((s) => s.storeCode).sort()).toEqual(['DANA', 'DINA', 'FIX_PRICE'])
   })
+  it('publishes only categories in scope and reports no out-of-scope unmapped products', () => {
+    const fresh = { ...f.product, sourceProductId: 'fp_new', name: 'Новая штука 5 кг', sourceCategoryPath: ['Для дома'] }
+    const files = today(); files[2]!.products.push(fresh)
+    const { bundle, unmapped } = buildSyncBundle(files, dict, '2026-10-07T06:00:00.000Z', new Set(['milk'] as const))
+    expect(bundle.canonicalProducts.map((g) => g.category)).toEqual(['milk'])
+    expect(bundle.rawProducts.every((r) => r.storeCode !== 'FIX_PRICE')).toBe(true)
+    expect(bundle.sourceRuns.map((r) => [r.storeCode, r.productCount])).toEqual([['DINA', 1], ['DANA', 1], ['FIX_PRICE', 0]])
+    expect(unmapped).toEqual([])
+  })
   it('refuses stale or missing source files', () => {
     const now = new Date('2026-10-07T06:00:00.000Z')
     expect(() => assertFresh(today(), ['DINA', 'DANA', 'FIX_PRICE'], now, 36)).not.toThrow()

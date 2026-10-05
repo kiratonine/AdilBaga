@@ -4,6 +4,7 @@ import type { Cluster } from '../agent/match.js'
 import type { CategorySlug } from '../agent/taxonomy.js'
 import { extractFat, extractSize } from '../agent/units.js'
 import { identity, storeCategoryKey, type Dictionary } from '../mapping/dictionary.js'
+import { filterClustersByScope } from '../mapping/scope.js'
 import type { SourceFile, StoreCode } from '../types.js'
 
 export type Unmapped = { storeCode: StoreCode; sourceProductId: string; name: string; price: number
@@ -18,7 +19,8 @@ export function assertFresh(files: SourceFile[], required: StoreCode[], now: Dat
   }
 }
 
-export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generatedAt: string): { bundle: Bundle; unmapped: Unmapped[] } {
+/** scope — какие категории публикуем; без него публикуется всё, что есть в словаре */
+export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generatedAt: string, scope?: Set<CategorySlug>): { bundle: Bundle; unmapped: Unmapped[] } {
   const known = new Map<string, ClassifiedProduct[]>()
   const clusters: Cluster[] = []
   const unmapped: Unmapped[] = []
@@ -33,6 +35,7 @@ export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generated
         continue
       }
       const guessed = dict.storeCategories[storeCategoryKey(file.storeCode, product.sourceCategoryPath)] ?? 'other'
+      if (scope && !scope.has(guessed)) continue
       const fat = extractFat(product.name)
       unmapped.push({ storeCode: file.storeCode, sourceProductId: product.sourceProductId, name: product.name,
         price: product.price, sourceCategoryPath: product.sourceCategoryPath, guessedCategory: guessed })
@@ -46,5 +49,5 @@ export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generated
     clusters.push({ members: known.get(key)!, method: card.method, confidence: card.confidence, review: card.review })
   }
   const sources = files.map(({ products: _products, ...meta }) => meta)
-  return { bundle: buildBundle(clusters, sources, generatedAt), unmapped }
+  return { bundle: buildBundle(scope ? filterClustersByScope(clusters, scope) : clusters, sources, generatedAt), unmapped }
 }

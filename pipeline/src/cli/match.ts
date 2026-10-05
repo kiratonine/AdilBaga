@@ -8,6 +8,7 @@ import { createGemini } from '../agent/gemini.js'
 import { countFailures } from '../agent/llm-stats.js'
 import { matchBlock, type Cluster } from '../agent/match.js'
 import { buildDictionary, writeDictionary } from '../mapping/dictionary.js'
+import { filterClustersByScope, publishCategories } from '../mapping/scope.js'
 import type { SourceFile } from '../types.js'
 
 const DATA = resolve(import.meta.dirname, '../../../data')
@@ -24,10 +25,12 @@ if (stats.calls() > 0 && stats.failures() / stats.calls() > 0.02) {
   console.error(`[match] LLM failures ${stats.failures()}/${stats.calls()} (>2%) — bundle не записан; повторите запуск, кэш сохранит готовое`)
   process.exit(1)
 }
-const bundle = buildBundle(clusters, sources, new Date().toISOString())
+// Словарь строится из ВСЕХ кластеров (чтобы набор можно было расширить без LLM), на сайт идёт только выбранный scope
+const fullBundle = buildBundle(clusters, sources, new Date().toISOString())
+const bundle = buildBundle(filterClustersByScope(clusters, publishCategories()), sources, fullBundle.generatedAt)
 writeFileSync(resolve(DATA, 'agent/bundle.json'), JSON.stringify(bundle), 'utf8')
 const report = qualityReport(bundle)
 writeFileSync(resolve(DATA, 'agent/report.md'), report, 'utf8')
 console.log(report)
-writeDictionary(resolve(DATA, 'mapping/dictionary.json'), buildDictionary(bundle))
+writeDictionary(resolve(DATA, 'mapping/dictionary.json'), buildDictionary(fullBundle))
 console.log(`[match] dictionary → ${resolve(DATA, 'mapping/dictionary.json')}`)
