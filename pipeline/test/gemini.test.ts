@@ -45,6 +45,19 @@ describe('gemini', () => {
     const { llm } = setup([() => limited('1')], { maxRetries: 1 })
     await expect(llm('p', {})).rejects.toThrow(/failed on all keys/)
   })
+  it('uses every numbered GEMINI_API_KEY variable, not only the first three', async () => {
+    process.env.GEMINI_API_KEY2 = 'k2'; process.env.GEMINI_API_KEY3 = 'k3'; process.env.GEMINI_API_KEY4 = 'k4'
+    const { llm, calls } = setup([() => limited('1'), () => limited('1'), () => limited('1'), () => ok({ a: 1 })], { maxRetries: 0 })
+    expect(await llm('p', {})).toEqual({ a: 1 })
+    expect(calls.map((c) => c.key)).toEqual(['k1', 'k2', 'k3', 'k4'])
+  })
+  it('puts an exhausted key on cooldown and starts the next calls with the next key', async () => {
+    process.env.GEMINI_API_KEY2 = 'k2'
+    const { llm, calls } = setup([() => limited('1'), () => limited('1'), () => ok({ a: 1 }), () => ok({ b: 2 })], { maxRetries: 1, cooldownMs: 60_000 })
+    expect(await llm('first', {})).toEqual({ a: 1 })
+    expect(await llm('second', {})).toEqual({ b: 2 })
+    expect(calls.map((c) => c.key)).toEqual(['k1', 'k1', 'k2', 'k2'])
+  })
   it('spaces requests by minIntervalMs', async () => {
     const { llm, sleeps } = setup([() => ok({ a: 1 })], { minIntervalMs: 5000 })
     await llm('one', {})

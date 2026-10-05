@@ -4,7 +4,6 @@ import { join } from 'node:path'
 import { sleep } from '../http.js'
 
 export type LlmCall = (prompt: string, schema: object) => Promise<unknown>
-const KEYS = ['GEMINI_API_KEY', 'GEMINI_API_KEY2', 'GEMINI_API_KEY3'] as const
 const MAX_WAIT_MS = 120_000
 
 export type GeminiOptions = {
@@ -16,6 +15,8 @@ export type GeminiOptions = {
   /** Сколько раз повторить запрос на одном ключе при 429/5xx, прежде чем перейти к следующему */
   maxRetries?: number
   backoffBaseMs?: number
+  /** На сколько «охладить» ключ, исчерпавший повторы (дневная квота): пропускаем его в следующих запросах. По умолчанию 10 мин */
+  cooldownMs?: number
 }
 
 /** Секунды из Retry-After → мс; без заголовка — экспоненциальный backoff */
@@ -30,7 +31,10 @@ function waitMs(res: Response, attempt: number, base: number): number {
  * Запросы разносятся по времени (throttle), на 429/5xx — повтор с паузой на том же ключе, затем следующий ключ.
  */
 export function createGemini(opts: GeminiOptions = {}): LlmCall {
-  const keys = [...new Set(KEYS.map((k) => process.env[k]?.trim()).filter((k): k is string => !!k))]
+  // GEMINI_API_KEY, GEMINI_API_KEY2, GEMINI_API_KEY3, … — любое количество, по порядку номеров
+  const keyOrder = (name: string) => Number(name.slice('GEMINI_API_KEY'.length) || 1)
+  const keys = [...new Set(Object.keys(process.env).filter((n) => /^GEMINI_API_KEY\d*$/.test(n)).sort((a, b) => keyOrder(a) - keyOrder(b))
+    .map((n) => process.env[n]?.trim()).filter((k): k is string => !!k))]
   if (!keys.length) throw new Error('GEMINI_API_KEY is not set')
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.1-flash-lite'
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
@@ -39,6 +43,8 @@ export function createGemini(opts: GeminiOptions = {}): LlmCall {
   const minInterval = opts.minIntervalMs ?? Number(process.env.GEMINI_MIN_INTERVAL_MS ?? 4000)
   const maxRetries = opts.maxRetries ?? 4
   const backoffBase = opts.backoffBaseMs ?? 2000
+  const cooldown = opts.cooldownMs ?? 10 * 60_000
+  const coolUntil = new Map<string, number>()
   if (opts.cacheDir) mkdirSync(opts.cacheDir, { recursive: true })
 
   let lastStart = 0
@@ -54,13 +60,15 @@ export function createGemini(opts: GeminiOptions = {}): LlmCall {
     if (cached && existsSync(cached)) return JSON.parse(readFileSync(cached, 'utf8'))
     const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0, responseMimeType: 'application/json', responseJsonSchema: schema } })
-    for (const key of keys) {
+    const ready = keys.filter((k) => (coolUntil.get(k) ?? 0) <= Date.now())
+    for (const key of ready.length ? ready : keys) {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           await throttle()
           const res = await doFetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body, signal: AbortSignal.timeout(60_000) })
           if (res.status === 429 || res.status >= 500) {
             if (attempt < maxRetries) await pause(waitMs(res, attempt, backoffBase))
+            else coolUntil.set(key, Date.now() + cooldown)
             continue
           }
           if (!res.ok) break // 400/403 и т.п. — ключ не поможет повтором, пробуем следующий
