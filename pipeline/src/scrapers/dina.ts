@@ -2,11 +2,14 @@ import { politeFetch, type PoliteOptions } from '../http.js'
 import type { SourceFile, SourceProduct } from '../types.js'
 
 const ENDPOINT = 'https://backend.dinamarket.kz/api/v1.1/customer/graph'
+const CATEGORIES_QUERY = `query getCategories($shopId: ID!) { categories(shop_id: $shopId) { id name } }`
 const SHOP_ID = '28' // Гипермаркет 301 «Дина», Актау, 33 мкр
 const PAGE_SIZE = 24 // сервер режет _limit до 24 (проверено 2026-10-05)
 
-const QUERY = `query getProducts($shopId: ID!, $page: Int, $limit: Int) {
-  products(shop_id: $shopId, _page: $page, _limit: $limit) {
+// Глубокая пагинация без фильтра нестабильна (с ~8400-го товара страницы пересекаются),
+// поэтому обходим каталог по category_id: в каждой категории < 8400 товаров.
+const QUERY = `query getProducts($shopId: ID!, $page: Int, $limit: Int, $categoryId: ID) {
+  products(shop_id: $shopId, _page: $page, _limit: $limit, category_id: $categoryId) {
     pageInfo { total }
     edges { id xid name slug price oldPrice price_type isWeightProduct
       preview { url } images { url } stock { amount } categories { id name } }
@@ -50,35 +53,50 @@ export function mapDinaItem(item: DinaItem): SourceProduct | null {
   }
 }
 
+type GraphResponse<T> = { data?: T }
+type ProductsData = { products?: { pageInfo?: { total?: number }; edges?: DinaItem[] } }
+
 export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: number; delayMs?: number } = {}): Promise<SourceFile> {
   const http: PoliteOptions = { fetchImpl: opts.fetchImpl, delayMs: opts.delayMs ?? 300 }
+  const graph = async <T>(query: string, variables: Record<string, unknown>) => {
+    const res = await politeFetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query, variables }) }, http)
+    return ((await res.json()) as GraphResponse<T>).data
+  }
+  const categories = (await graph<{ categories?: { id: string; name: string }[] }>(CATEGORIES_QUERY, { shopId: SHOP_ID }))?.categories ?? []
+  if (categories.length === 0) throw new Error('DINA: category list is empty')
+  const total = (await graph<ProductsData>(QUERY, { shopId: SHOP_ID, page: 1, limit: 1, categoryId: null }))?.products?.pageInfo?.total ?? -1
+
   const products = new Map<string, SourceProduct>()
-  let total = Infinity, page = 1, errorCount = 0
-  while ((page - 1) * PAGE_SIZE < total && page <= (opts.maxPages ?? 1000)) {
-    try {
-      const res = await politeFetch(ENDPOINT, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ query: QUERY, variables: { shopId: SHOP_ID, page, limit: PAGE_SIZE } }),
-      }, http)
-      const body = (await res.json()) as { data?: { products?: { pageInfo?: { total?: number }; edges?: DinaItem[] } } }
-      const edges = body.data?.products?.edges ?? []
-      total = body.data?.products?.pageInfo?.total ?? total
-      if (edges.length === 0) break
-      for (const e of edges) {
-        const p = mapDinaItem(e)
-        if (p && !products.has(p.sourceProductId)) products.set(p.sourceProductId, p)
+  let errorCount = 0, pages = 0
+  // Корневой фильтр не отдаёт часть товаров, помеченных только подкатегорией, —
+  // поэтому очередь пополняется категориями, найденными у самих товаров.
+  const queue = categories.map((c) => ({ id: c.id, name: c.name }))
+  const queued = new Set(queue.map((c) => c.id))
+  for (let qi = 0; qi < queue.length; qi++) {
+    const cat = queue[qi]!
+    for (let page = 1; page <= (opts.maxPages ?? 1000); page++) {
+      try {
+        const data = await graph<ProductsData>(QUERY, { shopId: SHOP_ID, page, limit: PAGE_SIZE, categoryId: cat.id })
+        pages++
+        const edges = data?.products?.edges ?? []
+        for (const e of edges) {
+          const p = mapDinaItem(e)
+          if (p && !products.has(p.sourceProductId)) products.set(p.sourceProductId, p)
+          for (const c of e.categories ?? []) if (!queued.has(c.id)) { queued.add(c.id); queue.push(c) }
+        }
+        if (edges.length < PAGE_SIZE || page * PAGE_SIZE >= (data?.products?.pageInfo?.total ?? Infinity)) break
+      } catch (err) {
+        errorCount++
+        console.warn(`[DINA] category ${cat.id} page ${page}: ${(err as Error).message}`)
+        if (errorCount > 10) throw new Error('DINA: too many page errors, aborting')
+        break
       }
-    } catch (err) {
-      errorCount++
-      console.warn(`[DINA] page ${page}: ${(err as Error).message}`)
-      if (errorCount > 10) throw new Error('DINA: too many page errors, aborting')
     }
-    if (page % 25 === 0) console.log(`[DINA] page ${page}, products ${products.size}/${total}`)
-    page++
+    if (qi % 20 === 0 || qi < categories.length) console.log(`[DINA] ${qi + 1}/${queue.length} ${cat.name}: total ${products.size}`)
   }
   return {
     storeCode: 'DINA', city: 'Aktau', capturedAt: new Date().toISOString(), errorCount,
-    sourceStats: { shopId: SHOP_ID, total: Number.isFinite(total) ? total : -1, pages: page - 1 },
+    sourceStats: { shopId: SHOP_ID, total, pages, categories: queue.length },
     products: [...products.values()],
   }
 }
