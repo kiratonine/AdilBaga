@@ -2,10 +2,11 @@ import 'dotenv/config'
 import { resolve } from 'node:path'
 import { writeSourceFile } from '../source-file.js'
 import { STORE_CODES, type SourceFile, type StoreCode } from '../types.js'
+import { scrapeDana } from '../scrapers/dana.js'
 import { scrapeDina } from '../scrapers/dina.js'
 
 export type Scraper = () => Promise<SourceFile>
-const SCRAPERS: Partial<Record<StoreCode, Scraper>> = { DINA: () => scrapeDina() }
+const SCRAPERS: Partial<Record<StoreCode, Scraper>> = { DINA: () => scrapeDina(), DANA: () => scrapeDana() }
 
 const code = process.argv[2] as StoreCode
 const scraper = STORE_CODES.includes(code) ? SCRAPERS[code] : undefined
