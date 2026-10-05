@@ -11,7 +11,8 @@
     "scrape:anvar": "tsx src/cli/scrape.ts ANVAR",
     "sync": "tsx src/cli/sync.ts",
     "agent:classify": "tsx src/cli/classify.ts",
-    "agent:match": "tsx src/cli/match.ts"
+    "agent:match": "tsx src/cli/match.ts",
+    "dict:apply": "tsx src/cli/dict-apply.ts"
   },
   "dependencies": { "cheerio": "^1.0.0", "dotenv": "^16.4.7", "zod": "^3.24.1" },
   "devDependencies": { "@types/node": "^22.10.7", "tsx": "^4.19.2", "typescript": "^5.8.0", "vitest": "^3.2.0" },

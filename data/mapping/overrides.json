@@ -1,0 +1,72 @@
+{
+ "version": 1,
+ "moveCategory": [
+  {
+   "key": "c_26d3808fba993853",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_5bdc031ca53e58a9",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_658646f2ae24e829",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_66c3b53f4515f155",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_6abc991c59cc1313",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_6cc7a4ab634aac14",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_796d01a9c0686d39",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_a73feb095fa3532d",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_c13a3d5527ad269a",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_cf959ef9772bf4f5",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_f0d05c38ff51160f",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_f9eecfaae073b5c9",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_fabaf73aea4d3538",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  }
+ ],
+ "split": [],
+ "approve": []
+}
