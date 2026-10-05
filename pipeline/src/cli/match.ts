@@ -6,6 +6,7 @@ import { buildBundle, qualityReport } from '../agent/bundle.js'
 import type { ClassifiedProduct } from '../agent/classify.js'
 import { createGemini } from '../agent/gemini.js'
 import { matchBlock, type Cluster } from '../agent/match.js'
+import { buildDictionary, writeDictionary } from '../mapping/dictionary.js'
 import type { SourceFile } from '../types.js'
 
 const DATA = resolve(import.meta.dirname, '../../../data')
@@ -22,3 +23,5 @@ writeFileSync(resolve(DATA, 'agent/bundle.json'), JSON.stringify(bundle), 'utf8'
 const report = qualityReport(bundle)
 writeFileSync(resolve(DATA, 'agent/report.md'), report, 'utf8')
 console.log(report)
+writeDictionary(resolve(DATA, 'mapping/dictionary.json'), buildDictionary(bundle))
+console.log(`[match] dictionary → ${resolve(DATA, 'mapping/dictionary.json')}`)

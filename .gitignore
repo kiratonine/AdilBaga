@@ -39,3 +39,4 @@ data/agent/
 *.har
 pipeline/.env
 pipeline/node_modules/
+data/sync/
