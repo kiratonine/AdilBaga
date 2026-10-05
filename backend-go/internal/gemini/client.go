@@ -2,6 +2,7 @@
 package gemini
 
 import (
+	"adilbaga/backend-go/internal/observability"
 	"adilbaga/backend-go/internal/voice"
 	"bytes"
 	"context"
@@ -25,6 +26,7 @@ type Client struct {
 	logger   *slog.Logger
 	endpoint string
 	timeout  time.Duration
+	metrics  *observability.Registry
 }
 
 func Keys(values ...string) []string {
@@ -40,7 +42,7 @@ func Keys(values ...string) []string {
 	return out
 }
 func New(keys []string, model string, logger *slog.Logger) *Client {
-	return &Client{keys: Keys(keys...), model: model, http: &http.Client{Timeout: Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, logger: logger, endpoint: "https://generativelanguage.googleapis.com/v1beta/models/", timeout: Timeout}
+	return &Client{keys: Keys(keys...), model: model, metrics: observability.Default, http: &http.Client{Timeout: Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, logger: logger, endpoint: "https://generativelanguage.googleapis.com/v1beta/models/", timeout: Timeout}
 }
 func schema(in voice.Input) map[string]any {
 	properties := map[string]any{}
@@ -92,11 +94,30 @@ func body(in voice.Input) ([]byte, error) {
 	return json.Marshal(map[string]any{"contents": []any{map[string]any{"parts": []any{map[string]string{"text": prompt}}}}, "generationConfig": map[string]any{"responseMimeType": "application/json", "responseJsonSchema": schema(in)}})
 }
 func (c *Client) outcome(ctx context.Context, class string) {
+	c.registry().Dependency("gemini", "outcome", class, 0)
 	if c.logger != nil {
 		c.logger.InfoContext(ctx, "nlp_provider", "provider_outcome_class", class)
 	}
 }
-func (c *Client) Parse(ctx context.Context, in voice.Input) (voice.Parsed, error) {
+func (c *Client) registry() *observability.Registry {
+	if c.metrics != nil {
+		return c.metrics
+	}
+	return observability.Default
+}
+func (c *Client) Parse(ctx context.Context, in voice.Input) (parsed voice.Parsed, resultErr error) {
+	start := time.Now()
+	defer func() {
+		class, code := "success", ""
+		if resultErr != nil {
+			class = "failure"
+			code = "gemini_unavailable"
+		}
+		c.registry().Dependency("gemini", "parse", class, time.Since(start))
+		if c.logger != nil {
+			c.logger.InfoContext(ctx, "nlp_request", "outcome_class", class, "duration_ms", time.Since(start).Milliseconds(), "error_code", code)
+		}
+	}()
 	requestBody, err := body(in)
 	if err != nil {
 		return voice.Parsed{}, err

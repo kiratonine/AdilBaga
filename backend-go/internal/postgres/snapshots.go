@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"adilbaga/backend-go/internal/observability"
 	"context"
 	"errors"
 	"time"
@@ -28,6 +29,7 @@ func (r *Repository) LatestPublishedSnapshot(ctx context.Context) (Snapshot, err
 	if err != nil {
 		return s, databaseError(err)
 	}
+	observability.Default.Age("", time.Now(), s.PublishedAt)
 	return s, nil
 }
 

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"adilbaga/backend-go/internal/observability"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -97,7 +98,11 @@ func safeID(id string) bool {
 	return true
 }
 
-func AccessLog(logger *slog.Logger) func(http.Handler) http.Handler {
+func AccessLog(logger *slog.Logger, registry ...*observability.Registry) func(http.Handler) http.Handler {
+	metrics := observability.Default
+	if len(registry) == 1 && registry[0] != nil {
+		metrics = registry[0]
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -107,7 +112,10 @@ func AccessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 			if status == 0 {
 				status = 200
 			}
-			logger.InfoContext(r.Context(), "http_request", "request_id", RequestIDValue(r.Context()), "method", r.Method, "path", logPath(r), "status", status, "duration_ms", time.Since(start).Milliseconds())
+			duration := time.Since(start)
+			route := logPath(r)
+			metrics.HTTP(route, r.Method, status, duration)
+			logger.InfoContext(r.Context(), "http_request", "request_id", RequestIDValue(r.Context()), "method", r.Method, "route", route, "status", status, "duration_ms", duration.Milliseconds(), "error_code", observability.ErrorCode(status))
 		})
 	}
 }
@@ -118,7 +126,7 @@ func Recover(logger *slog.Logger) func(http.Handler) http.Handler {
 			ww := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			defer func() {
 				if recover() != nil {
-					logger.ErrorContext(r.Context(), "http_error", "request_id", RequestIDValue(r.Context()), "path", logPath(r), "error_class", "panic")
+					logger.ErrorContext(r.Context(), "http_error", "request_id", RequestIDValue(r.Context()), "route", logPath(r), "error_code", "internal_error")
 					if ww.Status() == 0 {
 						WriteError(ww, 500)
 					}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"adilbaga/backend-go/internal/config"
+	"adilbaga/backend-go/internal/observability"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,6 +34,7 @@ func openReadOnly(ctx context.Context, databaseURL string, production bool) (*pg
 	c.MaxConns = 4
 	c.MinConns = 0
 	c.ConnConfig.ConnectTimeout = 2 * time.Second
+	c.ConnConfig.Tracer = queryMetrics{registry: observability.Default}
 	c.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
 	c.ConnConfig.RuntimeParams["statement_timeout"] = "5000"
 	// Startup parameters are best effort through a session pooler. Verify the
@@ -51,6 +53,10 @@ func openReadOnly(ctx context.Context, databaseURL string, production bool) (*pg
 	if err != nil {
 		return nil, errors.New("PostgreSQL pool initialization failed")
 	}
+	observability.Default.RegisterPool(func() observability.PoolStats {
+		s := pool.Stat()
+		return observability.PoolStats{Max: s.MaxConns(), Total: s.TotalConns(), Acquired: s.AcquiredConns(), Idle: s.IdleConns(), Constructing: s.ConstructingConns()}
+	})
 	return pool, nil
 }
 

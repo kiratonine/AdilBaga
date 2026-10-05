@@ -138,7 +138,7 @@ func TestRecoveryLogging(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
 			t.Fatal(err)
 		}
-		if entry["request_id"] != w.Header().Get("X-Request-ID") || entry["path"] != "unmatched" {
+		if entry["request_id"] != w.Header().Get("X-Request-ID") || entry["route"] != "unmatched" {
 			t.Fatal("missing safe metadata")
 		}
 	}

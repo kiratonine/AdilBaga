@@ -14,6 +14,43 @@ See [PostgreSQL layer](../docs/production/POSTGRES_LAYER.md) and
 ownership is implied by parity. Historical Part03/04 commands below are scoped
 local profiles, not authorization for production mutations.
 
+## Part11 observability and recovery foundation
+
+JSON logs use timestamp/level; HTTP access uses request_id/route template/method/
+status/duration_ms/error_code. Success error_code is empty; failures use fixed
+HTTP classifications. Panic/provider/ingestion observations never retain raw
+errors, SQL/args, keys, voice/search text, coordinates, session IDs or client IPs.
+
+Internal thread-safe Registry.Snapshot() has **no public /metrics route/exporter**.
+Finite labels, counters and eight exclusive duration buckets (1ms,10ms,50ms,
+100ms,500ms,1s,5s,+Inf) retain no raw samples. Future consumers can derive delta
+RPS/approximate quantiles; no live monitoring dashboard is claimed. DB tracer
+records fixed query success/failure plus numeric pool stats; Redis records
+get/set/delete; Gemini records parse duration and bounded provider outcome
+classes (not one separate request per failover key). Ingestion records
+dry_run/stage/publish durations/outcomes and safe CLI completion counts/classes.
+
+Published snapshot age is sampled by existing snapshot reads, not a cached
+pointer/background query. Source age is operator-only: SourceFreshness queries
+latest published snapshot's succeeded SourceRuns. API reader access remains
+denied; no runtime grant/collector credential introduced. Gauges update on reads,
+not by an automatic polling loop. Readiness remains DB/runtime-only, never Gemini
+or a transient Redis session dependency.
+
+Private encrypted application backups and disposable PG17 restore commands:
+[ops/postgres](../ops/postgres/README.md). Alert conditions, staging-dependent
+thresholds and runbook links: [alert policy](../docs/production/OBSERVABILITY_ALERT_POLICY.md).
+Scheduler and external alert delivery **NOT CONFIGURED**. Independent off-VPS
+storage/key custody and real host/domain monitoring await operations review.
+
+Part11 local operator/reader instrumentation profile uses only explicit
+PART11_OPERATOR_DATABASE_URL and PART11_READER_DATABASE_URL targeting the same
+loopback `part11_recovery` DB; it refuses production/runtime URL fallback:
+
+```bash
+rtk proxy go test -race -count=1 -tags=integration ./internal/postgres -run '^TestLocalObservability$'
+```
+
 ## Configuration and local run
 
 Go 1.27.1, Docker and RTK are required. With the owner's WSL installation:
@@ -118,7 +155,8 @@ See POSTGRES_LAYER.md for the future, separately authorized Phase B runbook.
 - Application errors: `{statusCode, message, error}`; JSON 404/405/413/414/429/500/503.
 - Request ID: safe inbound characters A-Z/a-z/0-9/._-, max 64; otherwise crypto-random;
   returned in X-Request-ID and included in logs.
-- JSON slog access metadata: request_id/method/path/status/duration_ms/client_ip.
+- JSON slog access metadata: timestamp/level/request_id/route/method/status/duration_ms/error_code.
+  Router templates only; no client IP, query/body, coordinates or session payloads.
   No raw query, body, authorization/cookies, env dump, panic value or stack.
 - Proxy resolution defaults to RemoteAddr. Only configured trusted immediate peers
   permit validated CF-Connecting-IP or X-Forwarded-For. XFF is walked right-to-left

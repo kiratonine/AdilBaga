@@ -2,6 +2,7 @@
 package redis
 
 import (
+	"adilbaga/backend-go/internal/observability"
 	"adilbaga/backend-go/internal/voice"
 	"bytes"
 	"context"
@@ -9,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -23,10 +25,16 @@ func sessionKey(id string) string {
 type Store struct {
 	url, token string
 	http       *http.Client
+	metrics    *observability.Registry
+	logger     *slog.Logger
 }
 
-func New(url, token string) *Store {
-	return &Store{url: url, token: token, http: &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+func New(url, token string, logger ...*slog.Logger) *Store {
+	s := &Store{url: url, token: token, metrics: observability.Default, http: &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	if len(logger) == 1 {
+		s.logger = logger[0]
+	}
+	return s
 }
 func (s *Store) command(ctx context.Context, command []any) (json.RawMessage, error) {
 	if s.url == "" || s.token == "" {
@@ -65,7 +73,27 @@ func (s *Store) command(ctx context.Context, command []any) (json.RawMessage, er
 	}
 	return result.Result, nil
 }
-func (s *Store) Set(ctx context.Context, id string, state voice.Session, ttl time.Duration) error {
+func (s *Store) observe(operation string, start time.Time, err error) {
+	class := "success"
+	if err != nil {
+		class = "failure"
+	}
+	metrics := s.metrics
+	if metrics == nil {
+		metrics = observability.Default
+	}
+	metrics.Dependency("redis", operation, class, time.Since(start))
+	if s.logger != nil {
+		code := ""
+		if err != nil {
+			code = "redis_unavailable"
+		}
+		s.logger.Info("session_dependency", "operation", operation, "outcome_class", class, "duration_ms", time.Since(start).Milliseconds(), "error_code", code)
+	}
+}
+func (s *Store) Set(ctx context.Context, id string, state voice.Session, ttl time.Duration) (resultErr error) {
+	start := time.Now()
+	defer func() { s.observe("set", start, resultErr) }()
 	if ttl != voice.SessionTTL {
 		return voice.ErrSessionUnavailable
 	}
@@ -83,7 +111,9 @@ func (s *Store) Set(ctx context.Context, id string, state voice.Session, ttl tim
 	}
 	return nil
 }
-func (s *Store) Get(ctx context.Context, id string) (voice.Session, bool, error) {
+func (s *Store) Get(ctx context.Context, id string) (stateOut voice.Session, found bool, resultErr error) {
+	start := time.Now()
+	defer func() { s.observe("get", start, resultErr) }()
 	result, err := s.command(ctx, []any{"GET", sessionKey(id)})
 	if err != nil {
 		return voice.Session{}, false, err
@@ -98,7 +128,9 @@ func (s *Store) Get(ctx context.Context, id string) (voice.Session, bool, error)
 	}
 	return state, true, nil
 }
-func (s *Store) Delete(ctx context.Context, id string) error {
+func (s *Store) Delete(ctx context.Context, id string) (resultErr error) {
+	start := time.Now()
+	defer func() { s.observe("delete", start, resultErr) }()
 	result, err := s.command(ctx, []any{"DEL", sessionKey(id)})
 	if err != nil {
 		return err

@@ -15,5 +15,10 @@ func New(writer io.Writer, level string) *slog.Logger {
 	case "error":
 		l = slog.LevelError
 	}
-	return slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{Level: l}))
+	return slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{Level: l, ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+		if len(groups) == 0 && a.Key == slog.TimeKey {
+			a.Key = "timestamp"
+		}
+		return a
+	}}))
 }

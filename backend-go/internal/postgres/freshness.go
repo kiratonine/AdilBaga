@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"adilbaga/backend-go/internal/observability"
 	"context"
 	"time"
 )
@@ -39,6 +40,9 @@ func (r *Repository) SourceFreshness(ctx context.Context) ([]SourceFreshness, er
 	}
 	if rows.Err() != nil {
 		return nil, databaseError(rows.Err())
+	}
+	for _, f := range out {
+		observability.Default.Age(f.StoreCode, time.Now(), f.LastSuccessfulSync)
 	}
 	return out, nil
 }
