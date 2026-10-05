@@ -67,6 +67,91 @@
    "reason": "salt moved out of sugar basket (B1)"
   }
  ],
- "split": [],
+ "split": [
+  {
+   "key": "c_2993e3afe0cedd13",
+   "ids": [
+    "DINA:14552"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_b083f134467c62b5",
+   "ids": [
+    "DINA:22066"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_8c4a5d86240e5fa6",
+   "ids": [
+    "DINA:12334"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_1d186dbaf5986073",
+   "ids": [
+    "DINA:11150"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_efc8d0c275af57f3",
+   "ids": [
+    "DINA:11288"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_e22f617abaaac148",
+   "ids": [
+    "DINA:6992"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_43307ec26c0d611e",
+   "ids": [
+    "DINA:5067"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_329bf0ffd9d5078d",
+   "ids": [
+    "DINA:1640"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_b4f818a0ad702375",
+   "ids": [
+    "DINA:2770"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_9c4ba4d687fa53ac",
+   "ids": [
+    "DINA:7534"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_cca8daeea9c1e5d2",
+   "ids": [
+    "DINA:17158"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_fcff5bea083908d7",
+   "ids": [
+    "DINA:11555"
+   ],
+   "reason": "weight-vs-piece"
+  }
+ ],
  "approve": []
 }

@@ -41,6 +41,9 @@ describe('isVariableWeight', () => {
   it('DANA by the word ВЕС / ВЕСОВОЙ in the name, not by substrings', () => {
     expect(isVariableWeight('DANA', { name: "СЫР 'ЭМИР ФАСОВ' ВЕСОВОЙ  4039", rawPayload: {} })).toBe(true)
     expect(isVariableWeight('DANA', { name: 'ПЕЧЕНЬ ГОВЯЖЬЯ ВЕС 1188', rawPayload: {} })).toBe(true)
+    expect(isVariableWeight('DANA', { name: 'ОГУРЦЫ PLU:1231', rawPayload: {} })).toBe(true)
+    expect(isVariableWeight('DANA', { name: 'ГОЛЕНЬ "АЛЬФУР"  PLU;1583', rawPayload: {} })).toBe(true)
+    expect(isVariableWeight('DANA', { name: 'ТОМАТЫ ЧЕРРИ "GLOBUS PLUS" 720мл', rawPayload: {} })).toBe(false)
     expect(isVariableWeight('DANA', { name: 'КОНФЕТЫ ВЕСНА 200 Г', rawPayload: {} })).toBe(false)
     expect(isVariableWeight('FIX_PRICE', { name: 'Огурцы ВЕС', rawPayload: {} })).toBe(false)
   })

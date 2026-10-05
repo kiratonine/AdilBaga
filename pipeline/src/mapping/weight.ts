@@ -1,11 +1,12 @@
 import type { SourceProduct, StoreCode } from '../types.js'
 
-const DANA_WEIGHT_MARK = /(?<![а-яa-z])вес(?:ов(?:ой|ая|ое|ые))?(?![а-яa-z])/i
+const DANA_WEIGHT_MARK = /(?<![а-яa-z])вес(?:ов(?:ой|ая|ое|ые))?(?![а-яa-z])|\bPLU\s*[:;]\s*\d+/i
 
 /**
  * Цена за кг (весовой товар) против цены за штуку/упаковку.
  * DINA: API помечает весовые товары (price_type/isWeightProduct), цена приведена к кг в scrapers/dina.ts.
- * DANA: единственный признак — слово «ВЕС»/«ВЕСОВОЙ» в названии (6 товаров в выгрузке 2026-10-05).
+ * DANA: признак только в названии — «PLU:1234» (код весового товара на кассовых весах, 123 товара, цена за кг, например «ОГУРЦЫ PLU:1231» 539 ₸)
+ * или слово «ВЕС»/«ВЕСОВОЙ» (6 товаров) в выгрузке 2026-10-05.
  * FIX_PRICE: признака нет (поле unit пустое у всех товаров, весовых товаров в каталоге нет) → false.
  */
 export function isVariableWeight(storeCode: StoreCode, product: Pick<SourceProduct, 'name' | 'rawPayload'>): boolean {
