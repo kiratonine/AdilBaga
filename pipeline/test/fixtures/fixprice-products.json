@@ -1,0 +1,197 @@
+[
+  {
+    "id": 1950692,
+    "sku": "1950692",
+    "title": "Кондитерское изделие \"Choco Pie\", Orion, 360 г",
+    "isFresh": false,
+    "isNew": false,
+    "isPromo": false,
+    "adult": false,
+    "isSeason": false,
+    "isHit": false,
+    "isQRMark": false,
+    "forbidden": false,
+    "active": true,
+    "image": 594478350,
+    "images": [
+      {
+        "id": 594478350,
+        "title": null,
+        "src": "https://img.fix-price.com/insecure/rs:fit:800:800/plain/pim/images/_default_upload_bucket/1950692_Vne.jpg"
+      },
+      {
+        "id": 594478351,
+        "title": null,
+        "src": "https://img.fix-price.com/insecure/rs:fit:800:800/plain/pim/images/_default_upload_bucket/coko_paj_var_1.jpg"
+      },
+      {
+        "id": 594478352,
+        "title": null,
+        "src": "https://img.fix-price.com/insecure/rs:fit:800:800/plain/pim/images/_default_upload_bucket/ck_var_2.jpg"
+      }
+    ],
+    "resources": [
+      {
+        "src": "https://img.fix-price.com/insecure/rs:fit:800:800/plain/pim/images/_default_upload_bucket/1950692_Vne.jpg",
+        "videoType": null,
+        "link": null
+      },
+      {
+        "src": "https://img.fix-price.com/insecure/rs:fit:800:800/plain/pim/images/_default_upload_bucket/coko_paj_var_1.jpg",
+        "videoType": null,
+        "link": null
+      },
+      {
+        "src": "https://img.fix-price.com/insecure/rs:fit:800:800/plain/pim/images/_default_upload_bucket/ck_var_2.jpg",
+        "videoType": null,
+        "link": null
+      }
+    ],
+    "unit": null,
+    "specialPrice": null,
+    "price": "1399.00",
+    "unitPrice": "",
+    "minPrice": "1399.00",
+    "maxPrice": "1399.00",
+    "variantCount": 1,
+    "variantId": 56193,
+    "url": "produkty-i-napitki/p-1950692-konditerskoe-izdelie-hoco-ie-rion-360-g",
+    "inStock": 6,
+    "brand": {
+      "id": 563,
+      "title": "Orion"
+    },
+    "category": {
+      "id": 2004,
+      "title": "Продукты и напитки",
+      "parentCategory": null
+    },
+    "badges": [],
+    "availabilityType": "primary",
+    "feedback": {
+      "rating": null,
+      "ratings": {
+        "count": null,
+        "display": null
+      }
+    }
+  },
+  {
+    "id": 1680052,
+    "sku": "1680052",
+    "title": "Приправа \"Паприка молотая\", Вкусный миг, 60 г",
+    "isFresh": false,
+    "isNew": false,
+    "isPromo": false,
+    "adult": false,
+    "isSeason": false,
+    "isHit": false,
+    "isQRMark": false,
+    "forbidden": false,
+    "active": true,
+    "image": 594422154,
+    "images": [
+      {
+        "id": 594422154,
+        "title": null,
+        "src": "https://img.fix-price.kz/insecure/rs:fit:800:800/plain/bit/_marketplace/images/origin/1e/1e6b8a52475bd8f260e2f9f8ed9ba742.jpg"
+      }
+    ],
+    "resources": [
+      {
+        "src": "https://img.fix-price.kz/insecure/rs:fit:800:800/plain/bit/_marketplace/images/origin/1e/1e6b8a52475bd8f260e2f9f8ed9ba742.jpg",
+        "videoType": null,
+        "link": null
+      }
+    ],
+    "unit": null,
+    "specialPrice": {
+      "price": "224",
+      "active_to": "2999-12-31 23:59:59"
+    },
+    "price": "299.00",
+    "unitPrice": "",
+    "minPrice": "299.00",
+    "maxPrice": "299.00",
+    "variantCount": 1,
+    "variantId": 99326,
+    "url": "produkty-i-napitki/p-1680052-priprava-paprika-molotaya-vkusnyy-mig-60-g",
+    "inStock": 15,
+    "brand": null,
+    "category": {
+      "id": 2004,
+      "title": "Продукты и напитки",
+      "parentCategory": null
+    },
+    "badges": [
+      {
+        "id": 8,
+        "alias": "special_price",
+        "title": "спец цена",
+        "color": "#FF1E2D"
+      }
+    ],
+    "availabilityType": "primary",
+    "feedback": {
+      "rating": null,
+      "ratings": {
+        "count": null,
+        "display": null
+      }
+    }
+  },
+  {
+    "id": 2036184,
+    "sku": "2036184",
+    "title": "Сладкая кукуруза, GOODDAY, 425 мл",
+    "isFresh": false,
+    "isNew": false,
+    "isPromo": false,
+    "adult": false,
+    "isSeason": false,
+    "isHit": false,
+    "isQRMark": false,
+    "forbidden": false,
+    "active": true,
+    "image": 594402648,
+    "images": [
+      {
+        "id": 594402648,
+        "title": null,
+        "src": "https://img.fix-price.kz/insecure/rs:fit:800:800/plain/bit/_marketplace/images/origin/d5/d52f20ddd14fca2664a1cf97476b99d4.jpg"
+      }
+    ],
+    "resources": [
+      {
+        "src": "https://img.fix-price.kz/insecure/rs:fit:800:800/plain/bit/_marketplace/images/origin/d5/d52f20ddd14fca2664a1cf97476b99d4.jpg",
+        "videoType": null,
+        "link": null
+      }
+    ],
+    "unit": null,
+    "specialPrice": null,
+    "price": "449.00",
+    "unitPrice": "",
+    "minPrice": "449.00",
+    "maxPrice": "449.00",
+    "variantCount": 1,
+    "variantId": 67516,
+    "url": "produkty-i-napitki/p-2036184-sladkaya-kukuruza--425-ml",
+    "inStock": 7,
+    "brand": null,
+    "category": {
+      "id": 2004,
+      "title": "Продукты и напитки",
+      "parentCategory": null
+    },
+    "badges": [],
+    "availabilityType": "primary",
+    "feedback": {
+      "rating": null,
+      "ratings": {
+        "count": null,
+        "display": null
+      }
+    }
+  }
+]
