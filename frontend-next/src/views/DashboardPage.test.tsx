@@ -63,43 +63,65 @@ describe('DashboardPage', () => {
     renderPage(<DashboardPage />, '/ru/dashboard')
     const baskets = await screen.findAllByTestId('basket')
     const text = (el: HTMLElement) => el.textContent?.replace(/\s/g, ' ')
-    expect(baskets.map((b) => text(within(b).getByTestId('basket-total')))).toEqual(['2 750 ₸', '3 170 ₸', '2 250 ₸'])
+    expect(baskets.map((b) => text(within(b).getByTestId('basket-total')))).toEqual(['1 880 ₸', '2 070 ₸', '2 110 ₸'])
     expect(baskets[0]).toHaveAttribute('data-best', 'true')
     expect(baskets[0]).toHaveTextContent('Dina Market')
     expect(baskets[0]).toHaveTextContent('Выгоднее всего')
-    expect(text(baskets[1])).toContain('дороже на 420 ₸')
-    // Fix Price дешевле, но без яиц — выгоднейшей не считается
+    expect(text(baskets[1])).toContain('дороже на 190 ₸')
     expect(baskets[2]).not.toHaveAttribute('data-best')
-    expect(baskets[2]).toHaveTextContent('Нет 1 из 5 позиций')
+    expect(text(baskets[2])).toContain('дороже на 230 ₸')
   })
 
   it('opens the basket contents with links to products', async () => {
     renderPage(<DashboardPage />, '/ru/dashboard')
-    const [dina, , fix] = await screen.findAllByTestId('basket')
+    const [dina] = await screen.findAllByTestId('basket')
     await userEvent.click(within(dina).getByText('Состав корзины'))
     expect(within(dina).getByRole('link', { name: /Молоко/ })).toHaveAttribute('href', expect.stringMatching(/^\/ru\/products\//))
-    expect(within(fix).getByText('нет в сети')).toBeInTheDocument()
+    expect(within(dina).getAllByRole('link')).toHaveLength(3)
   })
 
   it('shows the chain basket next to its store points', async () => {
     renderPage(<DashboardPage />, '/ru/dashboard')
     const lines = await screen.findAllByTestId('store-basket')
     expect(lines.map((l) => l.textContent?.replace(/\s/g, ' '))).toEqual([
-      'Корзина: 2 750 ₸',
-      'Корзина: 3 170 ₸',
-      'Корзина: 2 250 ₸ · неполная',
+      'Корзина: 1 880 ₸',
+      'Корзина: 2 110 ₸',
+      'Корзина: 2 070 ₸',
     ])
+  })
+
+  const item = (categorySlug: string, price: number | null) => ({
+    categorySlug,
+    categoryName: categorySlug,
+    productId: price === null ? null : `${categorySlug}-id`,
+    name: price === null ? null : categorySlug,
+    price,
+  })
+
+  it('marks an incomplete basket and never picks it as the best', async () => {
+    // В моках все корзины полные — неполную подставляем сами
+    vi.spyOn(catalogApi, 'getDashboard').mockResolvedValue({
+      ...dashboardMock,
+      baskets: [
+        { storeCode: 'DINA', storeName: 'Dina Market', total: 1880, items: [item('milk', 570), item('sugar', 480), item('oil', 830)] },
+        { storeCode: 'DANA', storeName: 'Dana Market', total: 2110, items: [item('milk', 610), item('sugar', 520), item('oil', 980)] },
+        { storeCode: 'FIX_PRICE', storeName: 'Fix Price', total: 1300, items: [item('milk', 560), item('sugar', null), item('oil', 740)] },
+      ],
+    } as never)
+    renderPage(<DashboardPage />, '/ru/dashboard')
+
+    const baskets = await screen.findAllByTestId('basket')
+    const fix = baskets[2]
+    expect(baskets[0]).toHaveAttribute('data-best', 'true')
+    expect(fix).not.toHaveAttribute('data-best')
+    expect(fix).toHaveTextContent('Нет 1 из 3 позиций')
+    await userEvent.click(within(fix).getByText('Состав корзины'))
+    expect(within(fix).getByText('нет в сети')).toBeInTheDocument()
+    expect(screen.getAllByTestId('store-basket')[2].textContent?.replace(/\s/g, ' ')).toBe('Корзина: 1 300 ₸ · неполная')
   })
 
   it('shows "no data" instead of 0 ₸ when nothing was found in a chain', async () => {
     // Реальный ответ бэка (PART_05_REPORT.md): у DINA нет ни одной позиции, total = 0
-    const item = (categorySlug: string, price: number | null) => ({
-      categorySlug,
-      categoryName: categorySlug,
-      productId: price === null ? null : `${categorySlug}-id`,
-      name: price === null ? null : categorySlug,
-      price,
-    })
     vi.spyOn(catalogApi, 'getDashboard').mockResolvedValue({
       ...dashboardMock,
       baskets: [

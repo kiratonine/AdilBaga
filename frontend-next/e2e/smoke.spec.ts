@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test'
 
-// e2e старого фронта переносятся в сессии Next 5
 test('/ redirects to the catalog in the language from Accept-Language or the cookie', async ({ request }) => {
   const toRu = await request.get('/', { maxRedirects: 0, headers: { 'accept-language': 'ru-RU,ru;q=0.9' } })
   expect(toRu.status()).toBe(307)
