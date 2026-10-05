@@ -4,6 +4,7 @@ import type { Cluster } from '../agent/match.js'
 import type { CategorySlug } from '../agent/taxonomy.js'
 import { extractFat, extractSize } from '../agent/units.js'
 import { identity, storeCategoryKey, type Dictionary } from '../mapping/dictionary.js'
+import { isolateForPublish } from '../mapping/publish.js'
 import { filterClustersByScope } from '../mapping/scope.js'
 import type { SourceFile, StoreCode } from '../types.js'
 
@@ -49,5 +50,5 @@ export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generated
     clusters.push({ members: known.get(key)!, method: card.method, confidence: card.confidence, review: card.review })
   }
   const sources = files.map(({ products: _products, ...meta }) => meta)
-  return { bundle: buildBundle(scope ? filterClustersByScope(clusters, scope) : clusters, sources, generatedAt), unmapped }
+  return { bundle: buildBundle(isolateForPublish(scope ? filterClustersByScope(clusters, scope) : clusters), sources, generatedAt), unmapped }
 }

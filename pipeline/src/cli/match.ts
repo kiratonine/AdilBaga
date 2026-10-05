@@ -8,6 +8,7 @@ import { createGemini } from '../agent/gemini.js'
 import { countFailures } from '../agent/llm-stats.js'
 import { matchBlock, type Cluster } from '../agent/match.js'
 import { buildDictionary, writeDictionary } from '../mapping/dictionary.js'
+import { isolateForPublish } from '../mapping/publish.js'
 import { filterClustersByScope, publishCategories } from '../mapping/scope.js'
 import type { SourceFile } from '../types.js'
 
@@ -27,7 +28,7 @@ if (stats.calls() > 0 && stats.failures() / stats.calls() > 0.02) {
 }
 // Словарь строится из ВСЕХ кластеров (чтобы набор можно было расширить без LLM), на сайт идёт только выбранный scope
 const fullBundle = buildBundle(clusters, sources, new Date().toISOString())
-const bundle = buildBundle(filterClustersByScope(clusters, publishCategories()), sources, fullBundle.generatedAt)
+const bundle = buildBundle(isolateForPublish(filterClustersByScope(clusters, publishCategories())), sources, fullBundle.generatedAt)
 writeFileSync(resolve(DATA, 'agent/bundle.json'), JSON.stringify(bundle), 'utf8')
 const report = qualityReport(bundle)
 writeFileSync(resolve(DATA, 'agent/report.md'), report, 'utf8')

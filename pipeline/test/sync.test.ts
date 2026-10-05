@@ -23,6 +23,22 @@ const today = (dinaExtra: SourceFile['products'] = []): SourceFile[] => [
   { ...meta('FIX_PRICE'), products: [f.product] },
 ]
 
+describe('sync pending isolation', () => {
+  it('a pending dictionary group is published as separate single-store cards', () => {
+    const pendingDict = buildDictionary(buildBundle([
+      { members: [a, b], method: 'ai', confidence: 0.85, review: 'pending' },
+      { members: [f], method: 'deterministic', confidence: 1, review: 'approved' },
+    ], (['DINA', 'DANA', 'FIX_PRICE'] as const).map(meta), day0))
+    const { bundle } = buildSyncBundle(today(), pendingDict, '2026-10-07T06:00:00.000Z')
+    const milk = bundle.canonicalProducts.filter((g) => g.category === 'milk')
+    expect(milk).toHaveLength(2)
+    for (const g of milk) {
+      expect(g.members).toHaveLength(1)
+      expect(g.members[0]!.reviewStatus).toBe('pending')
+    }
+  })
+})
+
 describe('sync', () => {
   it('known products keep their dictionary card and take today prices', () => {
     const { bundle, unmapped } = buildSyncBundle(today(), dict, '2026-10-07T06:00:00.000Z')
