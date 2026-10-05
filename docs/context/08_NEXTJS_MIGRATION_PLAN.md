@@ -1,5 +1,7 @@
 # Переезд фронтенда Adil Bağa: Vite SPA → Next.js (App Router) ради SEO
 
+> **Выполнено 2026-10-05 (сессия 20).** `frontend-next/` стал `frontend/`, Vite-фронт удалён. Пути `frontend-next/` ниже — исторические, сейчас это `frontend/`.
+
 ## Context
 Проект выиграл конкурс, покупается домен, нужна индексация в Google/Yandex. Сейчас `frontend/` — Vite SPA: поисковик получает пустой `<div id="root">`, title ставится через `document.title` в `useEffect`, язык (ru/kk) хранится в localStorage → казахская версия не индексируется вовсе. Бэкенд переезжает на Go (не наша зона, контракт — через Backend 1). Наша зона — только фронтенд.
 

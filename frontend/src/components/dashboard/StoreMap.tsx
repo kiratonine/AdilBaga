@@ -1,3 +1,5 @@
+'use client'
+
 import 'leaflet/dist/leaflet.css'
 import type { LatLngBoundsExpression, LatLngTuple } from 'leaflet'
 import { useTranslation } from 'react-i18next'
@@ -33,7 +35,7 @@ export default function StoreMap({ locations, baskets = [], label }: Props) {
 
   return (
     // isolate: z-index панелей Leaflet (до 1000) не должен перекрывать sticky-шапку
-    <div data-testid="store-map" role="region" aria-label={label} className="isolate h-full overflow-hidden rounded-[var(--radius-card)] bg-surface">
+    <div data-testid="store-map" role="region" aria-label={label} className="isolate h-full overflow-hidden rounded-card bg-surface">
       <MapContainer
         bounds={bounds}
         boundsOptions={{ padding: [32, 32] }}

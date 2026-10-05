@@ -1,3 +1,5 @@
+'use client'
+
 import { Trans } from 'react-i18next'
 import { formatPrice } from '../../lib/format'
 
