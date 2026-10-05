@@ -151,6 +151,86 @@
     "DINA:11555"
    ],
    "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_050d467164271700",
+   "ids": [
+    "DINA:6915",
+    "DANA:dana_15610"
+   ],
+   "reason": "false-group: box-vs-pack (Хлопья Царь 5 злаков 400 г)"
+  },
+  {
+   "key": "c_36054be8a271af9a",
+   "ids": [
+    "DINA:14538",
+    "FIX_PRICE:fp_1028149"
+   ],
+   "reason": "false-group: different-product (Курт Bio Qurt Baraka 40г)"
+  },
+  {
+   "key": "c_668dff22c5eed167",
+   "ids": [
+    "DINA:869",
+    "DANA:dana_15706"
+   ],
+   "reason": "false-group: bunch-vs-kg (Мята)"
+  },
+  {
+   "key": "c_70b0c193d7cf7818",
+   "ids": [
+    "DINA:9540",
+    "DANA:dana_12377"
+   ],
+   "reason": "false-group: box-vs-pack (Хлопья Царь Геркулес 400 г)"
+  },
+  {
+   "key": "c_7140483f15bfea2b",
+   "ids": [
+    "DINA:8728",
+    "DANA:dana_16821"
+   ],
+   "reason": "false-group: different-brand (Макароны Макфа вермишель 400 г)"
+  },
+  {
+   "key": "c_8a1160dd78bd8b23",
+   "ids": [
+    "DINA:20041",
+    "DANA:dana_9855"
+   ],
+   "reason": "false-group: bunch-vs-kg (Базилик)"
+  },
+  {
+   "key": "c_a482cf5f638b4004",
+   "ids": [
+    "DINA:9524",
+    "DANA:dana_13925"
+   ],
+   "reason": "false-group: box-vs-pack (Хлопья Царь 4 злака 400 г)"
+  },
+  {
+   "key": "c_bfc77a053721c6b2",
+   "ids": [
+    "DINA:11191",
+    "DANA:dana_10418"
+   ],
+   "reason": "false-group: different-brand (Макароны Султан Перья 1.6 кг)"
+  },
+  {
+   "key": "c_cb9cf3d57f896b95",
+   "ids": [
+    "DINA:1023",
+    "DANA:dana_11919"
+   ],
+   "reason": "false-group: bunch-vs-kg (Лайм)"
+  },
+  {
+   "key": "c_eeb8d1323297fac8",
+   "ids": [
+    "DINA:937",
+    "DANA:dana_10886"
+   ],
+   "reason": "false-group: bunch-vs-kg (Салатные листья Руккола)"
   }
  ],
  "approve": []
