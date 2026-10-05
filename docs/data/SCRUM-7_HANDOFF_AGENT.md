@@ -2,6 +2,8 @@
 
 Документ для ИИ-агента Дениса Андерсена. Цель: понять, что сделано в ветке `feat/scrum-7-data`, провести ревью, подготовить её к merge и закрыть блокеры перед загрузкой в production. Сводка для человека — `SCRUM-7_HANDOFF_DENIS.md`, отчёт с метриками — `SCRUM-7_REPORT.md`, план — `docs/superpowers/plans/2026-10-05-scrum-7-anvar-full-catalog.md`.
 
+> **CURRENT STATE (2026-10-06, после ревью PR #4).** Разделы 2–3 ниже написаны до ревью и частично устарели (PRE-REVIEW / HISTORICAL): числа метрик, «68/68», список блокеров B1–B6 — смотри статусы внутри раздела 3.2 и актуальные значения в `SCRUM-7_REPORT.md` §10 (3 083 карточки, 3 352 оффера, 268 в 2+ сетях, 1 в 3 сетях, 145 pending, 0 pending multi-store; pipeline 92/92) и §15 (миграция таксономии с реальными `options`, проверка dynamic filters).
+
 ## 1. Контекст и правила (решения команды)
 
 - **Jira:** SCRUM-7 (эпик SCRUM-5), город — только Актау.
@@ -15,7 +17,7 @@
 - **Ветка:** `feat/scrum-7-data`, ответвлена от `integrate/full-stack` (`75d57d1`). Содержит 25 коммитов (`ce84de3..a6b6ccb`), 65 файлов, +58k строк; из них ~5,5 МБ — словарь `data/mapping/dictionary.json`.
 - **Ветка не запушена.** `origin/integrate/full-stack` ушёл вперёд на 3 коммита (`7b8c925` observability, `b9ef533` CI release gates, `5f59e04` perf baseline). `git merge-tree` показывает **0 конфликтов**.
 - **Проверено 2026-10-06 на Windows:**
-  - `cd pipeline && pnpm test` → 16 файлов, **68/68 PASS**;
+  - `cd pipeline && pnpm test` → 16 файлов, **68/68 PASS** (PRE-REVIEW; текущее: pipeline 92/92, см. SCRUM-7_REPORT.md §10 и §15);
   - `pnpm typecheck` → OK;
   - `cd backend-go && go test ./...` → все пакеты OK.
 

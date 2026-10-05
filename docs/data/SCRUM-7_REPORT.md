@@ -1,6 +1,6 @@
 # SCRUM-7: отчёт по Phase A / A2 (Dina, Dana, Fix Price → тестовая БД)
 
-> **Как читать отчёт.** §1–§7 — **PRE-REVIEW BASELINE / HISTORICAL** (состояние до ревью Дениса 2026-10-06). **CURRENT POST-FIX STATE** — §8–§14: текущие метрики только в §10, статус B1–B6 — в §8 и §12. При расхождении верны §8–§14.
+> **Как читать отчёт.** §1–§7 — **PRE-REVIEW BASELINE / HISTORICAL** (состояние до ревью Дениса 2026-10-06). **CURRENT POST-FIX STATE** — §8–§15: текущие метрики только в §10, статус B1–B6 — в §8 и §12. При расхождении верны §8–§15.
 
 Дата: 2026-10-06. Ветка `feat/scrum-7-data`. Production **не затронут**: всё проверено на локальной БД (`postgres:17-alpine`, схема и роли как в Supabase, каталог — «лёгкий» слепок прода).
 
@@ -166,6 +166,38 @@
 
 Локально проверено на одноразовом PG17: цепочка из 4 миграций, `TestDestructiveTargetGuard|TestDeterministicCatalog|TestBootstrapFailsClosed`, `TestLocalSnapshotSecurity`, `TestLocalPhysicalPoolSessionPolicy|TestLocalClonePlans|TestLocalObservability`, `TestCloneRestrictedSecurity` — зелёные (`TestLocalProductionIdentity` в ручной эмуляции упал только потому, что перед ним уже были созданы probe-роли; в CI он идёт первым). Полный hosted CI запускается после push. `scripts/perf/run-local.mjs` по-прежнему применяет только три первые миграции и в CI не входит.
 
-## 14. Что осталось
+## 14. Что осталось (см. также §15)
 
 `agent:new`, Анвар (Phase B), свежий полный скрейп перед production N+1, post-merge задачи Backend 1 (§12), B6 после merge, production — только после merge и отдельного одобрения владельца.
+
+## 15. Миграция таксономии: filterSchema, совместимый с frozen API (CURRENT)
+
+**Проблема (найдена при интеграционном ревью HEAD `8932ff6`).** Go и Nest трактуют `categories.filterSchema` как allowlist: `multi-select` без непустого `options` отбрасывается, а в запросах `/api/products` принимаются только перечисленные значения. Миграция писала `multi-select` без `options`, поэтому новые категории (`dairy`, `meat`, `groats`) отдавали бы `filters: []`. Кроме того, `ON CONFLICT (slug) DO NOTHING` оставлял старый `filterSchema` у уже существующих `milk, bread, eggs, sugar, oil`.
+
+**Исправление (миграция в production ещё не применялась, поэтому правится сам файл, новая миграция не добавлялась):**
+- `20261006000000_catalog_taxonomy/migration.sql` теперь **генерируется** командой `pnpm taxonomy:sql` из закоммиченного словаря. Для 9 публикуемых категорий пишутся `name` и полный `filterSchema`.
+- Каждый `multi-select` содержит непустой список `options` из значений, реально существующих у карточек категории в словаре (`brand`, `volumeMl`, `weightGrams`, `fatPercent`, `packageCount`); значения не придуманы и не взяты из старых фикстур. Фильтр без значений в словаре (например, `brand` у `eggs` не объявлен; у `vegetables` фильтров нет) не создаётся.
+- `ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, "filterSchema" = EXCLUDED."filterSchema"`: у существующих строк обновляются только имя и схема, `id` не меняется (проверено на тестовой БД с легаси-строками: `bread`, `eggs`, `milk`, `oil`, `sugar` сохранили прежние id, `dairy/groats/meat/vegetables` получили `cat-*`). Легаси `other` не трогается, `salt` не добавляется.
+- Остаточное ограничение дизайна frozen API: `options` — статический allowlist. Новый бренд или размер, появившийся в snapshot после выхода миграции, не попадёт в фильтр, пока `pnpm taxonomy:sql` и миграция не обновлены. API при этом пересекает options с текущим snapshot, так что устаревших значений не отдаёт.
+
+**Тесты** (`pipeline/test/taxonomy.test.ts`, парсинг SQL, а не поиск строки `options`): ровно 9 слагов без `other`/`salt`; `DO UPDATE` вместо `DO NOTHING`, нет `DELETE/DROP/TRUNCATE` и смены `id`; у каждого `multi-select` непустые, уникальные примитивные `options` (защитник `assertServableSchema` проверен на негативных случаях: нет `options`, пустой массив, не примитивы, дубликаты); схема каждой категории равна вычисленной из словаря; закоммиченный файл побайтово равен результату генератора.
+
+**Проверка dynamic filters на локальном snapshot** (одноразовый PG17, 4 миграции, `-recluster -apply`, строгий dry-run `newCanonicalCount: 0`; API на этой БД):
+
+| slug | `GET /api/categories/:slug/filters` | возвращённые фильтры (число options) |
+|---|---|---|
+| milk | 200 | volumeMl 15, fatPercent 27, brand 72 |
+| dairy | 200 | fatPercent 79, brand 237 |
+| eggs | 200 | packageCount 3 |
+| bread | 200 | weightGrams 53, brand 62 |
+| meat | 200 | brand 33 |
+| vegetables | 200 | нет (в таксономии фильтров нет) |
+| groats | 200 | weightGrams 75, brand 173 |
+| sugar | 200 | weightGrams 28 |
+| oil | 200 | volumeMl 17, brand 52 |
+
+Для каждого возвращённого фильтра: все options присутствуют среди usable-товаров последнего published snapshot (сверка с SQL, устаревших 0); запросы `/api/products?category=<slug>&<key>=<option>` для первой и последней option вернули 200 и непустой список, где у каждого товара значение равно выбранной option. Всего 0 расхождений.
+
+Наблюдение (не исправлялось, не относится к блокерам): у одной карточки сахара («Сахар Чайкофский порционный в стиках 0.3 г 10 шт») `weightGrams = 0` из-за округления при разборе размера, поэтому в фильтре `sugar.weightGrams` есть значение `0`.
+
+`TRUNCATE categories CASCADE` остаётся только подготовкой disposable CI-фикстуры и не является доказательством работы таксономии; доказательство — тесты и проверка выше.
