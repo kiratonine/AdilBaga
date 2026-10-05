@@ -11,11 +11,15 @@ export type Bundle = { version: '1.0'; generatedAt: string; rawProducts: BundleR
 
 const IMAGE_ORDER: StoreCode[] = ['DINA', 'DANA', 'ANVAR', 'FIX_PRICE']
 
+// Картинка уже лежит в imageUrl; массивы изображений раздувают bundle (каждый raw входит в него дважды) выше лимита Go (64 МиБ)
+const BULKY_PAYLOAD_KEYS = ['images', 'resources', 'preview']
+const slimPayload = (payload: Record<string, unknown>) => Object.fromEntries(Object.entries(payload).filter(([k]) => !BULKY_PAYLOAD_KEYS.includes(k)))
+
 function toRaw(c: ClassifiedProduct): BundleRaw {
   const p = c.product
   return { storeCode: c.storeCode, sourceProductId: p.sourceProductId, sourceUrl: p.sourceUrl, name: p.name, brand: c.brand,
     category: p.sourceCategoryPath.join(' / ') || null, price: p.price, oldPrice: p.oldPrice, imageUrl: p.imageUrl,
-    rawPayload: { ...p.rawPayload, agentFlags: c.flags.join(',') } }
+    rawPayload: { ...slimPayload(p.rawPayload), agentFlags: c.flags.join(',') } }
 }
 
 function mode<T>(xs: T[]): T | null {

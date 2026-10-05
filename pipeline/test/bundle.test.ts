@@ -27,6 +27,14 @@ describe('bundle', () => {
     expect(JSON.stringify(bundle)).not.toContain('undefined')
     for (const r of bundle.rawProducts) for (const k of ['sourceUrl', 'brand', 'category', 'oldPrice', 'imageUrl']) expect(r).toHaveProperty(k)
   })
+  it('drops bulky image arrays from rawPayload but keeps imageUrl (bundle must stay under the Go size limit)', () => {
+    const x = cp('FIX_PRICE', 'fp_9', 'Сахар 2 кг', { weightGrams: 2000 }, null, 'сахар')
+    x.product.imageUrl = 'https://img/9.jpg'
+    x.product.rawPayload = { id: 9, title: 'Сахар', images: [{ src: 'https://img/9.jpg' }], resources: [{ src: 'https://img/9-big.jpg' }], preview: { url: 'https://img/9.jpg' } }
+    const b = buildBundle([{ members: [x], method: 'deterministic', confidence: 1, review: 'approved' }], sources, '2026-10-05T12:00:00.000Z')
+    expect(b.rawProducts[0]!.imageUrl).toBe('https://img/9.jpg')
+    expect(Object.keys(b.rawProducts[0]!.rawPayload).sort()).toEqual(['agentFlags', 'id', 'title'])
+  })
   it('report counts cross-store matches', () => {
     expect(qualityReport(bundle)).toContain('Matched across 2+ stores: 1')
   })
