@@ -17,7 +17,7 @@ test('backup guards, bounded metadata, checksum and failure cleanup (synthetic o
     script('pg_restore', 'exit 0\n');
     script('gpg', 'if [ "${TEST_ENCRYPT_FAIL:-}" = 1 ]; then exit 1; fi\nwhile [ "$#" -gt 0 ]; do if [ "$1" = --output ]; then shift; printf "synthetic ciphertext" > "$1"; fi; shift; done\n');
     const env = { ...process.env, PGHOSTADDR: '192.0.2.1', PGSERVICE: 'ignored-inherited-service', PATH: bin + ':' + process.env.PATH, BACKUP_DATABASE_URL: 'postgres://local:local@127.0.0.1:15491/part11_test', BACKUP_OUTPUT_DIR: out, BACKUP_GPG_HOME: home, BACKUP_GPG_RECIPIENT: 'A'.repeat(40) };
-    const run = (script, changes = {}) => spawnSync('rtk', ['proxy', 'bash', root + '/ops/postgres/' + script], { env: { ...env, ...changes }, encoding: 'utf8' });
+    const run = (script, changes = {}) => spawnSync('bash', [root + '/ops/postgres/' + script], { env: { ...env, ...changes }, encoding: 'utf8' });
     for (const changes of [{ BACKUP_DATABASE_URL: '' }, { BACKUP_OUTPUT_DIR: '' }, { BACKUP_OUTPUT_DIR: 'relative' }, { BACKUP_OUTPUT_DIR: root }, { BACKUP_OUTPUT_DIR: root + '/artifacts' }, { BACKUP_GPG_RECIPIENT: '' }, { BACKUP_GPG_HOME: root }]) {
       assert.notEqual(run('backup.sh', changes).status, 0);
     }

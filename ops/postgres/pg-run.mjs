@@ -18,7 +18,7 @@ try {
   }
   // pg_restore needs --dbname to actually restore, rather than emit SQL.
   const operationArgs = command === 'pg_restore' ? ['--dbname', env.PGDATABASE, ...args] : args;
-  const result = spawnSync('rtk', ['proxy', command, ...operationArgs], { env, encoding: 'utf8', maxBuffer: 4 << 20 });
+  const result = spawnSync(command, operationArgs, { env, encoding: 'utf8', maxBuffer: 4 << 20 });
   if (result.status !== 0) {
     const diagnostic = (result.stdout || '') + (result.stderr || '');
     const outcome = /permission denied/i.test(diagnostic) ? 'permission_denied' : /role .*does not exist/i.test(diagnostic) ? 'role_prerequisite' : /extension .*not available/i.test(diagnostic) ? 'extension_prerequisite' : /connection.*failed|could not connect/i.test(diagnostic) ? 'connection' : 'operation_failed';
