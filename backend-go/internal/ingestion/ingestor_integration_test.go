@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"adilbaga/backend-go/internal/catalog"
+	"adilbaga/backend-go/internal/observability"
 	"adilbaga/backend-go/internal/postgres"
 	"github.com/jackc/pgx/v5"
 )
@@ -72,6 +73,22 @@ func TestLocalSnapshotPublication(t *testing.T) {
 	if !localTarget(writerURL) || !localTarget(apiURL) {
 		t.Fatal("snapshot writes require dedicated loopback part08 database")
 	}
+	beforeMetrics := observability.Default.Snapshot()
+	defer func() {
+		if t.Failed() {
+			return
+		}
+		after := observability.Default.Snapshot()
+		for _, operation := range []string{"dry_run", "stage", "publish"} {
+			key := "ingestion|" + operation + "|success"
+			if after.Series[key].Count <= beforeMetrics.Series[key].Count {
+				t.Error("missing ingestion phase observation")
+			}
+		}
+		if after.Series["ingestion|stage|failure"].Count <= beforeMetrics.Series["ingestion|stage|failure"].Count {
+			t.Error("missing ingestion failure observation")
+		}
+	}()
 	w, _ := url.Parse(writerURL)
 	a, _ := url.Parse(apiURL)
 	if w.Host != a.Host || w.Path != a.Path || w.User.Username() != "part08_writer" || a.User.Username() != "part08_api" {

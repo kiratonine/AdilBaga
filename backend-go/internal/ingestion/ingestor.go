@@ -1,6 +1,7 @@
 package ingestion
 
 import (
+	"adilbaga/backend-go/internal/observability"
 	"context"
 	"encoding/json"
 	"errors"
@@ -134,6 +135,19 @@ func (e *Ingestor) baseline(ctx context.Context) (baseline, error) {
 }
 
 func (e *Ingestor) DryRun(ctx context.Context, b Bundle) (Report, error) {
+	start := time.Now()
+	report, err := e.dryRun(ctx, b)
+	observeIngestion("dry_run", start, err)
+	return report, err
+}
+func observeIngestion(phase string, start time.Time, err error) {
+	class := "success"
+	if err != nil {
+		class = "failure"
+	}
+	observability.Default.Dependency("ingestion", phase, class, time.Since(start))
+}
+func (e *Ingestor) dryRun(ctx context.Context, b Bundle) (Report, error) {
 	if err := b.Validate(); err != nil {
 		return Report{}, err
 	}
@@ -189,6 +203,12 @@ func (s *Staged) Close() {
 }
 
 func (e *Ingestor) Stage(ctx context.Context, b Bundle) (*Staged, error) {
+	start := time.Now()
+	staged, err := e.stage(ctx, b)
+	observeIngestion("stage", start, err)
+	return staged, err
+}
+func (e *Ingestor) stage(ctx context.Context, b Bundle) (*Staged, error) {
 	if err := b.Validate(); err != nil {
 		return nil, err
 	}
@@ -298,6 +318,12 @@ func (e *Ingestor) Stage(ctx context.Context, b Bundle) (*Staged, error) {
 }
 
 func (s *Staged) Publish(ctx context.Context) error {
+	start := time.Now()
+	err := s.publish(ctx)
+	observeIngestion("publish", start, err)
+	return err
+}
+func (s *Staged) publish(ctx context.Context) error {
 	if s.done || s.closed {
 		return errors.New("snapshot not publishable")
 	}

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"math"
 	"os"
 	"os/signal"
@@ -16,14 +15,35 @@ import (
 
 	"adilbaga/backend-go/internal/config"
 	"adilbaga/backend-go/internal/ingestion"
+	"adilbaga/backend-go/internal/observability"
 	"github.com/jackc/pgx/v5"
 )
 
-func run() error {
+func run() (resultErr error) {
+	start := time.Now()
+	mode, phase := "dry_run", "configuration"
+	var report ingestion.Report
+	logger := observability.New(os.Stderr, "info")
+	defer func() {
+		class, code := "success", ""
+		if resultErr != nil {
+			class = "failure"
+			code = "ingestion_" + phase + "_failed"
+		}
+		args := []any{"mode", mode, "phase", phase, "outcome_class", class, "error_code", code, "duration_ms", time.Since(start).Milliseconds(), "raw_count", report.RawCount, "canonical_count", report.CanonicalCount, "reused_count", report.ReusedCanonical, "new_count", report.NewCanonical, "matched_count", report.MatchedAcrossStores}
+		if resultErr != nil {
+			logger.Error("ingestion_complete", args...)
+		} else {
+			logger.Info("ingestion_complete", args...)
+		}
+	}()
 	file := flag.String("bundle", "", "prepared bundle path")
 	apply := flag.Bool("apply", false, "explicitly stage and publish; default is read-only validation")
 	recluster := flag.Bool("recluster", false, "one-time re-matching: resolve canonical merges/splits deterministically")
 	flag.Parse()
+	if *apply {
+		mode = "apply"
+	}
 	if *file == "" || flag.NArg() != 0 {
 		return errors.New("bundle file required")
 	}
@@ -47,6 +67,7 @@ func run() error {
 		return errors.New("bundle file unavailable")
 	}
 	defer input.Close()
+	phase = "validation"
 	bundle, err := ingestion.Decode(input)
 	if err != nil {
 		return err
@@ -55,6 +76,7 @@ func run() error {
 	defer cancel()
 	ctx, deadline := context.WithTimeout(ctx, 5*time.Minute)
 	defer deadline()
+	phase = "connection"
 	conn, err := pgx.Connect(ctx, value)
 	if err != nil {
 		return errors.New("ingestion connection unavailable")
@@ -86,18 +108,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	var report ingestion.Report
 	if *apply {
+		phase = "staging"
 		staged, err := engine.Stage(ctx, bundle)
 		if err != nil {
 			return err
 		}
 		defer staged.Close()
+		phase = "publication"
 		if err = staged.Publish(ctx); err != nil {
 			return err
 		}
 		report = staged.Report
 	} else {
+		phase = "validation"
 		report, err = engine.DryRun(ctx, bundle)
 		if err != nil {
 			return err
@@ -111,12 +135,13 @@ func run() error {
 	if err != nil {
 		return errors.New("summary unavailable")
 	}
-	fmt.Println(string(raw))
+	if _, err = os.Stdout.Write(append(raw, '\n')); err != nil {
+		return errors.New("summary unavailable")
+	}
 	return nil
 }
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 }
