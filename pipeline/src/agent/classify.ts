@@ -47,7 +47,7 @@ function merge(i: { storeCode: StoreCode; product: SourceProduct }, r: z.infer<t
     const llm = r[k] ?? undefined, re = rx[k]
     if (re !== undefined && llm !== undefined && Math.round(llm) !== re) flags.push('size_conflict')
     const v = re ?? llm // regex — источник истины для размера
-    if (v !== undefined) attrs[k] = Math.round(v)
+    if (v !== undefined && Math.round(v) > 0) attrs[k] = Math.round(v)
   }
   const fat = extractFat(i.product.name) ?? r.fatPercent ?? null
   if (fat !== null) attrs.fatPercent = fat

@@ -58,6 +58,12 @@ describe('taxonomy', () => {
   it('committed migration is exactly what `pnpm taxonomy:sql` generates from the committed dictionary', () => {
     expect(sql).toBe(buildTaxonomyMigration(dict))
   })
+  it('committed dictionary has no non-positive size/fat attributes, and no filter option is 0', () => {
+    for (const [id, c] of Object.entries(dict.canonicals as Record<string, { attributes: Record<string, number> }>))
+      for (const k of ['volumeMl', 'weightGrams', 'packageCount', 'fatPercent'])
+        if (c.attributes[k] !== undefined) expect(c.attributes[k], `${id}.${k}`).toBeGreaterThan(0)
+    for (const r of rows) for (const f of r.schema.filters) expect((f.options ?? []) as unknown[], `${r.slug}.${f.key}`).not.toContain(0)
+  })
   it('slugs are unique and kebab-case', () => {
     const slugs = CATEGORIES.map((c) => c.slug)
     expect(new Set(slugs).size).toBe(slugs.length)

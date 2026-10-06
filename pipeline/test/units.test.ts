@@ -11,7 +11,13 @@ describe('units', () => {
     ['Яйцо С1 10 шт', { packageCount: 10 }],
     ['Вода 6х1.5 л', { volumeMl: 1500, packageCount: 6 }],
     ['Хлеб Бородинский', {}],
+    ['Сахар Чайкофский порционный в стиках 0.3 г 10 шт', { packageCount: 10 }],
+    ['Сметана 18% жирности 0.380г', {}],
   ])('%s', (name, size) => expect(extractSize(name)).toEqual(size))
+  it('never yields a zero size after integer normalization', () => {
+    expect(extractSize('Сахар порционный 0.3 г 10 шт')).not.toHaveProperty('weightGrams')
+    expect(extractSize('Сироп 0.4 мл')).not.toHaveProperty('volumeMl')
+  })
   it('fat percent with comma decimals', () => {
     expect(extractFat('Кефир 2,5%')).toBe(2.5)
     expect(extractFat('Сок 100%')).toBeNull()

@@ -21,6 +21,8 @@ export function extractSize(name: string): Size {
   if (kg && num(kg[1]!) > 0 && num(kg[1]!) < 50) size.weightGrams = Math.round(num(kg[1]!) * 1000)
   else if (g && !size.volumeMl) size.weightGrams = Math.round(num(g[1]!))
   if (pcs && !size.packageCount) size.packageCount = parseInt(pcs[1]!, 10)
+  // после целочисленной нормализации размер <= 0 (напр. 0.3 г → 0) не публикуем
+  for (const k of ['volumeMl', 'weightGrams', 'packageCount'] as const) if (size[k] !== undefined && !(size[k]! > 0)) delete size[k]
   return size
 }
 
