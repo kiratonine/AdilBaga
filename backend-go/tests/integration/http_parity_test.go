@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -79,8 +81,19 @@ func TestHTTPParity(t *testing.T) {
 	compare := func(path string, status int) any {
 		t.Helper()
 		a, b := get(goBase, path, status), get(reference, path, status)
-		if status == 200 && !reflect.DeepEqual(a, b) {
-			t.Fatal("HTTP DTO/order mismatch at " + pathName(path))
+		if status == 200 {
+			equal := reflect.DeepEqual(a, b)
+			endpoint := pathName(path)
+			if endpoint == "/api/products" || strings.HasPrefix(endpoint, "/api/products/") {
+				var err error
+				equal, err = equalHTTPProducts(a, b)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !equal {
+				t.Fatal("HTTP DTO/order mismatch at " + endpoint)
+			}
 		}
 		return a
 	}
@@ -172,6 +185,116 @@ func TestHTTPParity(t *testing.T) {
 	compare("/api/categories/unknown-http-parity/filters", 404)
 	compare("/api/dashboard", 200)
 	t.Logf("GET-only catalog/dashboard HTTP parity complete: categories=%d products=%d", len(categories), total)
+}
+
+// Product order and every field (including timestamp strings) remain exact.
+// The contract orders offers by price only; equal-price store order is unspecified.
+func equalHTTPProducts(a, b any) (bool, error) {
+	aa, err := canonicalHTTPProducts(a)
+	if err != nil {
+		return false, err
+	}
+	bb, err := canonicalHTTPProducts(b)
+	if err != nil {
+		return false, err
+	}
+	return reflect.DeepEqual(aa, bb), nil
+}
+
+func canonicalHTTPProducts(value any) (any, error) {
+	product := func(value any) (any, error) {
+		p, ok := value.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("HTTP product shape invalid")
+		}
+		offers, ok := p["offers"].([]any)
+		if !ok {
+			return nil, fmt.Errorf("HTTP product offers shape invalid")
+		}
+		var previous float64
+		for i, value := range offers {
+			o, ok := value.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("HTTP offer shape invalid")
+			}
+			price, priceOK := o["price"].(float64)
+			_, storeOK := o["storeCode"].(string)
+			if !priceOK || !storeOK {
+				return nil, fmt.Errorf("HTTP offer comparison fields invalid")
+			}
+			if i > 0 && price < previous {
+				return nil, fmt.Errorf("HTTP product offers must be price ASC")
+			}
+			previous = price
+		}
+		copyOffers := make([]any, len(offers))
+		copy(copyOffers, offers)
+		sort.SliceStable(copyOffers, func(i, j int) bool {
+			a, b := copyOffers[i].(map[string]any), copyOffers[j].(map[string]any)
+			if a["price"].(float64) != b["price"].(float64) {
+				return a["price"].(float64) < b["price"].(float64)
+			}
+			return a["storeCode"].(string) < b["storeCode"].(string)
+		})
+		copyProduct := make(map[string]any, len(p))
+		for key, field := range p {
+			copyProduct[key] = field
+		}
+		copyProduct["offers"] = copyOffers
+		return copyProduct, nil
+	}
+	if items, ok := value.([]any); ok {
+		out := make([]any, len(items))
+		for i, item := range items {
+			var err error
+			out[i], err = product(item)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return out, nil
+	}
+	return product(value)
+}
+
+func TestHTTPProductOfferTieComparison(t *testing.T) {
+	decode := func(raw string) any {
+		t.Helper()
+		var value any
+		if err := json.Unmarshal([]byte(raw), &value); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	base := `{"id":"p1","snapshotAt":"2026-10-05T10:00:00.000Z","offers":[{"storeCode":"DINA","storeName":"Dina","price":100,"oldPrice":null},{"storeCode":"DANA","storeName":"Dana","price":100,"oldPrice":120}]}`
+	reversed := `{"id":"p1","snapshotAt":"2026-10-05T10:00:00.000Z","offers":[{"storeCode":"DANA","storeName":"Dana","price":100,"oldPrice":120},{"storeCode":"DINA","storeName":"Dina","price":100,"oldPrice":null}]}`
+	for _, test := range []struct {
+		name, a, b     string
+		equal, invalid bool
+	}{
+		{"equal_price_reverse", base, reversed, true, false},
+		{"descending_left", strings.Replace(base, `"price":100`, `"price":101`, 1), reversed, false, true},
+		{"descending_right", reversed, strings.Replace(base, `"price":100`, `"price":101`, 1), false, true},
+		{"store_name", base, strings.Replace(reversed, `"Dana"`, `"Different"`, 1), false, false},
+		{"old_price", base, strings.Replace(reversed, `"oldPrice":120`, `"oldPrice":121`, 1), false, false},
+		{"timestamp_exact", base, strings.Replace(reversed, `.000Z`, `Z`, 1), false, false},
+		{"product_order", "[" + base + "," + strings.Replace(base, `"p1"`, `"p2"`, 1) + "]", "[" + strings.Replace(reversed, `"p1"`, `"p2"`, 1) + "," + reversed + "]", false, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			a, b := decode(test.a), decode(test.b)
+			beforeA, _ := json.Marshal(a)
+			beforeB, _ := json.Marshal(b)
+			equal, err := equalHTTPProducts(a, b)
+			if equal != test.equal || (err != nil) != test.invalid {
+				t.Fatal("product comparator result")
+			}
+			afterA, _ := json.Marshal(a)
+			afterB, _ := json.Marshal(b)
+			if string(beforeA) != string(afterA) || string(beforeB) != string(afterB) {
+				t.Fatal("comparison mutated response")
+			}
+		})
+	}
 }
 func pathName(path string) string {
 	for i, c := range path {
