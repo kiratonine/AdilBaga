@@ -13,6 +13,9 @@ await postgres(async ({ url, sql, login, load, go }) => {
   });
   login('aktau_api_runtime', 'aktau_api_reader');
   for (const db of ['part04_security', 'part08', 'part11_recovery']) load(db);
+  go(['test', '-count=1', '-race', '-tags=integration', './internal/ingestion', '-run', '^TestLocalTxBatchAtomicity$', '-v'], {
+    TEST_INGEST_ADMIN_DATABASE_URL: url('part08'),
+  });
   sql('part08', "INSERT INTO snapshots(id) VALUES('fixture-unpublished');");
   sql('part08', readFileSync(join(root, 'backend/prisma/security/aktau_ingest_writer_role.sql')));
   login('part08_api', 'aktau_api_reader'); login('part08_writer', 'aktau_ingest_writer');

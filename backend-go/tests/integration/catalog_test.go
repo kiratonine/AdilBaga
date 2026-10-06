@@ -262,6 +262,9 @@ func TestDeterministicCatalog(t *testing.T) {
 			if len(b.Items) != 3 {
 				t.Fatal("fixed basket slots")
 			}
+			if b.Items[1].CategorySlug != "sugar" || b.Items[1].CategoryName != "Сахар" {
+				t.Fatal("sugar basket contract drift")
+			}
 			for _, item := range b.Items {
 				if item.Price == nil && (item.ProductID != nil || item.Name != nil) {
 					t.Fatal("missing null semantics")

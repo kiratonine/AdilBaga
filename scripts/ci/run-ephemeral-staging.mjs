@@ -36,8 +36,8 @@ await postgres(async ({ name, url, sql, login, load, docker }) => {
       GEMINI_API_KEY: '', GEMINI_API_KEY2: '', GEMINI_API_KEY3: '', UPSTASH_REDIS_REST_URL: '', UPSTASH_REDIS_REST_TOKEN: '' });
     await wait('Nest reference', () => available('http://127.0.0.1:13000', '/api/categories', 200));
     console.log(run('small fixture GET/security parity', 'go', ['test', '-count=1', '-tags=integration', './tests/integration',
-      '-run', '^(TestHTTPParity|TestLocalSecurityQueryParity|TestLocalContentTypeParity)$', '-v'], {
-      cwd: join(root, 'backend-go'), env: { ...env, HTTP_PARITY_CONFIRM: '1', GO_API_BASE_URL: 'http://127.0.0.1:18080', REFERENCE_API_BASE_URL: 'http://127.0.0.1:13000' },
+      '-run', '^(TestHTTPParity|TestLocalSecurityQueryParity|TestLocalContentTypeParity|TestLocalCategoryVisibilityParity|TestLocalVoiceParity)$', '-v'], {
+      cwd: join(root, 'backend-go'), env: { ...env, HTTP_PARITY_CONFIRM: '1', TEST_DATABASE_URL: url('part04_fixture'), SMOKE_DATABASE_URL: url('part04_fixture', 'part04_api_login'), GO_API_BASE_URL: 'http://127.0.0.1:18080', REFERENCE_API_BASE_URL: 'http://127.0.0.1:13000' },
     }));
     for (const origin of ['http://127.0.0.1:18080', 'http://127.0.0.1:13000']) console.log(run('frozen GET contracts (local only)', 'pnpm', ['test:live'], {
       cwd: join(root, 'contracts'), env: { ...env, CONTRACT_API_BASE_URL: origin },
