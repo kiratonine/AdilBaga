@@ -9,7 +9,46 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+// Statements are sent in pipelined batches inside the caller's transaction: one
+// round trip per batch instead of per row, which matters on remote databases.
+const batchSize = 500
+
+type txBatch struct {
+	tx    pgx.Tx
+	batch pgx.Batch
+}
+
+// queue adds a statement that must affect exactly one row and flushes full batches.
+func (t *txBatch) queue(ctx context.Context, sql string, args ...any) error {
+	t.batch.Queue(sql, args...)
+	if t.batch.Len() >= batchSize {
+		return t.flush(ctx)
+	}
+	return nil
+}
+
+func (t *txBatch) flush(ctx context.Context) error {
+	n := t.batch.Len()
+	if n == 0 {
+		return nil
+	}
+	results := t.tx.SendBatch(ctx, &t.batch)
+	var err error
+	for i := 0; i < n && err == nil; i++ {
+		var tag pgconn.CommandTag
+		if tag, err = results.Exec(); err == nil && tag.RowsAffected() != 1 {
+			err = errors.New("unexpected affected rows")
+		}
+	}
+	if closeErr := results.Close(); err == nil {
+		err = closeErr
+	}
+	t.batch = pgx.Batch{}
+	return err
+}
 
 // Dedicated session connection, never an API read-only pool or Redis lock.
 const AdvisoryLockKey int64 = 0x414b54415508
@@ -281,6 +320,7 @@ func (e *Ingestor) stage(ctx context.Context, b Bundle) (*Staged, error) {
 			return nil, errors.New("source staging unavailable")
 		}
 	}
+	raws := &txBatch{tx: tx}
 	for _, p := range b.RawProducts {
 		rawID, err := opaqueID()
 		if err != nil {
@@ -292,11 +332,15 @@ func (e *Ingestor) stage(ctx context.Context, b Bundle) (*Staged, error) {
 			e.unlock()
 			return nil, reject()
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO raw_products(id,"snapshotId","storeId","sourceProductId","sourceUrl","rawName","rawBrand","rawCategory","rawPrice","rawOldPrice","rawImageUrl","rawPayload") VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`, rawID, id, previous.Stores[p.StoreCode], p.SourceProductID, p.SourceURL, p.Name, p.Brand, p.Category, p.Price, p.OldPrice, p.ImageURL, string(payload)); err != nil {
+		if err = raws.queue(ctx, `INSERT INTO raw_products(id,"snapshotId","storeId","sourceProductId","sourceUrl","rawName","rawBrand","rawCategory","rawPrice","rawOldPrice","rawImageUrl","rawPayload") VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`, rawID, id, previous.Stores[p.StoreCode], p.SourceProductID, p.SourceURL, p.Name, p.Brand, p.Category, p.Price, p.OldPrice, p.ImageURL, string(payload)); err != nil {
 			e.unlock()
 			return nil, errors.New("raw staging unavailable")
 		}
 		s.raws[p.Identity()] = rawID
+	}
+	if err = raws.flush(ctx); err != nil {
+		e.unlock()
+		return nil, errors.New("raw staging unavailable")
 	}
 	if tx.Commit(ctx) != nil {
 		e.unlock()
@@ -346,18 +390,18 @@ func (s *Staged) publish(ctx context.Context) error {
 	if current != s.previous.ID {
 		return fail()
 	}
+	writes := &txBatch{tx: tx}
 	for _, v := range s.groups {
 		attributes, err := json.Marshal(v.Group.Attributes)
 		if err != nil {
 			return fail()
 		}
 		if v.Reused {
-			tag, err := tx.Exec(ctx, `UPDATE canonical_products SET name=$2,brand=$3,"categoryId"=$4,"imageUrl"=$5,attributes=$6::jsonb WHERE id=$1`, v.ID, v.Group.Name, v.Group.Brand, s.previous.Categories[v.Group.Category], v.Group.ImageURL, string(attributes))
-			if err != nil || tag.RowsAffected() != 1 {
+			if err := writes.queue(ctx, `UPDATE canonical_products SET name=$2,brand=$3,"categoryId"=$4,"imageUrl"=$5,attributes=$6::jsonb WHERE id=$1`, v.ID, v.Group.Name, v.Group.Brand, s.previous.Categories[v.Group.Category], v.Group.ImageURL, string(attributes)); err != nil {
 				return fail()
 			}
 		} else {
-			if _, err := tx.Exec(ctx, `INSERT INTO canonical_products(id,name,brand,"categoryId","imageUrl",attributes) VALUES($1,$2,$3,$4,$5,$6::jsonb)`, v.ID, v.Group.Name, v.Group.Brand, s.previous.Categories[v.Group.Category], v.Group.ImageURL, string(attributes)); err != nil {
+			if err := writes.queue(ctx, `INSERT INTO canonical_products(id,name,brand,"categoryId","imageUrl",attributes) VALUES($1,$2,$3,$4,$5,$6::jsonb)`, v.ID, v.Group.Name, v.Group.Brand, s.previous.Categories[v.Group.Category], v.Group.ImageURL, string(attributes)); err != nil {
 				return fail()
 			}
 		}
@@ -370,13 +414,16 @@ func (s *Staged) publish(ctx context.Context) error {
 			if err != nil {
 				return fail()
 			}
-			if _, err = tx.Exec(ctx, `INSERT INTO product_mappings(id,"rawProductId","canonicalProductId","matchMethod","matchConfidence","reviewStatus") VALUES($1,$2,$3,$4,$5,$6)`, mappingID, s.raws[m.Raw.Identity()], v.ID, m.Method, *m.Confidence, m.Review); err != nil {
+			if err = writes.queue(ctx, `INSERT INTO product_mappings(id,"rawProductId","canonicalProductId","matchMethod","matchConfidence","reviewStatus") VALUES($1,$2,$3,$4,$5,$6)`, mappingID, s.raws[m.Raw.Identity()], v.ID, m.Method, *m.Confidence, m.Review); err != nil {
 				return fail()
 			}
-			if _, err = tx.Exec(ctx, `INSERT INTO offers(id,"snapshotId","canonicalProductId","rawProductId","storeId",price,"oldPrice","inStock","snapshotAt") VALUES($1,$2,$3,$4,$5,$6,$7,true,$8)`, offerID, s.id, v.ID, s.raws[m.Raw.Identity()], s.previous.Stores[m.Raw.StoreCode], m.Raw.Price, m.Raw.OldPrice, s.captures[m.Raw.StoreCode]); err != nil {
+			if err = writes.queue(ctx, `INSERT INTO offers(id,"snapshotId","canonicalProductId","rawProductId","storeId",price,"oldPrice","inStock","snapshotAt") VALUES($1,$2,$3,$4,$5,$6,$7,true,$8)`, offerID, s.id, v.ID, s.raws[m.Raw.Identity()], s.previous.Stores[m.Raw.StoreCode], m.Raw.Price, m.Raw.OldPrice, s.captures[m.Raw.StoreCode]); err != nil {
 				return fail()
 			}
 		}
+	}
+	if err := writes.flush(ctx); err != nil {
+		return fail()
 	}
 	tag, err := tx.Exec(ctx, `UPDATE snapshots SET status='published',"publishedAt"=greatest(timezone('UTC',clock_timestamp())::timestamp(3),coalesce($2::timestamp+interval '1 millisecond','-infinity'::timestamp)) WHERE id=$1 AND status='validating'`, s.id, s.previous.PublishedAt)
 	if err != nil || tag.RowsAffected() != 1 {
