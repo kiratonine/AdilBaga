@@ -31,7 +31,7 @@ func TestPreparedDataset(t *testing.T) {
 	if len(b.RawProducts) != 863 || len(b.Groups) != 849 {
 		t.Fatal("prepared dataset counts")
 	}
-	_, report, err := resolve(b, nil, nil, map[string]string{"milk": "milk", "sugar": "sugar", "oil": "oil", "eggs": "eggs", "bread": "bread", "other": "other"}, 0)
+	_, report, err := resolve(b, nil, nil, map[string]string{"milk": "milk", "sugar": "sugar", "oil": "oil", "eggs": "eggs", "bread": "bread", "other": "other"}, 0, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestCanonicalIdentityAndQuality(t *testing.T) {
 	cats := map[string]string{"milk": "category"}
 	b := sample()
 	old := map[Identity][]string{b.RawProducts[0].Identity(): {"stable-1"}, b.RawProducts[1].Identity(): {"stable-2"}}
-	result, report, err := resolve(b, old, nil, cats, 0)
+	result, report, err := resolve(b, old, nil, cats, 0, false)
 	if err != nil || result[0].ID != "stable-1" || result[1].ID != "stable-2" || report.ReusedCanonical != 2 || report.NewCanonical != 1 {
 		t.Fatal("stable identity")
 	}
@@ -91,7 +91,7 @@ func TestCanonicalIdentityAndQuality(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, r, e := resolve(tc.bundle, tc.previous, tc.counts, cats, 0)
+			_, r, e := resolve(tc.bundle, tc.previous, tc.counts, cats, 0, false)
 			if e == nil || r.FailureCode != tc.code {
 				t.Fatal("quality gate")
 			}
@@ -99,12 +99,27 @@ func TestCanonicalIdentityAndQuality(t *testing.T) {
 	}
 	b.RawProducts = b.RawProducts[1:]
 	b.Groups = b.Groups[1:]
-	if _, r, e := resolve(b, nil, nil, cats, 0); e == nil || r.FailureCode != "required_source_missing" {
+	if _, r, e := resolve(b, nil, nil, cats, 0, false); e == nil || r.FailureCode != "required_source_missing" {
 		t.Fatal("required store")
 	}
 	b = sample()
 	b.Groups[0].Category = "unknown"
-	if _, r, e := resolve(b, nil, nil, cats, 0); e == nil || r.FailureCode != "unknown_canonical_category" {
+	if _, r, e := resolve(b, nil, nil, cats, 0, false); e == nil || r.FailureCode != "unknown_canonical_category" {
 		t.Fatal("unknown category")
+	}
+}
+
+func TestDecodeAcceptsPipelineBundle(t *testing.T) {
+	f, err := os.Open("testdata/pipeline_bundle.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	b, err := Decode(f)
+	if err != nil {
+		t.Fatalf("pipeline bundle rejected: %v", err)
+	}
+	if len(b.RawProducts) != 3 || len(b.Groups) != 2 || len(b.Sources) != 3 {
+		t.Fatalf("unexpected shape: %d raw, %d groups, %d sources", len(b.RawProducts), len(b.Groups), len(b.Sources))
 	}
 }

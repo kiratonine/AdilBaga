@@ -116,7 +116,7 @@ func TestLocalSnapshotPublication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	engine, err := New(conn, 0)
+	engine, err := New(conn, 0, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestLocalSnapshotPublication(t *testing.T) {
 		t.Fatal("local second writer unavailable")
 	}
 	defer second.Close(context.Background())
-	other, _ := New(second, 0)
+	other, _ := New(second, 0, false)
 	start := time.Now()
 	_, err = other.DryRun(ctx, b)
 	if err == nil || err.Error() != "ingestion already running" || time.Since(start) > time.Second {

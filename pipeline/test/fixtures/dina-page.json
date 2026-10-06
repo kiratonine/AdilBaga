@@ -1,0 +1,5 @@
+{"data":{"products":{"pageInfo":{"total":3},"edges":[
+  {"id":"5865","xid":"x5865","name":"Крупа Promo манная 700 г","slug":"krupa-promo-mannaya-700-g","price":361,"oldPrice":null,"price_type":"piece","isWeightProduct":false,"preview":{"url":"https://cdn.dina/5865.jpg"},"images":[],"stock":{"amount":12},"categories":[{"id":"7","name":"Макароны, крупы, мука"},{"id":"70","name":"Крупы"}]},
+  {"id":"900","xid":"x900","name":"Огурцы тепличные","slug":"ogurcy","price":1.2,"oldPrice":null,"price_type":"weight","isWeightProduct":true,"preview":null,"images":[{"url":"https://cdn.dina/900.jpg"}],"stock":{"amount":5},"categories":[{"id":"1","name":"Овощи и фрукты"}]},
+  {"id":"901","xid":"x901","name":"","slug":"bad","price":100,"oldPrice":null,"price_type":"piece","isWeightProduct":false,"preview":null,"images":[],"stock":null,"categories":[]}
+]}}}

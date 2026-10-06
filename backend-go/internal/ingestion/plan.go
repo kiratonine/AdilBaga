@@ -13,6 +13,8 @@ type Report struct {
 	MatchedAcrossStores        int            `json:"matchedAcrossTwoOrMoreStores"`
 	NewCanonical               int            `json:"newCanonicalCount"`
 	ReusedCanonical            int            `json:"reusedCanonicalCount"`
+	MergedCanonical            int            `json:"mergedCanonicalCount"`
+	SplitCanonical             int            `json:"splitCanonicalCount"`
 	ImageCoverage              float64        `json:"imageCoverage"`
 	SourceMetadataAvailability int            `json:"sourceMetadataAvailability"`
 	FailureCode                string         `json:"failureCode,omitempty"`
@@ -34,7 +36,7 @@ type resolved struct {
 	Reused bool
 }
 
-func resolve(b Bundle, previous map[Identity][]string, counts map[string]int, categories map[string]string, maxDrop float64) ([]resolved, Report, error) {
+func resolve(b Bundle, previous map[Identity][]string, counts map[string]int, categories map[string]string, maxDrop float64, recluster bool) ([]resolved, Report, error) {
 	report := Report{RawCount: len(b.RawProducts), CanonicalCount: len(b.Groups), PerStore: map[string]int{}, SourceMetadataAvailability: len(b.Sources)}
 	fail := func(code string) ([]resolved, Report, error) {
 		report.FailureCode = code
@@ -59,20 +61,36 @@ func resolve(b Bundle, previous map[Identity][]string, counts map[string]int, ca
 			return fail("source_count_mismatch")
 		}
 	}
+	// votes[i][id] = сколько участников группы i ранее принадлежали canonical id
+	votes := make([]map[string]int, len(b.Groups))
+	for i, g := range b.Groups {
+		votes[i] = map[string]int{}
+		for _, m := range g.Members {
+			for _, id := range previous[m.Raw.Identity()] {
+				votes[i][id]++
+			}
+		}
+	}
+	// Для split: какая группа сильнее всего претендует на каждый прежний id
+	owner := map[string]int{}
+	for i := range b.Groups {
+		for id, n := range votes[i] {
+			j, ok := owner[id]
+			if !ok || n > votes[j][id] || (n == votes[j][id] && len(b.Groups[i].Members) > len(b.Groups[j].Members)) {
+				owner[id] = i
+			}
+		}
+	}
 	used := map[string]bool{}
 	out := make([]resolved, 0, len(b.Groups))
 	images := 0
-	for _, g := range b.Groups {
+	for i, g := range b.Groups {
 		if _, ok := categories[g.Category]; !ok {
 			return fail("unknown_canonical_category")
 		}
-		identities := map[string]bool{}
 		chains := map[string]bool{}
 		for _, m := range g.Members {
 			chains[m.Raw.StoreCode] = true
-			for _, id := range previous[m.Raw.Identity()] {
-				identities[id] = true
-			}
 		}
 		if len(chains) >= 2 {
 			report.MatchedAcrossStores++
@@ -80,24 +98,35 @@ func resolve(b Bundle, previous map[Identity][]string, counts map[string]int, ca
 		if g.ImageURL != nil && *g.ImageURL != "" {
 			images++
 		}
-		if len(identities) > 1 {
+		if len(votes[i]) > 1 && !recluster {
 			return fail("canonical_merge_conflict")
 		}
-		v := resolved{Group: g}
-		for id := range identities {
-			v.ID = id
-			v.Reused = true
+		if len(votes[i]) > 1 {
+			report.MergedCanonical++
 		}
-		if v.Reused {
-			if used[v.ID] {
+		v := resolved{Group: g}
+		best, bestVotes := "", 0
+		for id, n := range votes[i] {
+			if recluster && owner[id] != i {
+				continue
+			}
+			if n > bestVotes || (n == bestVotes && id < best) {
+				best, bestVotes = id, n
+			}
+		}
+		if best != "" {
+			if used[best] {
 				return fail("canonical_split_conflict")
 			}
-			used[v.ID] = true
+			v.ID, v.Reused = best, true
+			used[best] = true
 			report.ReusedCanonical++
 		} else {
+			if len(votes[i]) > 0 {
+				report.SplitCanonical++
+			}
 			var err error
-			v.ID, err = opaqueID()
-			if err != nil {
+			if v.ID, err = opaqueID(); err != nil {
 				return nil, report, err
 			}
 			report.NewCanonical++

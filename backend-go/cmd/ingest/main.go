@@ -39,6 +39,7 @@ func run() (resultErr error) {
 	}()
 	file := flag.String("bundle", "", "prepared bundle path")
 	apply := flag.Bool("apply", false, "explicitly stage and publish; default is read-only validation")
+	recluster := flag.Bool("recluster", false, "one-time re-matching: resolve canonical merges/splits deterministically")
 	flag.Parse()
 	if *apply {
 		mode = "apply"
@@ -103,7 +104,7 @@ func run() (resultErr error) {
 			return errors.New("dry-run read-only policy unavailable")
 		}
 	}
-	engine, err := ingestion.New(conn, drop)
+	engine, err := ingestion.New(conn, drop, *recluster)
 	if err != nil {
 		return err
 	}

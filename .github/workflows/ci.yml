@@ -66,6 +66,17 @@ jobs:
         with: {node-version: '24.10.0', package-manager-cache: false}
       - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
       - run: node scripts/ci/run-checks.mjs frontend
+  pipeline:
+    name: Pipeline Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
+      - run: node scripts/ci/run-checks.mjs pipeline
   security:
     name: Security
     runs-on: ubuntu-24.04
@@ -112,7 +123,7 @@ jobs:
   gate:
     name: CI Gate
     if: always()
-    needs: [contracts, go, nest, frontend, security, postgres, staging]
+    needs: [contracts, go, nest, frontend, pipeline, security, postgres, staging]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     env:
@@ -120,4 +131,4 @@ jobs:
     steps:
       - name: Require every mandatory job to succeed
         run: |
-          node -e 'const jobs=JSON.parse(process.env.RESULTS); if(Object.keys(jobs).length!==7 || Object.values(jobs).some(j=>j.result!=="success")) process.exit(1); console.log("CI Gate: PASS");'
+          node -e 'const jobs=JSON.parse(process.env.RESULTS); if(Object.keys(jobs).length!==8 || Object.values(jobs).some(j=>j.result!=="success")) process.exit(1); console.log("CI Gate: PASS");'

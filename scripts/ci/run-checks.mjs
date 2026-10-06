@@ -35,6 +35,10 @@ if (group === 'contracts') {
   pnpm('frontend', ['build'], httpEnv);
   prepareBrowser();
   console.log(pnpm('frontend', ['test:e2e']).split('\n').slice(-8).join('\n'));
+} else if (group === 'pipeline') {
+  install('pipeline');
+  console.log(pnpm('pipeline', ['test']).split('\n').slice(-10).join('\n'));
+  pnpm('pipeline', ['typecheck']);
 } else if (group === 'mock-e2e') {
   install('frontend'); prepareBrowser();
   console.log(pnpm('frontend', ['test:e2e']).split('\n').slice(-8).join('\n'));

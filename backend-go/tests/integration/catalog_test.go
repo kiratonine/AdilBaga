@@ -144,6 +144,10 @@ func TestDeterministicCatalog(t *testing.T) {
 	if err = admin.QueryRow(ctx, `SELECT count(*) FROM canonical_products`).Scan(&products); err != nil || products != 0 {
 		t.Fatal("fixture database must be empty")
 	}
+	// The taxonomy migration seeds production categories; the INSERT-only fixture needs a catalog with only its own rows.
+	if _, err = admin.Exec(ctx, `TRUNCATE categories CASCADE`); err != nil {
+		t.Fatal("seeded categories cleanup failed")
+	}
 	data, err := os.ReadFile(filepath.Join("..", "fixtures", "catalog.sql"))
 	if err != nil {
 		t.Fatal(err)
