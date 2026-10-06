@@ -25,7 +25,7 @@ const dashboardSQL = `WITH current_snapshot AS (
  FROM aggregates WHERE chains>=2
 ), slots(ord,slug,name,key,value) AS (
  VALUES (1,'milk','Молочные продукты','volumeMl','1000'::jsonb),
- (2,'sugar','Сахар и соль','weightGrams','1000'::jsonb),
+ (2,'sugar','Сахар','weightGrams','1000'::jsonb),
  (3,'oil','Растительные масла','volumeMl','1000'::jsonb)
 ), candidates AS (
  SELECT u."storeId",slots.ord,u.id,u.name,u.price,

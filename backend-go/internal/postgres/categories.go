@@ -9,8 +9,20 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const listCategoriesSQL = `SELECT c.id,c.slug,c.name FROM public.categories c
+WHERE EXISTS (SELECT 1 FROM public.canonical_products p
+  JOIN public.offers o ON o."canonicalProductId"=p.id
+  WHERE p."categoryId"=c.id AND o."snapshotId"=$1 AND o."inStock" AND o.price>0)
+ORDER BY c.slug ASC`
+
+// Only categories with a usable offer in the latest published snapshot are public.
 func (r *Repository) ListCategories(ctx context.Context) ([]catalog.Category, error) {
-	rows, err := r.db.Query(ctx, `SELECT id,slug,name FROM public.categories ORDER BY slug ASC`)
+	reader, snapshotID, end, err := r.snapshotReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer end()
+	rows, err := reader.db.Query(ctx, listCategoriesSQL, snapshotID)
 	if err != nil {
 		return nil, databaseError(err)
 	}

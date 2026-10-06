@@ -186,7 +186,7 @@ func TestReaderRolloutLifecycle(t *testing.T) {
 		repo := postgres.NewRepository(pool)
 		categories, err := repo.ListCategories(ctx)
 		var expected int
-		if err != nil || admin.QueryRow(ctx, `SELECT count(*) FROM categories`).Scan(&expected) != nil || len(categories) != expected {
+		if err != nil || admin.QueryRow(ctx, `SELECT count(*) FROM categories c WHERE EXISTS (SELECT 1 FROM canonical_products p JOIN offers o ON o."canonicalProductId"=p.id WHERE p."categoryId"=c.id AND o."snapshotId"=(SELECT id FROM snapshots WHERE status='published' AND "publishedAt" IS NOT NULL ORDER BY "publishedAt" DESC,id DESC LIMIT 1) AND o."inStock" AND o.price>0)`).Scan(&expected) != nil || len(categories) != expected {
 			t.Fatal("restricted category visibility")
 		}
 		for _, category := range categories {
@@ -394,7 +394,7 @@ func TestReaderCreatorAnchorLifecycle(t *testing.T) {
 		repo := postgres.NewRepository(pool)
 		categories, err := repo.ListCategories(ctx)
 		var expected int
-		if err != nil || operator.QueryRow(ctx, `SELECT count(*) FROM categories`).Scan(&expected) != nil || len(categories) != expected {
+		if err != nil || operator.QueryRow(ctx, `SELECT count(*) FROM categories c WHERE EXISTS (SELECT 1 FROM canonical_products p JOIN offers o ON o."canonicalProductId"=p.id WHERE p."categoryId"=c.id AND o."snapshotId"=(SELECT id FROM snapshots WHERE status='published' AND "publishedAt" IS NOT NULL ORDER BY "publishedAt" DESC,id DESC LIMIT 1) AND o."inStock" AND o.price>0)`).Scan(&expected) != nil || len(categories) != expected {
 			t.Fatal("operator-proof full category visibility")
 		}
 		for _, c := range categories {
