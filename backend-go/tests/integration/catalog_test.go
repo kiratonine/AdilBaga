@@ -171,7 +171,7 @@ func TestDeterministicCatalog(t *testing.T) {
 	t.Run("approved security state", func(t *testing.T) { assertReaderSecurity(t, ctx, pool) })
 	t.Run("categories and filters", func(t *testing.T) {
 		categories, err := repo.ListCategories(ctx)
-		if err != nil || len(categories) != 3 || categories[0].Slug != "empty" || categories[2].Slug != "oil" {
+		if err != nil || len(categories) != 2 || categories[0].Slug != "milk" || categories[1].Slug != "oil" {
 			t.Fatal("category order")
 		}
 		if _, err := repo.GetFilterSchema(ctx, "unknown"); !errors.Is(err, catalog.ErrNotFound) {

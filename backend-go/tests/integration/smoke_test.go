@@ -87,7 +87,7 @@ func smoke(t *testing.T, target string, parity bool) {
 		ctx := t.Context()
 		var err error
 		categories, err = boundedCall(ctx, repo.ListCategories)
-		if err != nil || len(categories) < 6 {
+		if err != nil || len(categories) < 1 {
 			t.Fatal("categories smoke")
 		}
 		for i := 1; i < len(categories); i++ {

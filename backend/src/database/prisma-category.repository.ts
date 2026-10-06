@@ -26,8 +26,14 @@ export class PrismaCategoryRepository implements CategoryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(): Promise<CategoryDto[]> {
-    const rows = await this.prisma.category.findMany({ orderBy: { slug: 'asc' } });
-    return rows.map(({ id, slug, name }) => ({ id, slug, name }));
+    // Only categories with a usable offer in the latest published snapshot are public.
+    return withPublishedSnapshot(this.prisma, async (tx, snapshotId) => {
+      const rows = await tx.category.findMany({
+        where: { canonicalProducts: { some: { offers: { some: { ...usableOffer, snapshotId } } } } },
+        orderBy: { slug: 'asc' },
+      });
+      return rows.map(({ id, slug, name }) => ({ id, slug, name }));
+    });
   }
 
   async findFilters(slug: string): Promise<FilterSchemaDto | null> {

@@ -131,7 +131,7 @@ async function seed() {
     },
     {
       slug: 'sugar',
-      name: 'Сахар и соль',
+      name: 'Сахар',
       filterSchema: {
         filters: [
           { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [500, 700, 800, 1000, 2000, 3000, 5000] }
