@@ -34,3 +34,27 @@ func TestConfigurationFailureStructuredPrivacy(t *testing.T) {
 		t.Fatal("unsafe or missing structured ingestion failure")
 	}
 }
+
+func TestApplyRevalidationPreflightBeforeConnection(t *testing.T) {
+	oldArgs, oldFlags := os.Args, flag.CommandLine
+	defer func() { os.Args, flag.CommandLine = oldArgs, oldFlags }()
+	t.Setenv("APP_ENV", "test")
+	t.Setenv("FRONTEND_REVALIDATE_URL", "")
+	t.Setenv("REVALIDATE_HMAC_SECRET", "")
+	t.Setenv("INGEST_DATABASE_URL", "invalid-test-only-value")
+	for _, apply := range []bool{false, true} {
+		os.Args = []string{"ingest", "--bundle", "unused"}
+		if apply {
+			os.Args = append(os.Args, "--apply")
+		}
+		flag.CommandLine = flag.NewFlagSet("ingest", flag.ContinueOnError)
+		err := run()
+		want := "INGEST_DATABASE_URL missing or invalid"
+		if apply {
+			want = "revalidation configuration invalid"
+		}
+		if err == nil || err.Error() != want {
+			t.Fatal("notification preflight/dry-run behavior changed")
+		}
+	}
+}

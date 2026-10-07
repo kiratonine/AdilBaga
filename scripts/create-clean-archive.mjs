@@ -5,10 +5,12 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && !['production-part-15', 'post-scrum-7', 'production-part-14', 'production-part-13', 'production-part-12', 'production-part-11', 'production-part-10', 'production-part-08', 'production-part-07', 'production-part-05', 'production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
+if (process.argv[2] && !['production-part-16', 'production-part-15', 'post-scrum-7', 'production-part-14', 'production-part-13', 'production-part-12', 'production-part-11', 'production-part-10', 'production-part-08', 'production-part-07', 'production-part-05', 'production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
-const output = join(outputDir, process.argv[2] === 'production-part-15'
+const output = join(outputDir, process.argv[2] === 'production-part-16'
+  ? 'production-part-16-review.tar.gz'
+  : process.argv[2] === 'production-part-15'
   ? 'production-part-15-review.tar.gz'
   : process.argv[2] === 'post-scrum-7'
   ? 'post-scrum-7-integration-review.tar.gz'

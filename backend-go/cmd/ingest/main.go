@@ -16,6 +16,7 @@ import (
 	"adilbaga/backend-go/internal/config"
 	"adilbaga/backend-go/internal/ingestion"
 	"adilbaga/backend-go/internal/observability"
+	"adilbaga/backend-go/internal/revalidation"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -53,6 +54,14 @@ func run() (resultErr error) {
 	}
 	if *apply && appEnv == "production" && os.Getenv("INGEST_PRODUCTION_APPLY_CONFIRM") != "1" {
 		return errors.New("production ingestion apply not confirmed")
+	}
+	var notifier *revalidation.Client
+	if *apply {
+		var err error
+		notifier, err = revalidation.New(os.Getenv("FRONTEND_REVALIDATE_URL"), os.Getenv("REVALIDATE_HMAC_SECRET"), appEnv)
+		if err != nil {
+			return err
+		}
 	}
 	value := os.Getenv("INGEST_DATABASE_URL")
 	if value == "" || config.ValidateDatabaseURL(value) != nil {
@@ -116,10 +125,12 @@ func run() (resultErr error) {
 		}
 		defer staged.Close()
 		phase = "publication"
-		if err = staged.Publish(ctx); err != nil {
-			return err
+		outcome, publishErr := revalidation.PublishThenNotify(ctx, true, staged.Publish, notifier.Notify)
+		if publishErr != nil {
+			return publishErr
 		}
 		report = staged.Report
+		logger.Info("frontend_revalidation", "outcome_class", outcome)
 	} else {
 		phase = "validation"
 		report, err = engine.DryRun(ctx, bundle)

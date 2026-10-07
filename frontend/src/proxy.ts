@@ -28,6 +28,7 @@ export function preferredLanguage(request: NextRequest): Language {
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  if (pathname === '/internal/revalidate') return NextResponse.next()
   const first = pathname.split('/')[1]
   if (isLanguage(first)) return NextResponse.next()
 
@@ -39,5 +40,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Служебное (_next), API и файлы с расширением (icon.svg, robots.txt, sitemap.xml) — мимо
-  matcher: ['/((?!_next/|api/|.*\\.[^/]+$).*)'],
+  matcher: ['/((?!_next/|api/|internal/revalidate$|.*\\.[^/]+$).*)'],
 }

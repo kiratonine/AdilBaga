@@ -24,6 +24,9 @@ describe('languageFromHeader', () => {
 })
 
 describe('proxy', () => {
+  it('does not redirect the internal authenticated webhook', () => {
+    expect(location(proxy(request('/internal/revalidate')))).toBeNull()
+  })
   it('sends / to the catalog in the language from Accept-Language with a temporary redirect', () => {
     const response = proxy(request('/', { 'accept-language': 'kk-KZ,ru;q=0.5' }))
     expect(response.status).toBe(307)
