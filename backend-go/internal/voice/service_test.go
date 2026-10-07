@@ -31,6 +31,7 @@ func TestNLPValidation(t *testing.T) {
 		{"bad category", `{"intent":null,"category":"phones","filters":{}}`, false},
 		{"bad key", `{"intent":null,"category":"milk","filters":{"price":1}}`, false},
 		{"wrong category", `{"intent":null,"category":"sugar","filters":{"volumeMl":1000}}`, false},
+		{"wrong category null filler", `{"intent":null,"category":"sugar","filters":{"volumeMl":null}}`, false},
 		{"wrong type", `{"intent":null,"category":"milk","filters":{"volumeMl":"1000"}}`, false},
 		{"wrong option", `{"intent":null,"category":"milk","filters":{"volumeMl":900}}`, false},
 		{"wrong string option", `{"intent":null,"category":"milk","filters":{"brand":"other"}}`, false},
@@ -87,6 +88,17 @@ func TestFallback(t *testing.T) {
 	}
 }
 func TestState(t *testing.T) {
+	for _, tc := range []struct{ missing, want []string }{
+		{[]string{"intent", "category", "volumeMl", "fatPercent"}, []string{"intent"}},
+		{[]string{"category", "volumeMl", "fatPercent"}, []string{"category"}},
+		{[]string{"volumeMl", "fatPercent"}, []string{"volumeMl", "fatPercent"}},
+		{[]string{"volumeMl"}, []string{"volumeMl"}},
+		{[]string{"fatPercent"}, []string{"fatPercent"}},
+	} {
+		if !reflect.DeepEqual(QuestionFields(tc.missing), tc.want) || Question(tc.missing) != Question(tc.want) {
+			t.Fatal("expected fields differ from current question")
+		}
+	}
 	for _, tt := range []struct {
 		name     string
 		state    Session
@@ -122,6 +134,7 @@ func TestState(t *testing.T) {
 }
 
 type fixtures struct {
+	fatOption                   bool
 	query                       catalog.ProductQuery
 	productCalls, locationCalls int
 	empty                       bool
@@ -133,6 +146,9 @@ func (f *fixtures) ListCategories(context.Context) ([]catalog.Category, error) {
 func (f *fixtures) GetFilterSchema(_ context.Context, slug string) (catalog.FilterSchema, error) {
 	for _, s := range testInput().Schemas {
 		if s.Category == slug {
+			if f.fatOption && slug == "milk" {
+				s.Filters[1].Options = append(s.Filters[1].Options, json.RawMessage("1.5"))
+			}
 			return s, nil
 		}
 	}
@@ -189,6 +205,39 @@ func (m *memory) Delete(_ context.Context, id string) error {
 	m.deletes++
 	return nil
 }
+
+type capturingParser func(context.Context, Input) (Parsed, error)
+
+func (p capturingParser) Parse(ctx context.Context, in Input) (Parsed, error) { return p(ctx, in) }
+
+func TestClarificationNLPContext(t *testing.T) {
+	f := &fixtures{fatOption: true}
+	m := &memory{states: map[string]Session{}}
+	calls := 0
+	s := &Service{Sessions: m, Categories: f, Products: f, Locations: f}
+	s.Parser = capturingParser(func(_ context.Context, in Input) (Parsed, error) {
+		calls++
+		if calls == 1 {
+			if in.CurrentCategory != nil || len(in.ExpectedFields) != 0 {
+				t.Fatal("start leaked prior state")
+			}
+			return Validate([]byte(`{"intent":"cheapest","category":"milk","filters":{}}`), in)
+		}
+		if in.CurrentCategory == nil || *in.CurrentCategory != "milk" || !reflect.DeepEqual(in.ExpectedFields, []string{"volumeMl", "fatPercent"}) {
+			t.Fatal("backend missing-field hint lost")
+		}
+		return Validate([]byte(`{"intent":null,"category":null,"filters":{"volumeMl":1000,"fatPercent":1.5}}`), in)
+	})
+	start, err := s.Start(context.Background(), StartRequest{Text: "самое дешёвое молоко", Latitude: 1, Longitude: 2})
+	if err != nil || start.Status != "needs_clarification" {
+		t.Fatal("start failed")
+	}
+	result, err := s.Continue(context.Background(), ContinueRequest{SessionID: start.SessionID, Text: "один литр 1.5 процента"})
+	if err != nil || result.Mode != "single" || f.query.Category != "milk" || f.query.Limit != 1 || string(f.query.Filters["volumeMl"][0]) != "1000" || string(f.query.Filters["fatPercent"][0]) != "1.5" || m.ttl != SessionTTL || m.deletes != 1 {
+		t.Fatal("clarification merge/state regression")
+	}
+}
+
 func TestServiceFlow(t *testing.T) {
 	ctx := context.Background()
 	f := &fixtures{}

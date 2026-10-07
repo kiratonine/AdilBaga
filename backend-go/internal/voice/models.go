@@ -31,6 +31,7 @@ type Input struct {
 	Categories      []catalog.Category
 	Schemas         []catalog.FilterSchema
 	CurrentCategory *string
+	ExpectedFields  []string
 }
 type Parser interface {
 	Parse(context.Context, Input) (Parsed, error)

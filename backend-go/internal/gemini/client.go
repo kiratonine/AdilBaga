@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 )
@@ -44,54 +45,249 @@ func Keys(values ...string) []string {
 func New(keys []string, model string, logger *slog.Logger) *Client {
 	return &Client{keys: Keys(keys...), model: model, metrics: observability.Default, http: &http.Client{Timeout: Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, logger: logger, endpoint: "https://generativelanguage.googleapis.com/v1beta/models/", timeout: Timeout}
 }
-func schema(in voice.Input) map[string]any {
-	properties := map[string]any{}
+
+const systemInstruction = "You are the stateless NLP parser for Adil Bağa. Extract only the CURRENT utterance: intent, category, explicitly stated filters. cheapest means one cheapest/minimum-price option; search means find/show prices/options, including top-three requests. Never choose products, compare prices, select stores, compute nearest locations or invent missing values. Use null for unmentioned intent/category; omit unmentioned filters, never null filter values. Use only supplied canonical category slugs and filter keys. With currentCategory, return category=null unless the user explicitly names/changes category. Prioritize expectedFields when supplied. Normalize liters to milliliters, kilograms to grams, percentages to numeric percent. Return JSON only, no prose."
+
+type filterField struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	Type  string `json:"type"`
+}
+type categoryWord struct {
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+}
+type compactContext struct {
+	Text            string         `json:"text"`
+	Categories      []categoryWord `json:"categories"`
+	FilterFields    []filterField  `json:"filterFields"`
+	CurrentCategory *string        `json:"currentCategory"`
+	ExpectedFields  []string       `json:"expectedFields"`
+}
+
+func vocabulary(in voice.Input) ([]filterField, error) {
+	fields := map[string]filterField{}
 	for _, s := range in.Schemas {
 		for _, f := range s.Filters {
-			kind := "string"
+			kind := ""
 			if f.Type == "boolean" {
 				kind = "boolean"
-			} else if len(f.Options) > 0 {
-				var v any
-				_ = json.Unmarshal(f.Options[0], &v)
-				if _, ok := v.(float64); ok {
-					kind = "number"
-				}
+			} else if f.Type != "multi-select" {
+				return nil, errors.New("invalid NLP context")
 			}
-			properties[f.Key] = map[string]any{"anyOf": []any{map[string]any{"type": kind}, map[string]any{"type": "null"}}}
+			for _, raw := range f.Options {
+				var value any
+				if json.Unmarshal(raw, &value) != nil {
+					return nil, errors.New("invalid NLP context")
+				}
+				actual := ""
+				switch value.(type) {
+				case string:
+					actual = "string"
+				case float64:
+					actual = "number"
+				case bool:
+					actual = "boolean"
+				default:
+					return nil, errors.New("invalid NLP context")
+				}
+				if kind != "" && kind != actual {
+					return nil, errors.New("invalid NLP context")
+				}
+				kind = actual
+			}
+			if kind == "" || f.Key == "" {
+				return nil, errors.New("invalid NLP context")
+			}
+			if previous, ok := fields[f.Key]; ok {
+				if previous.Type != kind {
+					return nil, errors.New("invalid NLP context")
+				}
+				continue
+			}
+			fields[f.Key] = filterField{f.Key, f.Label, kind}
 		}
 	}
-	slugs := []string{}
-	for _, c := range in.Categories {
-		slugs = append(slugs, c.Slug)
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
 	}
-	return map[string]any{"type": "object", "properties": map[string]any{
-		"intent":   map[string]any{"anyOf": []any{map[string]any{"type": "string", "enum": []string{"cheapest", "search"}}, map[string]any{"type": "null"}}},
-		"category": map[string]any{"anyOf": []any{map[string]any{"type": "string", "enum": slugs}, map[string]any{"type": "null"}}},
-		"filters":  map[string]any{"type": "object", "properties": properties, "additionalProperties": false},
-	}, "required": []string{"intent", "category", "filters"}, "additionalProperties": false}
+	sort.Strings(keys)
+	out := make([]filterField, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, fields[key])
+	}
+	return out, nil
 }
+func schema(in voice.Input, fields []filterField) map[string]any {
+	categories := []any{}
+	for _, c := range in.Categories {
+		categories = append(categories, c.Slug)
+	}
+	categories = append(categories, nil)
+	properties := map[string]any{}
+	for _, f := range fields {
+		properties[f.Key] = map[string]any{"type": f.Type}
+	}
+	if len(in.ExpectedFields) > 0 {
+		key := "filters"
+		property := map[string]any{"type": "object", "properties": properties, "additionalProperties": false}
+		if len(in.ExpectedFields) == 1 && in.ExpectedFields[0] == "intent" {
+			key = "intent"
+			property = map[string]any{"type": []string{"string", "null"}, "enum": []any{"cheapest", "search", nil}}
+		} else if len(in.ExpectedFields) == 1 && in.ExpectedFields[0] == "category" {
+			key = "category"
+			property = map[string]any{"type": []string{"string", "null"}, "enum": categories}
+		}
+		return map[string]any{"type": "object", "properties": map[string]any{key: property}, "required": []string{key}, "additionalProperties": false}
+	}
+	return map[string]any{"type": "object", "additionalProperties": false,
+		"required": []string{"intent", "category", "filters"}, "properties": map[string]any{
+			"intent":   map[string]any{"type": []string{"string", "null"}, "enum": []any{"cheapest", "search", nil}},
+			"category": map[string]any{"type": []string{"string", "null"}, "enum": categories},
+			"filters":  map[string]any{"type": "object", "properties": properties, "additionalProperties": false},
+		}}
+}
+
+// Select vocabulary before inference, so unrelated categories/options never enter
+// a clarification payload. Full Input remains available to strict validation.
+func requestVocabulary(in voice.Input) ([]filterField, error) {
+	if len(in.ExpectedFields) == 0 {
+		return vocabulary(in)
+	}
+	if len(in.ExpectedFields) == 1 && (in.ExpectedFields[0] == "intent" || in.ExpectedFields[0] == "category") {
+		return []filterField{}, nil
+	}
+	if in.CurrentCategory == nil {
+		return nil, errors.New("invalid NLP context")
+	}
+	selected := voice.Input{}
+	for _, source := range in.Schemas {
+		if source.Category != *in.CurrentCategory {
+			continue
+		}
+		s := source
+		s.Filters = nil
+		seen := map[string]bool{}
+		for _, expected := range in.ExpectedFields {
+			if seen[expected] || expected == "intent" || expected == "category" {
+				return nil, errors.New("invalid NLP context")
+			}
+			seen[expected] = true
+			found := false
+			for _, f := range source.Filters {
+				if f.Key == expected {
+					s.Filters = append(s.Filters, f)
+					found = true
+					break
+				}
+			}
+			if !found {
+				return nil, errors.New("invalid NLP context")
+			}
+		}
+		selected.Schemas = append(selected.Schemas, s)
+		return vocabulary(selected)
+	}
+	return nil, errors.New("invalid NLP context")
+}
+
 func body(in voice.Input) ([]byte, error) {
-	schemas, err := json.Marshal(in.Schemas)
+	fields, err := requestVocabulary(in)
+	if err != nil {
+		return nil, err
+	}
+	content := compactContext{Text: in.Text, Categories: []categoryWord{}, FilterFields: fields, CurrentCategory: in.CurrentCategory, ExpectedFields: in.ExpectedFields}
+	for _, c := range in.Categories {
+		content.Categories = append(content.Categories, categoryWord{c.Slug, c.Name})
+	}
+	raw, err := json.Marshal(content)
+	if len(in.ExpectedFields) > 0 {
+		compact := map[string]any{"text": in.Text, "expectedFields": in.ExpectedFields}
+		if in.ExpectedFields[0] == "category" {
+			compact["categories"] = content.Categories
+		} else if in.ExpectedFields[0] != "intent" {
+			found := false
+			for _, c := range in.Categories {
+				if in.CurrentCategory != nil && c.Slug == *in.CurrentCategory {
+					compact["currentCategory"] = categoryWord{c.Slug, c.Name}
+					found = true
+					break
+				}
+			}
+			if !found {
+				return nil, errors.New("invalid NLP context")
+			}
+			compact["filterFields"] = fields
+		}
+		raw, err = json.Marshal(compact)
+	}
 	if err != nil {
 		return nil, errors.New("invalid NLP context")
 	}
-	slugs := []string{}
-	for _, c := range in.Categories {
-		slugs = append(slugs, c.Slug)
+	return json.Marshal(map[string]any{
+		"systemInstruction": map[string]any{"parts": []any{map[string]string{"text": systemInstruction}}},
+		"contents":          []any{map[string]any{"parts": []any{map[string]string{"text": string(raw)}}}},
+		"generationConfig":  map[string]any{"responseMimeType": "application/json", "responseJsonSchema": schema(in, fields)},
+	})
+}
+
+// RequestStats exposes sizes only, never provider payload or vocabulary values.
+func RequestStats(in voice.Input) (bodyBytes, schemaBytes, fieldCount int, err error) {
+	fields, err := requestVocabulary(in)
+	if err != nil {
+		return 0, 0, 0, err
 	}
-	current := "none"
-	if in.CurrentCategory != nil {
-		current = *in.CurrentCategory
+	raw, err := body(in)
+	if err != nil {
+		return 0, 0, 0, err
 	}
-	prompt := strings.Join([]string{
-		"Extract only intent, category, and explicitly stated filter values from the user text.",
-		"Use null for missing intent/category and omit missing filters. Return JSON only.",
-		"Allowed intents: cheapest, search. Do not select products, prices, stores, or locations.",
-		"Allowed category and filter context: " + string(schemas),
-		"Allowed category slugs: " + strings.Join(slugs, ", "),
-		"Current category for a clarification, if any: " + current, "User text: " + in.Text}, "\n")
-	return json.Marshal(map[string]any{"contents": []any{map[string]any{"parts": []any{map[string]string{"text": prompt}}}}, "generationConfig": map[string]any{"responseMimeType": "application/json", "responseJsonSchema": schema(in)}})
+	response, err := json.Marshal(schema(in, fields))
+	return len(raw), len(response), len(fields), err
+}
+
+// Normalize only the closed targeted provider shape; do not discard extras.
+// Canonical validation still uses the complete real backend schemas.
+func validateResponse(raw []byte, in voice.Input) (voice.Parsed, error) {
+	if len(in.ExpectedFields) == 0 {
+		return voice.Validate(raw, in)
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil || len(fields) != 1 {
+		return voice.Parsed{}, voice.ErrInvalid
+	}
+	key := "filters"
+	if len(in.ExpectedFields) == 1 && (in.ExpectedFields[0] == "intent" || in.ExpectedFields[0] == "category") {
+		key = in.ExpectedFields[0]
+	}
+	value, found := fields[key]
+	if !found {
+		return voice.Parsed{}, voice.ErrInvalid
+	}
+	if key == "filters" {
+		var filters map[string]json.RawMessage
+		if json.Unmarshal(value, &filters) != nil || filters == nil {
+			return voice.Parsed{}, voice.ErrInvalid
+		}
+		for k, v := range filters {
+			allowed := false
+			for _, expected := range in.ExpectedFields {
+				if k == expected {
+					allowed = true
+				}
+			}
+			if !allowed || bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+				return voice.Parsed{}, voice.ErrInvalid
+			}
+		}
+	}
+	canonical := map[string]json.RawMessage{"intent": []byte("null"), "category": []byte("null"), "filters": []byte("{}")}
+	canonical[key] = value
+	normalized, err := json.Marshal(canonical)
+	if err != nil {
+		return voice.Parsed{}, voice.ErrInvalid
+	}
+	return voice.Validate(normalized, in)
 }
 func (c *Client) outcome(ctx context.Context, class string) {
 	c.registry().Dependency("gemini", "outcome", class, 0)
@@ -186,7 +382,7 @@ func (c *Client) Parse(ctx context.Context, in voice.Input) (parsed voice.Parsed
 		}
 		for _, part := range envelope.Candidates[0].Content.Parts {
 			if part.Text != "" {
-				p, err := voice.Validate([]byte(part.Text), in)
+				p, err := validateResponse([]byte(part.Text), in)
 				if err != nil || ctx.Err() != nil {
 					return fail("invalid_output")
 				}

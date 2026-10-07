@@ -102,7 +102,7 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	c.GeminiModel = strings.TrimSpace(getenv("GEMINI_MODEL"))
 	if c.GeminiModel == "" {
-		c.GeminiModel = "gemini-3.1-flash-lite"
+		c.GeminiModel = "gemini-3.5-flash-lite"
 	}
 	if strings.ContainsAny(c.GeminiModel, "/?# \t\r\n") {
 		return Config{}, errors.New("GEMINI_MODEL is invalid")

@@ -51,7 +51,7 @@ func TestConfig(t *testing.T) {
 			if err != nil && strings.Contains(err.Error(), "private-password") {
 				t.Fatal("config leaked value")
 			}
-			if tt.name == "development defaults" && (c.Port != 8080 || c.RateRPS != 20 || c.RateBurst != 40 || c.LogLevel != "info" || len(c.TrustedProxies) != 0) {
+			if tt.name == "development defaults" && (c.Port != 8080 || c.RateRPS != 20 || c.RateBurst != 40 || c.LogLevel != "info" || len(c.TrustedProxies) != 0 || c.GeminiModel != "gemini-3.5-flash-lite") {
 				t.Fatal("unexpected defaults")
 			}
 		})
@@ -80,6 +80,26 @@ func TestDatabaseURLValidation(t *testing.T) {
 				t.Fatal("DATABASE_URL leaked")
 			}
 		})
+	}
+}
+
+func TestProductionGeminiModel(t *testing.T) {
+	for _, override := range []string{"", "explicit-test-model"} {
+		env := environment()
+		env["APP_ENV"] = "production"
+		env["CORS_ALLOWED_ORIGINS"] = "https://aktau.market"
+		env["GEMINI_API_KEY"] = "unit-key"
+		env["UPSTASH_REDIS_REST_URL"] = "https://unit.invalid"
+		env["UPSTASH_REDIS_REST_TOKEN"] = "unit-token"
+		env["GEMINI_MODEL"] = override
+		c, err := Load(func(k string) string { return env[k] })
+		want := override
+		if want == "" {
+			want = "gemini-3.5-flash-lite"
+		}
+		if err != nil || c.GeminiModel != want {
+			t.Fatal("production model default/explicit override mismatch")
+		}
 	}
 }
 

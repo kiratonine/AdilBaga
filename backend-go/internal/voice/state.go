@@ -144,6 +144,28 @@ func Missing(s Session) []string {
 	}
 	return out
 }
+
+// QuestionFields targets only the question asked now, not every missing field.
+func QuestionFields(missing []string) []string {
+	for _, priority := range []string{"intent", "category"} {
+		for _, key := range missing {
+			if key == priority {
+				return []string{priority}
+			}
+		}
+	}
+	out := []string{}
+	for _, key := range []string{"volumeMl", "fatPercent"} {
+		for _, missingKey := range missing {
+			if missingKey == key {
+				out = append(out, key)
+				break
+			}
+		}
+	}
+	return out
+}
+
 func Question(missing []string) string {
 	has := func(k string) bool {
 		for _, m := range missing {

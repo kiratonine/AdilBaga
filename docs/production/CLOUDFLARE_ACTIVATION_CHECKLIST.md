@@ -1,5 +1,28 @@
 # Cloudflare activation checklist — Part14B execution
 
+## Part15 attempt — separate acceptance pending
+
+Part14 checks below are preserved historical accepted evidence. Part15 initial
+image-ID/cold503 history remains in its report. Portable artifact and bounded
+restricted readiness gates retain PASS for the previous image. Historical3/3
+Gemini invalid_output is preserved in the Part15 report; perfect provider-only
+availability is no longer a launch gate. Deterministic application degradation
+tests PASS; current source review is BLOCKED by govulncheck GO-2026-6629.
+Application removed, cloudflared intentionally inactive.
+No change to Cloudflare/SSH/UFW policy.
+
+- [x] Clean exact release SHA and all9 hosted CI jobs verified.
+- [x] Off-VPS committed export image/local restricted readiness/real provider smoke.
+- [x] Portable save-file SHA-256 before load, revision/metadata/RootFS/binary proof.
+- [x] VPS restricted readiness200 under bounded cold polling.
+- [ ] Reviewed new source/hosted CI/immutable image, then real application-level
+      Voice/session smoke (Gemini success OR approved deterministic fallback).
+- [ ] Exact immediate peer measured/configured.
+- [ ] Public real API/Voice/CORS smoke and bounded stability observation.
+
+Go API remains absent after rollback; physical Siri NOT RUN. Part16+ NOT STARTED.
+HSTS: DEFERRED. See same Part15 report for failure and actual outcome attribution.
+
 ## Current execution gates
 
 - [x] Owner authorization, clean immutable accepted baseline and SSH inventory.

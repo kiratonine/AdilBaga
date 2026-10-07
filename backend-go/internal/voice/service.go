@@ -62,6 +62,7 @@ func (s *Service) Continue(ctx context.Context, r ContinueRequest) (Response, er
 	if err != nil {
 		return Response{}, err
 	}
+	in.ExpectedFields = QuestionFields(Missing(previous))
 	p, err := s.Parser.Parse(ctx, in)
 	if err != nil {
 		return Response{}, errors.New("voice parsing failed")

@@ -21,8 +21,23 @@ security and local restricted Go smoke. Restore only an owned loopback target
 until owner separately approves production recovery. Take a fresh backup before
 any destructive recovery; preserve existing backups and audit evidence.
 
-## FUTURE VPS
+## VPS — first Go release rollback
 
-Actual revision switch/restart/traffic rollback commands depend on the future
-deployment topology and are not configured. This runbook authorizes no production
-mutation, schema rollback, deploy or cutover. Railway remains retired.
+Railway retired. First release has no prior production Go image. Safe reviewed
+target is Part14B zero-application state; no database rollback is required because
+Part15 performs no migration/data/ingestion change. This rollback was executed
+after the first Part15 artifact/readiness failure and again after full-context
+Gemini invalid_output3/3 despite corrected identity/readiness PASS. Tunnel remains stopped and
+application container/network removed. Exact image/private config retained.
+
+```bash
+ssh my-vps 'sudo systemctl stop cloudflared'
+ssh my-vps 'sudo docker compose --env-file /etc/adilbaga/release.env -f /opt/adilbaga/compose.production.yml down'
+ssh my-vps 'sudo ss -lntup'
+```
+
+Require no8080 listener and no public80/443/8080. Never expose origin as emergency
+fallback, switch to owner credentials, mutate schema/history or rewind snapshots.
+Recovery needs artifact identity and local health/Voice proof before Tunnel start.
+Future successful releases preserve current/previous SHA images and private
+release metadata; prior-image rollback requires schema compatibility review.

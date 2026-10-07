@@ -1,5 +1,22 @@
 # Network perimeter — Part14 Phase A / Phase B
 
+## Part15 current checkpoint — BLOCKED, application absent after rollback
+
+Release695f7e3... portable artifact identity now PASS (exact save-file checksum,
+revision/metadata/layers/API binary), with no image rebuild. Restricted VPS
+readiness200 PASS under bounded polling. Initial image-ID/cold503 history remains
+in the Part15 report, including historical full-context Gemini invalid_output3/3
+and the subsequent zero-application rollback. Provider-perfect availability is
+now superseded by application-level graceful degradation acceptance. Deterministic
+Voice outage flows PASS; current source finalization is BLOCKED by govulncheck
+GO-2026-6629, not provider-only success. Cloudflared remains intentionally stopped;
+reviewed new source/hosted CI/immutable image are required before any deployment.
+No application public cutover.
+Part14 perimeter configuration remains unchanged; no public origin ports opened.
+See [Part15 report](reports/PART_15_REPORT.md) and [operations](../../deploy/README.md).
+Real Docker peer measurement/TRUSTED_PROXY_CIDRS and public API/Voice/CORS proof
+remain NOT RUN. HSTS: DEFERRED. No frontend/scheduler/DB rollout.
+
 ## Current Phase B state — perimeter activated
 
 Owner authorized Part14B on baseline `b5ef421ee6a02c26576c5fd2f68b02779cbf2b56`.
