@@ -29,7 +29,8 @@ Git history or silently revoke production credentials. Part11 performs no rotati
 
 Part15 uses root-owned0600 `/etc/adilbaga/api.env` inside directory0700;
 the non-secret SHA image reference is `/etc/adilbaga/release.env`.
-Current candidate is rolled back and must not be restarted without review.
+Current immutable Go release is active behind Tunnel; prior rollback checkpoints
+remain in Part15 report. API env contains no owner/ingestion/perimeter credentials.
 Secret updates require separate authorization; transfer via private stdin,
 never argv or environment dumps. Stop public Tunnel during unsafe assembly,
 recreate only after reviewed configuration and verify new restricted readiness/

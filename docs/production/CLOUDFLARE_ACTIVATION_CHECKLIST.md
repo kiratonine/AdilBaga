@@ -1,6 +1,29 @@
 # Cloudflare activation checklist — Part14B execution
 
-## Part15 attempt — separate acceptance pending
+## Part15 current application deployment
+
+- [x] Release `e6ef854e2973e5b0871888bbc3111e026cdccc5b`; hosted run37668466461
+      attempt2, all9 mandatory jobs success.
+- [x] Clean byte-verified committed export/off-VPS build/SHA image tag.
+- [x] One save-file checksum before VPS load; revision/platform/User/entrypoint/
+      RootFS/API binary proof, no cross-store image-ID equality requirement.
+- [x] Private API-only env byte-identity, root0600/dir0700; restricted Supabase
+      runtime only; model gemini-3.5-flash-lite.
+- [x] Hardened local and VPS live/ready/catalog/dashboard PASS.
+- [x] Actual peer measured/cross-checked; IPv4-mapped normalized as Go; exact /32.
+- [x] VPS Voice TOP-1/partial clarification/TOP-3 and real Upstash TTL600/delete,
+      SQL truth/Haversine/exact speech PASS.
+- [x] Tunnel resumed after local gates; public health/GET/Voice/CORS PASS.
+- [x] Origin80/443/8080 denied; loopback8080 only; SSH reachable; metrics404.
+- [x] HSTS: DEFERRED. No DB migration/ingestion/snapshot/frontend/scheduler.
+
+curl, undici and explicitly named operator client work without browser challenge.
+Generic Python-urllib User-Agent receives Cloudflare1010/403; no rule was changed
+or bypassed by a browser identity. Universal User-Agent/physical Siri support is
+not claimed. Final stability/archive evidence is in Part15 report.
+Part16+ NOT STARTED.
+
+## Preserved Part15 failed attempt — separate acceptance was pending
 
 Part14 checks below are preserved historical accepted evidence. Part15 initial
 image-ID/cold503 history remains in its report. Portable artifact and bounded
@@ -23,7 +46,7 @@ No change to Cloudflare/SSH/UFW policy.
 Go API remains absent after rollback; physical Siri NOT RUN. Part16+ NOT STARTED.
 HSTS: DEFERRED. See same Part15 report for failure and actual outcome attribution.
 
-## Current execution gates
+## Preserved Part14B execution gates
 
 - [x] Owner authorization, clean immutable accepted baseline and SSH inventory.
 - [x] Ubuntu24.04 updates/reboot; deploy key-only sudo; root/password SSH disabled.

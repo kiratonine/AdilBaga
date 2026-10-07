@@ -2,6 +2,258 @@
 
 Status: **READY_FOR_EXTERNAL_REVIEW**.
 
+Current outcome: **Part15 production Go deployment completed** from the exact
+reviewed release. All owner-approved application/deployment gates PASS, including
+hosted CI, portable artifact identity, restricted readiness, real Voice/Upstash,
+public edge, origin isolation, stability and READ-ONLY POST audit. Final deployment
+evidence is presented for external review. Part16+ NOT STARTED.
+No runtime/source hot-fix or new provider benchmarking.
+
+## Current immutable deployment — 2026-10-08 local date
+
+`PART15_RELEASE_SHA=e6ef854e2973e5b0871888bbc3111e026cdccc5b`.
+Branch integrate/full-stack; fresh fetch/prune, HEAD=origin PASS. On resume the
+only dirty file was the known post-commit Part15 checkpoint report. Runtime was
+not built from that working tree: a clean git archive of exact SHA was exported
+outside the repository/VPS and all95 selected backend-go/compose files verified
+byte-equivalent to committed Git blobs. No Prisma/schema/migration/Postgres-layer,
+NestJS/frontend/contracts delta from the prior accepted release baseline.
+Accepted backup/restore/restricted-role reports remain present; no new owner DB
+access/backup required for this read-only application deployment.
+
+### Hosted CI — previous install timeout RESOLVED
+
+Owner manually re-ran [run37668466461](https://github.com/kiratonine/AdilBaga/actions/runs/37668466461).
+Fresh independent GitHub API check: exact SHA, attempt2, completed/success.
+All9 mandatory jobs:
+
+| Job | Attempt2 job ID | Conclusion |
+| --- | --- | --- |
+| Contracts | 112968516743 | success |
+| Frontend | 112968460178 | success |
+| Go Quality | 112968505856 | success |
+| Security | 112968460764 | success |
+| Nest Reference | 112968502791 | success |
+| Pipeline Quality | 112968459354 | success |
+| PostgreSQL Integration | 112968461602 | success |
+| Ephemeral Staging | 112968460114 | success |
+| CI Gate | 112969747870 | success |
+
+Attempt1 Chromium installer timeout and earlier push-authentication blocker are
+preserved below, not erased. No test skip/timeout/config change or agent-triggered
+CI rerun was used. Image build/VPS assembly occurred only after attempt2 all9 PASS.
+
+### Fresh PRE / immutable artifact proof
+
+SSH user deploy; Ubuntu24.04; Docker active/enabled, cloudflared inactive/enabled
+in the accepted zero-application rollback state. UFW incoming/routed deny with
+SSH only; no80/443/8080 listener or API container. Public PRE returned530 with
+Cloudflare edge evidence, consistent with stopped Tunnel/absent application.
+No perimeter configuration changed; no registry/account/token introduced.
+
+Build on WSL only, `docker build --pull`, full-SHA tag/revision:
+`adilbaga-api:e6ef854e2973e5b0871888bbc3111e026cdccc5b`.
+ONE docker-save archive,21946880 bytes; exact-file encrypted SSH transfer;
+VPS checksum equality verified BEFORE load:
+`092b1f7e48dcd9c98ed4bfce5b164bdfb856c26b2af1d693fefee7cb96a85c92`.
+Linux/amd64, User10001:10001, entrypoint `/usr/local/bin/api`, exact revision,
+all3 RootFS diff IDs and API binary identity PASS. Binary SHA256:
+`330d0451cec1749fea33e76af4616b9b206997e6b0a268210c7b9e85b4973e0d`.
+Local image ID `sha256:b7931264543ce2ea5a5721c66267ff108c7c23abb02a5c9a7b5110fcb255ab82`;
+VPS OCI ID `sha256:d983c1dd79cfff17e8b3d8079f15c8f6b13f4ebfc8ed97e9d1398a2b1acfae3e`.
+Different store identifiers are expected; portable proof, not cross-store ID
+equality, is the reviewed acceptance rule. Runtime image Env is PATH-only;
+configured credential-value scan of save archive PASS, no secret build args.
+
+Private runtime env outside Git: dir0700/file0600 locally, root0700/root0600 on
+VPS. API-only restricted Supabase credential; no owner/ingest/DIRECT/backup/SSH/
+Cloudflare credential. Model explicitly gemini-3.5-flash-lite; keys/order/8s
+timeout/failover/fallback unchanged. Privately proved local/VPS env byte-identical
+before measured trust update, without printing contents or secret-file hashes.
+Committed compose root0644; release.env root0600 has only the exact image tag.
+
+Restricted fresh READ-ONLY PRE: current/session user aktau_api_runtime;
+SELECT6/private3 metadata PASS. Counts: stores3, store_locations15, categories10,
+canonical_products3425, offers4215, snapshots2. Six complete row fingerprints,
+snapshot history and schema/security/policy/membership metadata retained privately
+only for final unchanged comparison. No owner/ingestion DB connection or write probe.
+
+### Local image / VPS application gates
+
+Exact-image local preflight: loopback18080, non-root10001, read-only root,
+tmpfs16MiB/noexec/nosuid, dropALL/no-new-privileges; CA present, compiler absent,
+root write denied. live200/ready200; categories9, other hidden, milk filters,
+search/filter/all sorts/pagination/detail and dashboard15 locations PASS.
+Local complete/clarification/partial continue/final/search all201; real
+Upstash SET/GET/delete and TTL<=600 PASS, privacy PASS. Provider classes:
+success4, invalid_output1; approved fallback preserved correct application flow.
+Provider parse durations775–1225ms; HTTP6145–7019ms across the five turns.
+Owned local preflight stopped/removed gracefully; image retained.
+
+cloudflared kept stopped during all VPS assembly/local gates. First cold ready:
+503/2032ms, then200/229ms. Docker healthy, restart0, UID10001/read-only/cap-drop/
+no-new-privileges/compiler-absent/CA/loopback-only/root-write-denial PASS.
+Actual immediate peer measured by one held host connection inside container
+network namespace and cross-checked with persistent Docker gateway. Initial
+temporary helper comparison rejected raw IPv4-mapped-v6 versus IPv4 gateway;
+read-only diagnosis proved mapping equivalence. Helper only was corrected to
+unmap consistently with existing Go resolver; no runtime/source change.
+Configured ONLY measured IPv4 /32; recreate cold ready503/2044ms→200/232ms.
+Catalog/readiness/security recheck PASS before public traffic.
+
+VPS real Voice five application turns all201,7465–8479ms:
+complete cheapest TOP-1; incomplete start→volume-only partial→fat answer result;
+search TOP-3. Compared results with real filtered price-ascending GET products,
+usable cheapest offers and image fields; calculated nearest real location/
+rounded Haversine and exact speech independently. Upstash TTL600/get/delete and
+safe logs PASS. Provider success4/invalid_output1, parse792–1497ms; graceful
+fallback correctly served the search turn. No provider-perfect gate/benchmark.
+
+### Public edge / client boundary
+
+cloudflared resumed only after preceding VPS gates passed. Public live200/ready200,
+cf-ray present, no cache HIT/STALE/UPDATING, HSTS absent. Categories9/other hidden,
+filters/products/search/filter/sorts/pagination/detail/dashboard15 locations PASS;
+dashboard sugar label «Сахар». `/metrics` JSON404.
+CORS exact allowed origin200, unknown origin403 JSON, POST preflight204 with
+exact origin/POST, no-Origin GET and Voice PASS. No browser challenge on required
+curl/operator API paths. No Cloudflare rule/DNS/Tunnel/TLS/DNSSEC change.
+
+Public real Voice all five turns201,7988–10067ms: TOP-1, partial clarification/
+continue TOP-1, TOP-3; SQL truth/Haversine/exact speech/Upstash deletion/privacy PASS.
+Provider success3/invalid_output2, parse797–1157ms; failures handled by approved
+fallback. These are application smoke outcomes, not a new NLP benchmark or a
+provider-perfect/latency-capacity claim. No voice text/coordinate/session values
+or provider bodies persisted in report/evidence.
+
+Disclosed edge compatibility observation: generic Python-urllib User-Agent
+receives Cloudflare1010/403, reproduced with the same User-Agent over Node.
+curl/8.5.0, undici and honest named non-browser operator User-Agent receive200
+without challenge. The first temporary Python readiness probe therefore failed
+at the edge, not DB readiness; operator helper was explicitly identified rather
+than impersonating a browser. WAF/browser-integrity controls were not weakened.
+No universal arbitrary User-Agent support or physical Siri evidence is claimed;
+review a required real client's policy separately if it is affected.
+
+External IPv4 direct-origin checks: SSH22 open;80/443/8080 timeout/denied.
+Host publication exactly127.0.0.1:8080; no80/443/public8080 listener; UFW unchanged.
+No global VPS IPv6, direct IPv6 origin check N/A rather than invented PASS.
+
+### Stability / final validation
+
+Post-smoke observation **PASS659s**,2026-10-07T20:11:04.724Z through
+20:22:04.658Z (UTC;2026-10-08 local date). Initial/intermediate/final samples:
+healthy, restart0, Tunnel active, no panic, unchanged loopback publication/UFW;
+CPU0.00–2.90%, memory6.715–9.129MiB on3.824GiB host. Actual curl public
+live200/ready200 confirmed separately from the named operator probes.
+No load/capacity claim or scheduler installed. Controlled first-release rollback remains stopped
+Tunnel + compose down to zero-application state, no DB rollback; previous executed
+rollback history preserved. Exact new image/private release configuration retained.
+
+Fresh final READ-ONLY POST **PASS** using only aktau_api_runtime: counts and
+complete six-table fingerprints exactly equal PRE; snapshot history, schema/
+security/policies/memberships and SELECT6/private3 metadata unchanged.
+Counts remain stores3/store_locations15/categories10/canonical_products3425/
+offers4215/snapshots2. No new snapshot, migration, role/grant or catalog write.
+
+Part15 verifier tests31/31 PASS, static verifier PASS, git diff --check PASS.
+No changed runtime source means no redundant local Go rerun claim: exact-SHA
+hosted Go/security/integration/contract/frontend/Nest gates all9 PASS are above.
+Owned local preflight container and temporary source export removed; owned remote
+transport file/directory removed only after verified load. SHA image and private
+local save artifact retained, not included in review archive.
+Permanent production-part-15 archive rebuilt and verified:508 safe regular unique
+members; all source/report byte-match; bounded patterns and actual configured
+credential-value scans PASS. No env, key, DB backup, image tar, temporary workspace,
+node_modules or build/test artifacts. Archive contains docs/evidence, not secrets.
+
+DB mutation: NONE. Migration: NONE. Ingestion/snapshot: NONE.
+Frontend deployment: NONE. Scheduler: NONE. HSTS: DEFERRED.
+No owner/ingest runtime credential, no DB grant/role/password change.
+No new runtime-code change/commit/push/provider tuning in this continuation.
+Earlier authorized source commit and owner manual push are recorded above.
+No physical Siri claim. Part16+ NOT STARTED.
+
+## Preserved hosted CI BLOCKED checkpoint — RESOLVED by owner re-run
+
+Previous deployment blocker: **PART15_HOSTED_CI_EPHEMERAL_STAGING_CHROMIUM_INSTALL_TIMEOUT**.
+Owner manual push independently verified: HEAD=origin/integrate/full-stack=
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b`. Exact-SHA hosted run37668466461,
+attempt1, completed/failure: seven mandatory jobs success; Ephemeral Staging and
+CI Gate failure. No deployment gate was bypassed. No new image build/transport,
+VPS action, provider call, production DB access or public cutover occurred in
+this continuation. Part16+ NOT STARTED. See current hosted-CI evidence below.
+
+## Preserved push-authentication BLOCKED checkpoint — RESOLVED
+
+Previous blocker: **PART15_RELEASE_PUSH_AUTHENTICATION_UNAVAILABLE**.
+Reviewed source is accepted and committed as
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b`; HTTPS push cannot authenticate in
+this WSL environment and existing GitHub SSH authentication is unavailable.
+Origin remained `695f7e34871879d32edff24c1775f9eb2d2f4e92` at that checkpoint.
+Exact new-SHA hosted CI cannot be obtained before a successful push; no image
+build, VPS action, provider call or public cutover attempted. Part16+ NOT STARTED.
+Owner subsequently pushed the exact reviewed commit manually. Fresh fetch and
+HEAD/origin verification confirmed the push; authentication blocker RESOLVED.
+
+## Preserved release / hosted CI STOP — attempt1, 2026-10-08 local date
+
+Release commit: `feat(prod): finalize Go API production deployment candidate`.
+Branch integrate/full-stack; HEAD=origin=
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b` after owner manual push.
+Only local delta is this known post-commit checkpoint report. Runtime, tests,
+contracts and dependency graph were not changed in this continuation.
+
+[Hosted CI run37668466461](https://github.com/kiratonine/AdilBaga/actions/runs/37668466461)
+was independently inspected through GitHub API for the exact release SHA.
+Final mandatory job conclusions:
+
+| Job | Job ID | Conclusion |
+| --- | --- | --- |
+| Contracts | 112953731743 | success |
+| Frontend | 112953731740 | success |
+| Go Quality | 112953731083 | success |
+| Security | 112953731503 | success |
+| Nest Reference | 112953731496 | success |
+| Pipeline Quality | 112953731578 | success |
+| PostgreSQL Integration | 112954477074 | success |
+| Ephemeral Staging | 112954957601 | failure |
+| CI Gate | 112964145070 | failure |
+
+Exact failing step: `Run node scripts/ci/run-ephemeral-staging.mjs`.
+Authenticated connector job logs establish:
+`Error: Chromium install: FAIL (exit timeout/startup)` from
+`scripts/ci/common.mjs:27`, through `prepareBrowser` at line56 and
+`run-ephemeral-staging.mjs:45`. CI browser installation runs
+`pnpm exec playwright install --with-deps chromium`; its existing child-process
+budget is20 minutes. Logs show apt repository retries during dependency
+installation, followed by the bounded install failure. This proves browser
+installer timeout, not an application assertion failure; a definitive mirror/
+network root cause beyond those logs is not established.
+
+Before that failure the same hosted job passed fresh local PG preparation,
+Go/Nest startup, TestHTTPParity, TestLocalSecurityQueryParity,
+TestLocalContentTypeParity, TestLocalCategoryVisibilityParity,
+TestLocalVoiceParity, and frozen GET contract profiles for Go and Nest
+(each18 passed,0 failed,4 expected live-profile Voice skips).
+Next HTTP E2E and later Docker/outage/recovery stages were NOT reached in this
+job. Prior accepted local evidence remains history, not a substitute for the
+mandatory exact-SHA hosted gate.
+
+No CI rerun, timeout inflation, installer bypass, test skip or source fix was
+attempted. Owner/review next action: inspect the linked failed job and decide a
+same-SHA rerun or separately reviewed CI-environment remediation. Deployment
+remains prohibited until all9 exact-release jobs, including CI Gate, succeed.
+
+Continuation hygiene: Part15 verifier tests31/31 PASS; static verifier PASS;
+git diff --check PASS. New clean review archive rebuilt and verified after this
+checkpoint: safe regular members, complete source/report byte-match and bounded
+secret scan PASS. No release image/DB dump/private configuration in the archive.
+DB mutation: NONE. Migration: NONE. Ingestion/snapshot: NONE.
+VPS/cloudflared zero-application state not touched. No physical Siri claim.
+
+## Preserved accepted final source-review checkpoint
+
 Current source-review outcome: approved minimal x/text v0.39.0 → v0.41.0
 remediation PASS. Pinned govulncheck exits0, no vulnerabilities found; full Go
 unit/race/vet/staticcheck and Part15 verifier PASS. No unrelated dependency drift.
@@ -1079,3 +1331,72 @@ configured private credential/endpoint scan PASS (values withheld). No real env,
 private configs/key material, DB dump/backup, Docker image, compiled binary or
 build/test output included. Permanent production-part-15 target is rebuilt and
 verified after this evidence update; final report bytes are included.
+
+## Authorized reviewed candidate commit — push authentication blocker
+
+Owner externally accepted the final source review and authorized commit/push of
+the reviewed candidate, then the same Part15 production deployment only after
+all9 mandatory hosted jobs PASS for its new immutable SHA.
+
+Preflight: fetch origin --prune PASS; integrate/full-stack; HEAD=origin=
+`695f7e34871879d32edff24c1775f9eb2d2f4e92`. Exact reviewed-path allowlist PASS:
+25 changed/new files, no unrelated files. Existing review archive verification
+PASS508 safe regular unique members and exact source/report byte-match;
+bounded secret scan PASS. git diff --check and staged diff --check PASS.
+Only those25 reviewed source/docs/tooling files staged; no real env, private
+credential, backup, GPG material, image or artifact staged. Commit succeeded:
+
+```text
+feat(prod): finalize Go API production deployment candidate
+e6ef854e2973e5b0871888bbc3111e026cdccc5b
+```
+
+Working tree was clean immediately after commit; branch ahead1. Safe origin
+target verification confirmed kiratonine/AdilBaga without an embedded credential.
+`git push origin integrate/full-stack` failed exit128: HTTPS username
+authentication unavailable in the noninteractive WSL environment. Read-only
+GitHub SSH auth check failed exit255: publickey denied. GitHub CLI is not
+installed; no package/token/key installation or credential change attempted.
+No origin transport rewrite, reset/rebase/force push or second commit.
+
+Current HEAD is the reviewed new commit; origin remains the old695f7e3 baseline.
+Hosted CI for new SHA **NOT RUN/NOT VERIFIED**, because push did not succeed.
+Mandatory Contracts/Frontend/Go Quality/Security/Nest Reference/Pipeline Quality/
+PostgreSQL Integration/Ephemeral Staging/CI Gate are all **NOT VERIFIED** for this
+SHA. Previous-SHA hosted/local PASS is not substituted for the new release gate.
+No build or rollout while this immutable Git/CI gate is blocked.
+
+Owner action: push this existing commit from an authenticated GitHub environment
+using `git push origin integrate/full-stack` (RTK wrapper where available).
+Do not create another commit, reset/rebase or share credentials in chat.
+After successful push, resume verification of HEAD=origin and exact new-SHA CI9/9,
+then the authorized Part15 image/VPS/application-level Voice/edge sequence.
+
+This checkpoint update is report-only after the reviewed commit; it is not
+silently committed or pushed. Same permanent production-part-15 archive target
+is rebuilt for review with the updated report, excluding operational secrets and
+artifacts. Accepted Gemini/Voice/model/x/text remediation and full local PASS
+evidence remain unchanged; no repeat provider benchmark or tuning.
+
+DB mutation: NONE. Migration: NONE. Ingestion/snapshot: NONE.
+VPS/Cloudflare/private runtime configuration actions: NONE.
+Image build/transfer/deploy: NONE. Frontend deployment: NONE.
+Production DB/Gemini/Upstash access: NONE. Public cutover: NONE.
+Commit: DONE (authorized reviewed candidate only). Push: FAILED (authentication).
+Part16+ NOT STARTED. No physical Siri claim. STOP pending owner push.
+
+## Final external-review closure — Part15 DONE
+
+Owner external review **PASS**; production Go deployment **ACCEPTED**.
+Deployed runtime release remains
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b`.
+This documentation-only closure preserves all historical evidence and the seven
+reviewed post-deployment documentation/runbook changes. A newer documentation Git
+HEAD is not a new runtime release and must not trigger image rebuild or redeploy.
+
+Generic Python User-Agent Cloudflare403 remains a documented compatibility
+observation, **not a Part15 blocker**. Physical Siri remains **NOT RUN** and is
+a later mandatory manual launch gate; no physical-device success is claimed.
+Part15 application deployment DONE. Part16+ NOT STARTED.
+No runtime/dependency/test/frontend/contract/Prisma/DB/Redis/compose modification;
+no VPS/Cloudflare/private-env/provider action in this closure.

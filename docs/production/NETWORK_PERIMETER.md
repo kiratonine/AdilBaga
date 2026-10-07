@@ -1,6 +1,32 @@
 # Network perimeter — Part14 Phase A / Phase B
 
-## Part15 current checkpoint — BLOCKED, application absent after rollback
+## Part15 current deployment — Go API active
+
+Release `e6ef854e2973e5b0871888bbc3111e026cdccc5b` is deployed from a clean,
+byte-verified committed export built outside VPS. Exact-SHA hosted run37668466461
+attempt2 passed all9 jobs. Portable archive checksum-before-load, revision,
+platform, UID10001, entrypoint, RootFS diff IDs and API binary identity PASS.
+Supabase remains production DB; runtime is restricted `aktau_api_runtime` only.
+
+Host cloudflared → `127.0.0.1:8080` Docker publication → read-only/non-root API.
+Immediate peer measured on a held host TCP connection inside the container network
+namespace, cross-checked with network metadata. IPv4-mapped socket address unmapped
+as in Go; trust is exactly that one IPv4 /32. No subnet trust or public origin bind.
+
+Health/readiness, categories9/other hidden, GET/filter/search/sort/pagination/detail
+and dashboard15 locations PASS locally and at the edge. Real Voice TOP-1,
+multi-turn clarification and TOP-3, Upstash TTL600/delete, Haversine and exact
+speech PASS. Gemini3.5 is primary; approved fallback handled invalid_output.
+CORS allowed/denied/preflight/no-Origin PASS; `/metrics` JSON404.
+IPv4 origin80/443/8080 denied; SSH reachable; no global origin IPv6.
+HSTS: DEFERRED. No frontend/scheduler/DB rollout; physical Siri NOT RUN.
+
+Client boundary: curl, undici and explicitly named non-browser operator work
+without challenge. Generic Python-urllib User-Agent gets Cloudflare1010/403.
+No edge policy was weakened or bypassed using a browser identity; arbitrary
+User-Agent compatibility is not claimed. See Part15 report for final evidence.
+
+## Preserved Part15 pre-release BLOCKED checkpoint
 
 Release695f7e3... portable artifact identity now PASS (exact save-file checksum,
 revision/metadata/layers/API binary), with no image rebuild. Restricted VPS
@@ -17,7 +43,7 @@ See [Part15 report](reports/PART_15_REPORT.md) and [operations](../../deploy/REA
 Real Docker peer measurement/TRUSTED_PROXY_CIDRS and public API/Voice/CORS proof
 remain NOT RUN. HSTS: DEFERRED. No frontend/scheduler/DB rollout.
 
-## Current Phase B state — perimeter activated
+## Preserved Part14B state — perimeter activated before application deployment
 
 Owner authorized Part14B on baseline `b5ef421ee6a02c26576c5fd2f68b02779cbf2b56`.
 VPS exists: Ubuntu24.04, deploy key-only SSH, UFW incoming deny/SSH only,

@@ -27,8 +27,12 @@ Railway retired. First release has no prior production Go image. Safe reviewed
 target is Part14B zero-application state; no database rollback is required because
 Part15 performs no migration/data/ingestion change. This rollback was executed
 after the first Part15 artifact/readiness failure and again after full-context
-Gemini invalid_output3/3 despite corrected identity/readiness PASS. Tunnel remains stopped and
-application container/network removed. Exact image/private config retained.
+Gemini invalid_output3/3 despite corrected identity/readiness PASS. At those
+historical checkpoints Tunnel was stopped and application container/network
+removed, image/private config retained. Current source release
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b` is active behind Tunnel. Zero-application
+rollback remains the first-release emergency target. A correctly handled Gemini
+failure alone is not a rollback trigger; application/security/network failures are.
 
 ```bash
 ssh my-vps 'sudo systemctl stop cloudflared'

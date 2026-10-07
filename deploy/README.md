@@ -11,6 +11,19 @@ latest; verify portable artifact identity before starting the loaded VPS image.
 An existing approved registry may supply a digest; otherwise the authorized
 single-VPS transport is docker save → encrypted SSH → docker load. No VPS build.
 
+## Current release
+
+Active production Go release: `e6ef854e2973e5b0871888bbc3111e026cdccc5b`.
+Hosted run37668466461 attempt2 passed all9 mandatory jobs; reviewed source was
+not changed during rollout. Portable identity, restricted local/VPS readiness,
+real application Voice/Upstash, exact measured peer and public edge checks PASS.
+Keep the SHA image and private release configuration for reviewed recovery.
+Part16+ NOT STARTED; frontend/HSTS/ingestion are not included.
+
+Use curl or an explicitly identified operator User-Agent for edge probes. Generic
+Python-urllib gets Cloudflare1010/403; no browser impersonation or WAF weakening
+was used. See Part15 report for precise evidence and compatibility limitations.
+
 ## Gate L — portable artifact identity
 
 Create ONE `docker save` archive from the existing exact release image. Record
@@ -67,7 +80,7 @@ it by broadening grants or substituting an owner/ingestion credential.
 ## Voice launch gate — application-level graceful degradation
 
 Gemini is the preferred NLP provider; approved deterministic fallback is the
-production degradation path. Go model candidate: `gemini-3.5-flash-lite`.
+production degradation path. Active Go model: `gemini-3.5-flash-lite`.
 Keep the shared8s budget, keys/failover and strict backend validation unchanged.
 Before public cutover require correct HTTP201 complete cheapest milk, multi-turn
 milk clarification/continue with session deletion, and search TOP-3 responses.
