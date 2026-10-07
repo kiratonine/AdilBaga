@@ -1,4 +1,44 @@
-# Cloudflare operator artifacts — Part14 Phase A
+# Cloudflare operator artifacts — Part14 Phase A / Part14B
+
+## Current operator state
+
+Host cloudflared on Ubuntu24.04 connects an encrypted outbound locally-managed
+Tunnel to `127.0.0.1:8080`. Public API hostname is `api.aktau.market`.
+VPS incoming policy SSH-only; never open80/443/8080/7844.
+Live root-owned0600 config: `/etc/cloudflared/config.yml`; per-tunnel credential
+`/etc/cloudflared/tunnel-credentials.json` in directory0700. Temporary WSL account
+certificate and tunnel copy removed after proof; never copied account certificate
+to VPS. Re-authenticate for future account management. No secret/UUID/token in Git.
+
+```bash
+ssh my-vps 'sudo systemctl is-active cloudflared'
+ssh my-vps 'sudo systemctl is-enabled cloudflared'
+ssh my-vps 'sudo systemctl restart cloudflared'
+ssh my-vps 'sudo ufw status verbose; sudo ss -lntup'
+```
+
+Inspect logs privately; do not paste Tunnel identifiers/credentials/account metadata.
+Docker uses sudo; deploy is not docker-group member. Future API publish must be
+`127.0.0.1:8080:8080`; no Go deployment in this Part. **Go API: NOT DEPLOYED**.
+Temporary perimeter probe removed; application origin intentionally absent until
+Part15. Tunnel/Docker reboot persistence and post-reboot HTTPS probe passed.
+**HSTS: DEFERRED**. Future origin config remains exact and trust empty:
+
+```text
+CORS_ALLOWED_ORIGINS=https://aktau.market
+TRUSTED_PROXY_CIDRS=
+```
+
+Rollback: disable offending edge rule individually, or disable public Tunnel route
+and stop cloudflared; keep origin private. Never open8080 to recover service.
+DNSSEC needs coordinated zone/registrar state, never repeated blind toggling.
+Owner Dashboard confirms Free WAF/cache bypass/Voice20/10s Block10s/HTTPS/DNSSEC;
+independent cache, redirect, mitigation/recovery and DNSSEC checks passed.
+See report for attribution and command evidence; static verifier is not live proof.
+
+## Preserved Phase A design history
+
+Earlier statements below describe the pre-provisioning state only.
 
 **PLANNED / NOT ACTIVATED**. `aktau.market` and `api.aktau.market` are
 **PLANNED ONLY / NOT OWNED / NOT RESOLVED / NOT ACTIVE** (resolution not tested).

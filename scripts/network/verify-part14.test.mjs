@@ -5,7 +5,7 @@ import { planPaths, readPlan, verifyPlan, checkPerimeterSecrets } from './verify
 test('reviewed placeholder plan is valid', () => verifyPlan(readPlan()));
 
 for (const [name, path, from, to] of [
-  ['hostname state', planPaths[0], 'PLANNED ONLY / NOT OWNED / NOT RESOLVED / NOT ACTIVE', 'ACTIVE'],
+  ['false application state', planPaths[0], 'Go API: NOT DEPLOYED', 'Go API: DEPLOYED'],
   ['HSTS state', planPaths[0], 'HSTS: DEFERRED', 'HSTS: enabled'],
   ['wildcard CORS', planPaths[2], 'CORS_ALLOWED_ORIGINS=https://aktau.market', 'CORS_ALLOWED_ORIGINS=*'],
   ['wide IPv4 trust', planPaths[2], '<EXACT_IMMEDIATE_PEER_CIDRS>', '0.0.0.0/0'],
@@ -16,7 +16,6 @@ for (const [name, path, from, to] of [
   ['real tunnel id', planPaths[3], '<TUNNEL_UUID>', '00000000-0000-4000-8000-000000000000'],
   ['active claim', planPaths[3], '# Host-placement', 'Tunnel: ACTIVE\n# Host-placement'],
   ['commented active claim', planPaths[3], '# Host-placement', '# Tunnel: ACTIVE\n# Host-placement'],
-  ['activated checklist', planPaths[1], '- [ ]', '- [x]'],
 ]) {
   test(`reject ${name}`, () => {
     const files = readPlan();
@@ -25,6 +24,14 @@ for (const [name, path, from, to] of [
     assert.throws(() => verifyPlan(files));
   });
 }
+
+test('Phase B docs can report activation while the example remains inactive', () => {
+  const files = readPlan();
+  for (const p of planPaths.slice(0, 3)) files.set(p, files.get(p) + '\nTunnel: ACTIVE\nDNSSEC: PASS\n');
+  files.set(planPaths[1], files.get(planPaths[1]).replaceAll('- [ ]', '- [x]'));
+  verifyPlan(files);
+  assert.ok(files.get(planPaths[3]).includes('EXAMPLE ONLY / NOT ACTIVE'));
+});
 
 test('reject added unreviewed tunnel setting', () => {
   const files = readPlan();

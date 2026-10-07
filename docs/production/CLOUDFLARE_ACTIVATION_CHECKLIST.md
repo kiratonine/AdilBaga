@@ -1,4 +1,30 @@
-# Cloudflare activation checklist — future Phase B only
+# Cloudflare activation checklist — Part14B execution
+
+## Current execution gates
+
+- [x] Owner authorization, clean immutable accepted baseline and SSH inventory.
+- [x] Ubuntu24.04 updates/reboot; deploy key-only sudo; root/password SSH disabled.
+- [x] UFW incoming deny; only SSH allowed; Docker active/enabled, deploy not docker group.
+- [x] Host cloudflared installed from official apt source and held at2026.10.0.
+- [x] Locally-managed Tunnel; only per-tunnel root-owned0600 credential on VPS.
+- [x] Loopback8080 probe; hostname ingress and catch-all404 validated.
+- [x] API Tunnel DNS/HTTPS/edge proof; direct IPv4 origin80/443/8080 denied.
+- [x] Dashboard owner confirms Free Managed Ruleset; non-browser probe has no challenge.
+- [x] Owner confirms API cache bypass, Voice20/10s/IP Block10s deployed.
+- [x] Always Use HTTPS owner-confirmed; HTTP301, controlled429/recovery, no cache HIT/Age.
+- [x] DNSSEC Dashboard owner-confirmed; public DS and authenticated SOA verified.
+- [x] Final reboot Docker/Tunnel persistence; final probe removed/listener absent.
+- [x] Local temporary account certificate/tunnel copy removed; VPS credential retained.
+
+**Go API: NOT DEPLOYED**; Part15 NOT STARTED. **HSTS: DEFERRED**.
+TRUSTED_PROXY_CIDRS remains empty until measured real Go peer in Part15.
+Real health/catalog/Voice/CORS/header spoof/physical Siri checks are deferred;
+temporary probe never counts as application acceptance.
+
+## Preserved Phase A checklist (historical, unchecked)
+
+The following “future/unowned/absent” wording records the earlier design phase,
+not current execution status. Check only the current gates above using evidence.
 
 **PLANNED / NOT ACTIVATED**. Do not execute under Phase A authorization.
 `aktau.market` and `api.aktau.market`: **PLANNED ONLY / NOT OWNED / NOT RESOLVED / NOT ACTIVE**.

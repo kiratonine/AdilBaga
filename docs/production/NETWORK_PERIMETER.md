@@ -1,4 +1,38 @@
-# Network perimeter — Part14 Phase A
+# Network perimeter — Part14 Phase A / Phase B
+
+## Current Phase B state — perimeter activated
+
+Owner authorized Part14B on baseline `b5ef421ee6a02c26576c5fd2f68b02779cbf2b56`.
+VPS exists: Ubuntu24.04, deploy key-only SSH, UFW incoming deny/SSH only,
+Docker active. Host cloudflared2026.10.0 is held and runs a locally-managed
+Tunnel to `http://127.0.0.1:8080`, with final catch-all404.
+`api.aktau.market` DNS/Tunnel/HTTPS probe passed; origin80/443/8080 externally
+denied over IPv4. No global VPS IPv6; edge A/AAAA do not expose the VPS origin.
+
+**Go API: NOT DEPLOYED**. Part15 is NOT STARTED. Temporary probe removed;
+application origin intentionally absent until Part15. Docker/Tunnel survived
+controlled reboot; final HTTPS probe succeeded before removal.
+Owner Dashboard evidence confirms Free Managed Ruleset, API cache bypass,
+Voice IP20/10s Block10s, Always Use HTTPS ON/HSTS OFF, DNSSEC confirmed.
+Independent edge checks: no cache HIT/Age; HTTP301; controlled Voice429 and
+recovery without browser challenge; DS visible and validating SOA authenticated.
+HSTS: DEFERRED; no HSTS/preload activation. Temporary WSL account certificate
+and tunnel credential copy removed; active VPS per-tunnel credential retained.
+Future `CORS_ALLOWED_ORIGINS=https://aktau.market`; proxy trust remains empty:
+
+```text
+TRUSTED_PROXY_CIDRS=
+```
+
+Measure the actual Go container immediate peer only in Part15, then set exact
+/32 or /128. No public API host bind or broad proxy trust. Real API health,
+GETs, Voice, CORS/spoofing and physical Siri are deferred to Part15, not proved
+by the probe. See the same Part14 report for actual gate evidence.
+
+## Preserved Phase A design history
+
+The following inactive/unowned infrastructure statements describe Phase A,
+not today's provisioned VPS and routed API hostname.
 
 Status: **PLANNED / NOT ACTIVATED**. This is design and local source evidence,
 not Internet perimeter proof. Railway is retired; VPS, domain, Cloudflare zone

@@ -11,7 +11,7 @@ export const planPaths = [
   'ops/cloudflare/cloudflared-config.example.yml',
 ];
 
-// Narrow, deterministic Phase A artifact checks, NOT a Cloudflare emulator or
+// Narrow, deterministic Phase A/Phase B artifact checks, NOT live validation or
 // complete secret detector. Errors contain classes only, never rejected content.
 export function checkPerimeterSecrets(bytes) {
   const text = bytes.toString('utf8');
@@ -25,19 +25,19 @@ export function verifyPlan(files) {
   for (const [path, text] of files) {
     checkPerimeterSecrets(Buffer.from(text));
     if (path.startsWith('ops/cloudflare/')) assert.ok(planPaths.includes(path), 'unexpected_cloudflare_artifact');
-    assert.ok(text.includes('PLANNED / NOT ACTIVATED'), 'missing_inactive_marker');
-    assert.ok(text.includes('PLANNED ONLY / NOT OWNED / NOT RESOLVED / NOT ACTIVE'), 'missing_hostname_state');
     assert.match(text, /HSTS:\s*DEFERRED\b/, 'hsts_not_deferred');
-    assert.ok(!/^\s*(?:#\s*)?(?:Status:\s*(?:\*\*)?ACTIVE|(?:Cloudflare|DNS|TLS|Tunnel|DNSSEC|WAF)\s*(?:=|:)\s*(?:ACTIVE|PASS))\b/im.test(text), 'false_activation_claim');
+    assert.ok(text.includes('Go API: NOT DEPLOYED'), 'missing_application_deferral');
+    assert.ok(!/Go API:\s*(?:DEPLOYED|ACTIVE|PASS)\b/i.test(text), 'false_application_claim');
     for (const [, value] of text.matchAll(/^\s*CORS_ALLOWED_ORIGINS=([^\n]+)$/gm)) {
       assert.equal(value.trim(), 'https://aktau.market', 'unapproved_cors');
     }
-    for (const [, value] of text.matchAll(/^\s*TRUSTED_PROXY_CIDRS=([^\n]+)$/gm)) {
-      assert.equal(value.trim(), '<EXACT_IMMEDIATE_PEER_CIDRS>', 'unapproved_peer_assignment');
+    for (const [, value] of text.matchAll(/^\s*TRUSTED_PROXY_CIDRS=([^\n]*)$/gm)) {
+      assert.ok(['', '<EXACT_IMMEDIATE_PEER_CIDRS>'].includes(value.trim()), 'unapproved_peer_assignment');
     }
   }
   const template = files.get(planPaths[3]);
   assert.ok(template.includes('NOT ACTIVE'), 'template_not_inactive');
+  assert.ok(!/^\s*(?:#\s*)?(?:Status:\s*(?:\*\*)?ACTIVE|(?:Cloudflare|DNS|TLS|Tunnel|DNSSEC|WAF)\s*(?:=|:)\s*(?:ACTIVE|PASS))\b/im.test(template), 'false_activation_claim');
   // Only this placeholder-only grammar is reviewed. Reject added settings,
   // duplicate ingress/key entries, public targets, tokens, real UUIDs and catchall drift.
   const lines = template.split('\n').map(x => x.trim()).filter(x => x && !x.startsWith('#'));
@@ -55,7 +55,8 @@ export function verifyPlan(files) {
     'X-Forwarded-For', 'Siri/Shortcut', '/metrics', 'Phase B', 'Rollback']) {
     assert.ok(design.includes(marker), 'missing_design_boundary');
   }
-  assert.ok(!/^- \[x\]/m.test(files.get(planPaths[1])), 'activation_claim_in_checklist');
+  // Phase B completion boxes/activation statements are allowed in documentation.
+  // Only operator evidence can establish their truth, not this offline verifier.
 }
 
 export function readPlan() {
