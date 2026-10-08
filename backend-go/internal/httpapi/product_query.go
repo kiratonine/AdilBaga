@@ -13,6 +13,18 @@ import (
 var decimalInteger = regexp.MustCompile(`^[0-9]+$`)
 var decimalNumber = regexp.MustCompile(`^-?[0-9]+(?:\.[0-9]+)?$`)
 
+func hasDynamicProductFilters(raw url.Values) bool {
+	for key := range raw {
+		switch key {
+		case "category", "search", "sort", "limit", "offset":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
 func parseProductQuery(raw url.Values, definitions []catalog.FilterDefinition) (catalog.ProductQuery, error) {
 	q := catalog.ProductQuery{Sort: catalog.PriceAsc, Limit: 24, Filters: make(catalog.DynamicFilter)}
 	for _, key := range []string{"category", "search", "sort", "limit", "offset"} {

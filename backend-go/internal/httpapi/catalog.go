@@ -55,7 +55,7 @@ func (d Dependencies) products(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var definitions []catalog.FilterDefinition
-	if category := raw["category"]; len(category) == 1 && strings.TrimSpace(category[0]) != "" {
+	if category := raw["category"]; hasDynamicProductFilters(raw) && len(category) == 1 && strings.TrimSpace(category[0]) != "" {
 		schema, err := d.Categories.GetFilterSchema(r.Context(), strings.TrimSpace(category[0]))
 		if err != nil && !errors.Is(err, catalog.ErrNotFound) {
 			respond(w, nil, err)
