@@ -2,7 +2,7 @@ import { httpUrl } from './config'
 
 // Image origins in the committed prepared dataset. No store API/script access.
 const productImageOrigins = ['https://backend.dinamarket.kz', 'https://dana-market.kz', 'https://fix-price.kz']
-const tileOrigins = ['https://a.tile.openstreetmap.org', 'https://b.tile.openstreetmap.org', 'https://c.tile.openstreetmap.org']
+const tileOrigins = ['https://tile.openstreetmap.org']
 
 /** Production-only policy: dev HMR is outside this policy. No HSTS before HTTPS rollout. */
 export function securityHeaders(apiBaseUrl?: string, testMocks = false) {
