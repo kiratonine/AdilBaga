@@ -1,0 +1,12 @@
+[Unit]
+Description=Aktau Market price sync (scrape, map, ingest)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=aktau-sync
+WorkingDirectory=/opt/adilbaga
+EnvironmentFile=/etc/aktau-sync.env
+ExecStart=/usr/bin/bash pipeline/scripts/daily-sync.sh
+TimeoutStartSec=2h

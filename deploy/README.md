@@ -115,3 +115,5 @@ Require no8080 listener and no public80/443/8080; retain the verified image and
 private configuration for reviewed recovery. Never expose origin as fallback.
 Future releases preserve current/previous SHA images before replacement and
 validate DB compatibility. No DB rollback, migration, ingest or snapshot action.
+
+Ingestion (регулярный sync цен) — отдельный systemd-юнит из `ops/sync/`, не часть API-релиза.
