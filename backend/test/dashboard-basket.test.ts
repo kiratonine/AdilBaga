@@ -55,7 +55,7 @@ test('basket calculator uses exact attributes and the cheapest usable offer of e
   ]);
   assert.equal(baskets[2]?.total, 1150);
   assert.deepEqual(baskets[2]?.items[1], {
-    categorySlug: 'sugar', categoryName: 'Сахар и соль',
+    categorySlug: 'sugar', categoryName: 'Сахар',
     productId: null, name: null, price: null,
   });
 });

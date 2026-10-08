@@ -1,0 +1,150 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-10-05T12:00:00.000Z",
+  "rawProducts": [
+    {
+      "storeCode": "DINA",
+      "sourceProductId": "1",
+      "sourceUrl": null,
+      "name": "Молоко FoodMaster 3.2% 1 л",
+      "brand": "FoodMaster",
+      "category": null,
+      "price": 500,
+      "oldPrice": null,
+      "imageUrl": "https://cdn.dina/1.jpg",
+      "rawPayload": {
+        "agentFlags": ""
+      }
+    },
+    {
+      "storeCode": "DANA",
+      "sourceProductId": "dana_2",
+      "sourceUrl": null,
+      "name": "Молоко Фудмастер 3,2% 1л",
+      "brand": "FoodMaster",
+      "category": null,
+      "price": 500,
+      "oldPrice": null,
+      "imageUrl": null,
+      "rawPayload": {
+        "agentFlags": ""
+      }
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "sourceProductId": "fp_3",
+      "sourceUrl": null,
+      "name": "Сахар 1 кг",
+      "brand": null,
+      "category": null,
+      "price": 500,
+      "oldPrice": null,
+      "imageUrl": null,
+      "rawPayload": {
+        "agentFlags": ""
+      }
+    }
+  ],
+  "canonicalProducts": [
+    {
+      "canonicalName": "Молоко FoodMaster 3.2% 1 л",
+      "brand": "FoodMaster",
+      "category": "milk",
+      "imageUrl": "https://cdn.dina/1.jpg",
+      "attributes": {
+        "volumeMl": 1000,
+        "fatPercent": 3.2
+      },
+      "members": [
+        {
+          "rawProduct": {
+            "storeCode": "DINA",
+            "sourceProductId": "1",
+            "sourceUrl": null,
+            "name": "Молоко FoodMaster 3.2% 1 л",
+            "brand": "FoodMaster",
+            "category": null,
+            "price": 500,
+            "oldPrice": null,
+            "imageUrl": "https://cdn.dina/1.jpg",
+            "rawPayload": {
+              "agentFlags": ""
+            }
+          },
+          "matchMethod": "ai",
+          "matchConfidence": 0.97,
+          "reviewStatus": "approved"
+        },
+        {
+          "rawProduct": {
+            "storeCode": "DANA",
+            "sourceProductId": "dana_2",
+            "sourceUrl": null,
+            "name": "Молоко Фудмастер 3,2% 1л",
+            "brand": "FoodMaster",
+            "category": null,
+            "price": 500,
+            "oldPrice": null,
+            "imageUrl": null,
+            "rawPayload": {
+              "agentFlags": ""
+            }
+          },
+          "matchMethod": "ai",
+          "matchConfidence": 0.97,
+          "reviewStatus": "approved"
+        }
+      ]
+    },
+    {
+      "canonicalName": "Сахар 1 кг",
+      "brand": null,
+      "category": "sugar",
+      "imageUrl": null,
+      "attributes": {
+        "weightGrams": 1000
+      },
+      "members": [
+        {
+          "rawProduct": {
+            "storeCode": "FIX_PRICE",
+            "sourceProductId": "fp_3",
+            "sourceUrl": null,
+            "name": "Сахар 1 кг",
+            "brand": null,
+            "category": null,
+            "price": 500,
+            "oldPrice": null,
+            "imageUrl": null,
+            "rawPayload": {
+              "agentFlags": ""
+            }
+          },
+          "matchMethod": "deterministic",
+          "matchConfidence": 1,
+          "reviewStatus": "approved"
+        }
+      ]
+    }
+  ],
+  "sourceRuns": [
+    {
+      "storeCode": "DINA",
+      "capturedAt": "2026-10-05T10:00:00.000Z",
+      "productCount": 1,
+      "errorCount": 0
+    },
+    {
+      "storeCode": "DANA",
+      "capturedAt": "2026-10-05T10:00:00.000Z",
+      "productCount": 1,
+      "errorCount": 0
+    },
+    {
+      "storeCode": "FIX_PRICE",
+      "capturedAt": "2026-10-05T10:00:00.000Z",
+      "productCount": 1,
+      "errorCount": 0
+    }
+  ]
+}

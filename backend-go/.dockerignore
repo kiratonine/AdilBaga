@@ -1,0 +1,13 @@
+.git
+.env*
+!.env.example
+tmp
+temp
+coverage
+reports
+*.log
+*.out
+*.prof
+*.test
+bin
+api

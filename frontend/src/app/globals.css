@@ -1,0 +1,200 @@
+@import 'tailwindcss';
+
+/*
+  Adil Bağa — дизайн-токены (docs/superpowers/specs/2026-10-02-design-system-design.md).
+  Нейтральная база, один акцент: зелёный = «здесь выгоднее».
+  Акцент — только минимальная цена и выгода, не кнопки, не фокус, не декор.
+*/
+@theme {
+  /* page — серый фон страниц сайта (включается в D3), card — белые блоки */
+  --color-page: #f4f5f6;
+  --color-card: #ffffff;
+  --color-surface: #f3f5f4;
+  --color-line: #e2e6e4;
+  --color-ink: #1a1f24;
+  --color-muted: #697178;
+  --color-accent: #17744a;
+  --color-accent-soft: #e5f2ea;
+  --color-danger: #b42318;
+
+  /* Пастель плиток категорий, по индексу i % 5. Зелёной нет — зелёный занят выгодой */
+  --color-tile-1: #f6eee3;
+  --color-tile-2: #e6f0f8;
+  --color-tile-3: #efeaf7;
+  --color-tile-4: #fbeae2;
+  --color-tile-5: #fbf4d9;
+
+  /* Переменные шрифтов задаёт next/font (app/fonts.ts) на <html> */
+  --font-sans: var(--font-golos), system-ui, sans-serif;
+  /* Выразительный геометричный гротеск — для цен и логотипа */
+  --font-display: var(--font-montserrat), var(--font-golos), sans-serif;
+
+  --radius-card: 12px;
+  --radius-media: 8px;
+  --radius-control: 12px;
+
+  --shadow-hover: 0 4px 16px rgb(26 31 36 / 0.08);
+  --shadow-sheet: 0 -8px 32px rgb(26 31 36 / 0.12);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Белый — под футером; страницы сайта красит в page обёртка SitePage */
+  body {
+    @apply bg-card text-ink font-sans antialiased;
+    font-size: 15px;
+    line-height: 1.47;
+  }
+
+  /* Фокус — графит: зелёный оставляем только для выгоды */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+
+  /* Таб-бар фиксирован снизу (только < md): контент и футер не должны уходить под него */
+  @media (width < 48rem) {
+    body:has([data-tab-bar]) {
+      padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* Под открытой шторкой страница не прокручивается */
+  body:has(dialog[open]) {
+    overflow: hidden;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Шкала шрифтов дизайн-кода. Мобильный → с md (48rem) */
+@utility text-caption {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+@utility text-meta {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@utility text-card-title {
+  font-size: 14px;
+  line-height: 19px;
+
+  @media (width >= 48rem) {
+    font-size: 15px;
+    line-height: 20px;
+  }
+}
+
+@utility text-h3 {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+@utility text-h2 {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+
+  @media (width >= 48rem) {
+    font-size: 22px;
+    line-height: 28px;
+  }
+}
+
+@utility text-h1 {
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+
+  @media (width >= 48rem) {
+    font-size: 32px;
+    line-height: 38px;
+  }
+}
+
+@utility text-price-card {
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+
+  @media (width >= 48rem) {
+    font-size: 22px;
+  }
+}
+
+@utility text-price-page {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+
+  @media (width >= 48rem) {
+    font-size: 36px;
+  }
+}
+
+@utility text-price-row {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+@utility container-page {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  /* С viewport-fit=cover в альбомной ориентации iPhone отступ не меньше выреза */
+  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+
+  @media (width >= 48rem) {
+    padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right));
+  }
+}
+
+/* Сумма корзины сети у маркера на карте (Leaflet Tooltip) */
+/* .leaflet-tooltip — чтобы перебить стили leaflet.css, который грузится позже */
+.leaflet-tooltip.basket-label {
+  padding: 2px 6px;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgb(26 31 36 / 0.15);
+  color: var(--color-ink);
+  font: 600 12px/1.4 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaflet-tooltip.basket-label--best {
+  color: var(--color-accent);
+}
+
+.leaflet-tooltip.basket-label--partial {
+  border-style: dashed;
+  color: var(--color-muted);
+}

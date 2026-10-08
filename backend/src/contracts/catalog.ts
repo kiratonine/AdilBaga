@@ -4,12 +4,9 @@ export interface CategoryDto {
   name: string;
 }
 
-export interface FilterDefinitionDto {
-  key: string;
-  label: string;
-  type: 'multi-select' | 'boolean';
-  options?: Array<string | number | boolean>;
-}
+export type FilterDefinitionDto =
+  | { key: string; label: string; type: 'multi-select'; options: Array<string | number | boolean> }
+  | { key: string; label: string; type: 'boolean'; options?: Array<string | number | boolean> };
 
 export interface FilterSchemaDto {
   category: string;
@@ -81,5 +78,5 @@ export interface DashboardDto {
     latitude: number;
     longitude: number;
   }>;
-  baskets?: BasketDto[];
+  baskets: BasketDto[];
 }

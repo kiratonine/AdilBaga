@@ -3,15 +3,25 @@ import { defineConfig, devices } from '@playwright/test'
 // PW_CHANNEL=chrome — запуск через установленный Chrome, если скачать браузеры Playwright нельзя
 const channel = process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}
 
-// E2E_API=http — прогон против живого бэка (e2e/http.spec.ts), иначе — моки.
-// Отдельный порт, чтобы не переиспользовать уже запущенный mock-preview.
+// Порт не совпадает со старым фронтом (4173) и бэком (3000)
+const port = 3100
 const http = process.env.E2E_API === 'http'
-const port = http ? 4174 : 4173
-const apiBaseUrl = process.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+if (process.env.E2E_API && !http) throw new Error('E2E_API must be http or omitted (mock suite)')
+if (http && !process.env.NEXT_PUBLIC_API_BASE_URL) throw new Error('HTTP E2E requires NEXT_PUBLIC_API_BASE_URL')
+const serverEnv: Record<string, string> = http ? {
+  NEXT_PUBLIC_API_MODE: 'http',
+  NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL!,
+  API_BASE_URL: process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!,
+  NEXT_PUBLIC_ENABLE_TEST_MOCKS: '0',
+} : {
+  NEXT_PUBLIC_API_MODE: 'mock',
+  NEXT_PUBLIC_ENABLE_TEST_MOCKS: '1',
+}
 
 export default defineConfig({
   testDir: './e2e',
-  ...(http ? { testMatch: 'http.spec.ts' } : { testIgnore: 'http.spec.ts' }),
+  testMatch: http ? '**/http.spec.ts' : '**/*.spec.ts',
+  testIgnore: http ? [] : ['**/http.spec.ts'],
   fullyParallel: true,
   reporter: 'list',
   use: {
@@ -23,10 +33,11 @@ export default defineConfig({
     { name: 'iphone', use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium', ...channel } },
   ],
   webServer: {
-    command: `pnpm build && pnpm preview --port ${port} --strictPort`,
+    command: `pnpm build && pnpm start --port ${port}`,
     url: `http://localhost:${port}`,
-    reuseExistingServer: !process.env.CI,
-    env: http ? { VITE_API_MODE: 'http', VITE_API_BASE_URL: apiBaseUrl } : { VITE_API_MODE: 'mock' },
-    timeout: 120_000,
+    // Never reuse a server built for another data mode.
+    reuseExistingServer: false,
+    env: { ...serverEnv, NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL ?? `http://localhost:${port}` },
+    timeout: 180_000,
   },
 })

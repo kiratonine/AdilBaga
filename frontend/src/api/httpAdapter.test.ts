@@ -26,6 +26,19 @@ describe('http adapter', () => {
     vi.stubGlobal('fetch', fetchMock)
     await createHttpAdapter('http://api.test/').getProducts({ category: 'milk', limit: 24, offset: 0 })
     expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/api/products?category=milk&limit=24&offset=0')
+    expect(fetchMock.mock.calls[0][1]).not.toHaveProperty('next')
+  })
+
+  it('bounds server GET caching and tags catalog data', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('[]'))
+    vi.stubGlobal('fetch', fetchMock)
+    await createHttpAdapter('http://api.test', true).getCategories()
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ next: { revalidate: 3600, tags: ['catalog-data'] } })
+  })
+
+  it('does not replace a provider failure with mock data', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 503 })))
+    await expect(createHttpAdapter('http://api.test', true).getCategories()).rejects.toMatchObject({ status: 503 })
   })
 
   it('joins NestJS validation messages', async () => {

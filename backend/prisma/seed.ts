@@ -24,6 +24,8 @@ async function seed() {
   await prisma.productMapping.deleteMany();
   await prisma.canonicalProduct.deleteMany();
   await prisma.rawProduct.deleteMany();
+  await prisma.sourceRun.deleteMany();
+  await prisma.snapshot.deleteMany();
   await prisma.category.deleteMany({
     where: {
       slug: { notIn: ['milk', 'bread', 'eggs', 'sugar', 'oil', 'other'] }
@@ -129,7 +131,7 @@ async function seed() {
     },
     {
       slug: 'sugar',
-      name: 'Сахар и соль',
+      name: 'Сахар',
       filterSchema: {
         filters: [
           { key: 'weightGrams', label: 'Вес', type: 'multi-select', options: [500, 700, 800, 1000, 2000, 3000, 5000] }
@@ -168,6 +170,20 @@ async function seed() {
     console.log(`>>> [4/5] Preparing Products & Offers from ${SNAPSHOT_PATH}...`);
     const dataset = JSON.parse(fs.readFileSync(SNAPSHOT_PATH, 'utf-8'));
     const canonicalList = dataset.canonicalProducts || [];
+    const capturedAt = new Date(dataset.generatedAt);
+    if (!Number.isFinite(capturedAt.getTime())) throw new Error('Fixture capture timestamp invalid');
+    const snapshotId = 'fixture-internal-v1';
+    await prisma.snapshot.create({ data: {
+      id: snapshotId, status: 'building',
+      sourceStats: { captureTimeSource: 'legacy-generatedAt', fixture: true },
+    } });
+    for (const [code, storeId] of storeMap) {
+      await prisma.sourceRun.create({ data: {
+        snapshotId, storeId, status: 'succeeded', capturedAt, finishedAt: capturedAt,
+        productCount: dataset.rawProducts.filter((raw: { storeCode: string }) => raw.storeCode === code).length,
+        sourceStats: { captureTimeSource: 'legacy-generatedAt', fixture: true },
+      } });
+    }
 
     const rawProductsToInsert: Prisma.RawProductCreateManyInput[] = [];
     const canonicalProductsToInsert: Prisma.CanonicalProductCreateManyInput[] = [];
@@ -196,6 +212,7 @@ async function seed() {
         const rawId = randomUUID();
         rawProductsToInsert.push({
           id: rawId,
+          snapshotId,
           storeId: sId,
           sourceProductId: String(raw.sourceProductId),
           sourceUrl: raw.sourceUrl ?? null,
@@ -219,6 +236,8 @@ async function seed() {
 
         offersToInsert.push({
           id: randomUUID(),
+          snapshotId,
+          snapshotAt: capturedAt,
           canonicalProductId: canonicalId,
           rawProductId: rawId,
           storeId: sId,
@@ -241,6 +260,10 @@ async function seed() {
     await chunkInsert('Canonical Products', canonicalProductsToInsert, chunk => prisma.canonicalProduct.createMany({ data: chunk }));
     await chunkInsert('Product Mappings', mappingsToInsert, chunk => prisma.productMapping.createMany({ data: chunk }));
     await chunkInsert('Offers', offersToInsert, chunk => prisma.offer.createMany({ data: chunk }));
+    await prisma.snapshot.update({ where: { id: snapshotId }, data: {
+      status: 'published', publishedAt: capturedAt,
+      qualityReport: { rawCount: rawProductsToInsert.length, canonicalCount: canonicalProductsToInsert.length },
+    } });
 
     console.log(`>>> [5/5] Seeded ${canonicalList.length} Canonical Products and ${offersToInsert.length} Offers!`);
   } else {

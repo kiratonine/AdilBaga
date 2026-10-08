@@ -1,0 +1,7 @@
+extends:
+  - recommended
+rules:
+  # No public license has been selected; do not invent one.
+  info-license: off
+  no-invalid-media-type-examples: error
+  no-invalid-schema-examples: error

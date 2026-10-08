@@ -1,9 +1,22 @@
 import { createHttpAdapter } from './httpAdapter'
 import { createMockAdapter } from './mockAdapter'
 import type { CatalogApi } from './types'
+import { validateApiConfig, type ApiEnv } from '../lib/config'
 
-// VITE_API_MODE=mock|http, VITE_API_BASE_URL=http://localhost:3000
-const mode = import.meta.env.VITE_API_MODE ?? 'mock'
+export function createCatalogApi(env: ApiEnv, isServer: boolean): CatalogApi {
+  const config = validateApiConfig({ ...env, nodeEnv: env.nodeEnv ?? process.env.NODE_ENV })
+  if (config.mode === 'mock') return createMockAdapter()
+  return createHttpAdapter(isServer ? config.serverBaseUrl : config.publicBaseUrl, isServer)
+}
 
-export const catalogApi: CatalogApi =
-  mode === 'http' ? createHttpAdapter(import.meta.env.VITE_API_BASE_URL ?? '') : createMockAdapter()
+// NEXT_PUBLIC_* Next подставляет при сборке — только при прямом обращении к process.env.NAME
+export const catalogApi: CatalogApi = createCatalogApi(
+  {
+    mode: process.env.NEXT_PUBLIC_API_MODE,
+    publicBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+    serverBaseUrl: process.env.API_BASE_URL,
+    nodeEnv: process.env.NODE_ENV,
+    enableTestMocks: process.env.NEXT_PUBLIC_ENABLE_TEST_MOCKS,
+  },
+  typeof window === 'undefined',
+)

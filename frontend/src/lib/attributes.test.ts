@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import i18n from '../i18n'
+import { getI18n } from '../i18n'
 import { formatAttributeValue } from './attributes'
 
-const t = i18n.getFixedT('ru')
+const t = getI18n('ru').t
 const f = (key: string, value: string | number | boolean) => formatAttributeValue(key, value, t).replace(/ /g, ' ')
 
 describe('formatAttributeValue', () => {
@@ -23,6 +23,6 @@ describe('formatAttributeValue', () => {
 
   it('translates booleans', () => {
     expect(f('sliced', true)).toBe('Да')
-    expect(formatAttributeValue('sliced', false, i18n.getFixedT('kk'))).toBe('Жоқ')
+    expect(formatAttributeValue('sliced', false, getI18n('kk').t)).toBe('Жоқ')
   })
 })

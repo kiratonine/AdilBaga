@@ -1,0 +1,134 @@
+name: CI
+on:
+  pull_request:
+    branches: [integrate/full-stack, main]
+  push:
+    branches: [integrate/full-stack, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  GOTOOLCHAIN: local
+  COREPACK_ENABLE_AUTO_PIN: '0'
+  NEXT_TELEMETRY_DISABLED: '1'
+jobs:
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.10.0'
+          package-manager-cache: false
+      - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
+      - run: node scripts/ci/run-checks.mjs contracts
+  go:
+    name: Go Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend-go/go.mod
+          cache-dependency-path: backend-go/go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - run: node scripts/ci/run-checks.mjs go
+  nest:
+    name: Nest Reference
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
+      - run: node scripts/ci/run-checks.mjs nest
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
+      - run: node scripts/ci/run-checks.mjs frontend
+  pipeline:
+    name: Pipeline Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
+      - run: node scripts/ci/run-checks.mjs pipeline
+  security:
+    name: Security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - name: Select immutable migration base from trusted event
+        run: node scripts/ci/select-event-base.mjs
+      - run: node --test scripts/ci/guard.test.mjs
+      - run: node scripts/ci/run-checks.mjs security
+  postgres:
+    name: PostgreSQL Integration
+    needs: [go, nest, contracts, security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: {go-version-file: backend-go/go.mod, cache-dependency-path: backend-go/go.sum}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
+      - run: node scripts/ci/run-db-integration.mjs
+  staging:
+    name: Ephemeral Staging
+    needs: [postgres, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: {go-version-file: backend-go/go.mod, cache-dependency-path: backend-go/go.sum}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - run: corepack enable && corepack prepare pnpm@10.32.1 --activate
+      - run: node scripts/ci/run-ephemeral-staging.mjs
+  gate:
+    name: CI Gate
+    if: always()
+    needs: [contracts, go, nest, frontend, pipeline, security, postgres, staging]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      RESULTS: ${{ toJSON(needs) }}
+    steps:
+      - name: Require every mandatory job to succeed
+        run: |
+          node -e 'const jobs=JSON.parse(process.env.RESULTS); if(Object.keys(jobs).length!==8 || Object.values(jobs).some(j=>j.result!=="success")) process.exit(1); console.log("CI Gate: PASS");'

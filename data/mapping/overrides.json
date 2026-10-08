@@ -1,0 +1,237 @@
+{
+ "version": 1,
+ "moveCategory": [
+  {
+   "key": "c_26d3808fba993853",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_5bdc031ca53e58a9",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_658646f2ae24e829",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_66c3b53f4515f155",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_6abc991c59cc1313",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_6cc7a4ab634aac14",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_796d01a9c0686d39",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_a73feb095fa3532d",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_c13a3d5527ad269a",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_cf959ef9772bf4f5",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_f0d05c38ff51160f",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_f9eecfaae073b5c9",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  },
+  {
+   "key": "c_fabaf73aea4d3538",
+   "to": "salt",
+   "reason": "salt moved out of sugar basket (B1)"
+  }
+ ],
+ "split": [
+  {
+   "key": "c_2993e3afe0cedd13",
+   "ids": [
+    "DINA:14552"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_b083f134467c62b5",
+   "ids": [
+    "DINA:22066"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_8c4a5d86240e5fa6",
+   "ids": [
+    "DINA:12334"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_1d186dbaf5986073",
+   "ids": [
+    "DINA:11150"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_efc8d0c275af57f3",
+   "ids": [
+    "DINA:11288"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_e22f617abaaac148",
+   "ids": [
+    "DINA:6992"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_43307ec26c0d611e",
+   "ids": [
+    "DINA:5067"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_329bf0ffd9d5078d",
+   "ids": [
+    "DINA:1640"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_b4f818a0ad702375",
+   "ids": [
+    "DINA:2770"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_9c4ba4d687fa53ac",
+   "ids": [
+    "DINA:7534"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_cca8daeea9c1e5d2",
+   "ids": [
+    "DINA:17158"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_fcff5bea083908d7",
+   "ids": [
+    "DINA:11555"
+   ],
+   "reason": "weight-vs-piece"
+  },
+  {
+   "key": "c_050d467164271700",
+   "ids": [
+    "DINA:6915",
+    "DANA:dana_15610"
+   ],
+   "reason": "false-group: box-vs-pack (Хлопья Царь 5 злаков 400 г)"
+  },
+  {
+   "key": "c_36054be8a271af9a",
+   "ids": [
+    "DINA:14538",
+    "FIX_PRICE:fp_1028149"
+   ],
+   "reason": "false-group: different-product (Курт Bio Qurt Baraka 40г)"
+  },
+  {
+   "key": "c_668dff22c5eed167",
+   "ids": [
+    "DINA:869",
+    "DANA:dana_15706"
+   ],
+   "reason": "false-group: bunch-vs-kg (Мята)"
+  },
+  {
+   "key": "c_70b0c193d7cf7818",
+   "ids": [
+    "DINA:9540",
+    "DANA:dana_12377"
+   ],
+   "reason": "false-group: box-vs-pack (Хлопья Царь Геркулес 400 г)"
+  },
+  {
+   "key": "c_7140483f15bfea2b",
+   "ids": [
+    "DINA:8728",
+    "DANA:dana_16821"
+   ],
+   "reason": "false-group: different-brand (Макароны Макфа вермишель 400 г)"
+  },
+  {
+   "key": "c_8a1160dd78bd8b23",
+   "ids": [
+    "DINA:20041",
+    "DANA:dana_9855"
+   ],
+   "reason": "false-group: bunch-vs-kg (Базилик)"
+  },
+  {
+   "key": "c_a482cf5f638b4004",
+   "ids": [
+    "DINA:9524",
+    "DANA:dana_13925"
+   ],
+   "reason": "false-group: box-vs-pack (Хлопья Царь 4 злака 400 г)"
+  },
+  {
+   "key": "c_bfc77a053721c6b2",
+   "ids": [
+    "DINA:11191",
+    "DANA:dana_10418"
+   ],
+   "reason": "false-group: different-brand (Макароны Султан Перья 1.6 кг)"
+  },
+  {
+   "key": "c_cb9cf3d57f896b95",
+   "ids": [
+    "DINA:1023",
+    "DANA:dana_11919"
+   ],
+   "reason": "false-group: bunch-vs-kg (Лайм)"
+  },
+  {
+   "key": "c_eeb8d1323297fac8",
+   "ids": [
+    "DINA:937",
+    "DANA:dana_10886"
+   ],
+   "reason": "false-group: bunch-vs-kg (Салатные листья Руккола)"
+  }
+ ],
+ "approve": []
+}

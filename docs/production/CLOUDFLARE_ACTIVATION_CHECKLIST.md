@@ -1,0 +1,165 @@
+# Cloudflare activation checklist — Part14B execution
+
+## Part15 current application deployment
+
+- [x] Release `e6ef854e2973e5b0871888bbc3111e026cdccc5b`; hosted run37668466461
+      attempt2, all9 mandatory jobs success.
+- [x] Clean byte-verified committed export/off-VPS build/SHA image tag.
+- [x] One save-file checksum before VPS load; revision/platform/User/entrypoint/
+      RootFS/API binary proof, no cross-store image-ID equality requirement.
+- [x] Private API-only env byte-identity, root0600/dir0700; restricted Supabase
+      runtime only; model gemini-3.5-flash-lite.
+- [x] Hardened local and VPS live/ready/catalog/dashboard PASS.
+- [x] Actual peer measured/cross-checked; IPv4-mapped normalized as Go; exact /32.
+- [x] VPS Voice TOP-1/partial clarification/TOP-3 and real Upstash TTL600/delete,
+      SQL truth/Haversine/exact speech PASS.
+- [x] Tunnel resumed after local gates; public health/GET/Voice/CORS PASS.
+- [x] Origin80/443/8080 denied; loopback8080 only; SSH reachable; metrics404.
+- [x] HSTS: DEFERRED. No DB migration/ingestion/snapshot/frontend/scheduler.
+
+curl, undici and explicitly named operator client work without browser challenge.
+Generic Python-urllib User-Agent receives Cloudflare1010/403; no rule was changed
+or bypassed by a browser identity. Universal User-Agent/physical Siri support is
+not claimed. Final stability/archive evidence is in Part15 report.
+Part16+ NOT STARTED.
+
+## Preserved Part15 failed attempt — separate acceptance was pending
+
+Part14 checks below are preserved historical accepted evidence. Part15 initial
+image-ID/cold503 history remains in its report. Portable artifact and bounded
+restricted readiness gates retain PASS for the previous image. Historical3/3
+Gemini invalid_output is preserved in the Part15 report; perfect provider-only
+availability is no longer a launch gate. Deterministic application degradation
+tests PASS; current source review is BLOCKED by govulncheck GO-2026-6629.
+Application removed, cloudflared intentionally inactive.
+No change to Cloudflare/SSH/UFW policy.
+
+- [x] Clean exact release SHA and all9 hosted CI jobs verified.
+- [x] Off-VPS committed export image/local restricted readiness/real provider smoke.
+- [x] Portable save-file SHA-256 before load, revision/metadata/RootFS/binary proof.
+- [x] VPS restricted readiness200 under bounded cold polling.
+- [ ] Reviewed new source/hosted CI/immutable image, then real application-level
+      Voice/session smoke (Gemini success OR approved deterministic fallback).
+- [ ] Exact immediate peer measured/configured.
+- [ ] Public real API/Voice/CORS smoke and bounded stability observation.
+
+Go API remains absent after rollback; physical Siri NOT RUN. Part16+ NOT STARTED.
+HSTS: DEFERRED. See same Part15 report for failure and actual outcome attribution.
+
+## Preserved Part14B execution gates
+
+- [x] Owner authorization, clean immutable accepted baseline and SSH inventory.
+- [x] Ubuntu24.04 updates/reboot; deploy key-only sudo; root/password SSH disabled.
+- [x] UFW incoming deny; only SSH allowed; Docker active/enabled, deploy not docker group.
+- [x] Host cloudflared installed from official apt source and held at2026.10.0.
+- [x] Locally-managed Tunnel; only per-tunnel root-owned0600 credential on VPS.
+- [x] Loopback8080 probe; hostname ingress and catch-all404 validated.
+- [x] API Tunnel DNS/HTTPS/edge proof; direct IPv4 origin80/443/8080 denied.
+- [x] Dashboard owner confirms Free Managed Ruleset; non-browser probe has no challenge.
+- [x] Owner confirms API cache bypass, Voice20/10s/IP Block10s deployed.
+- [x] Always Use HTTPS owner-confirmed; HTTP301, controlled429/recovery, no cache HIT/Age.
+- [x] DNSSEC Dashboard owner-confirmed; public DS and authenticated SOA verified.
+- [x] Final reboot Docker/Tunnel persistence; final probe removed/listener absent.
+- [x] Local temporary account certificate/tunnel copy removed; VPS credential retained.
+
+**Go API: NOT DEPLOYED**; Part15 NOT STARTED. **HSTS: DEFERRED**.
+TRUSTED_PROXY_CIDRS remains empty until measured real Go peer in Part15.
+Real health/catalog/Voice/CORS/header spoof/physical Siri checks are deferred;
+temporary probe never counts as application acceptance.
+
+## Preserved Phase A checklist (historical, unchecked)
+
+The following “future/unowned/absent” wording records the earlier design phase,
+not current execution status. Check only the current gates above using evidence.
+
+**PLANNED / NOT ACTIVATED**. Do not execute under Phase A authorization.
+`aktau.market` and `api.aktau.market`: **PLANNED ONLY / NOT OWNED / NOT RESOLVED / NOT ACTIVE**.
+NOT RESOLVED is unverified, not a DNS test result. Railway retired; no VPS,
+domain, zone/tunnel or deployment exists. **HSTS: DEFERRED**.
+
+Use [network design](NETWORK_PERIMETER.md) and [operator template](../../ops/cloudflare/README.md).
+All boxes are intentionally unchecked; attach safe evidence and actual timestamps
+during a separately authorized Phase B. Do not record tokens, DSNs or credential paths.
+
+## Authorization and prerequisite decisions
+
+- [ ] New explicit owner approval for Phase B; confirm final purchased domain.
+- [ ] VPS OS/provider/network and frontend target selected, not assumed.
+- [ ] Immutable reviewed API image/CI and rollback image approved for Part15.
+- [ ] Actual cloudflared host/container placement selected; version and digest
+      verified/pinned, no `latest`; approved installation procedure.
+- [ ] Secret custody/rotation/least privilege prepared outside repo; no token
+      in CLI logs/history or application env example.
+- [ ] Record rollback for DNS/edge rules/tunnel and DNSSEC before activation.
+
+## Future origin and trust boundary
+
+- [ ] API no public inbound port: loopback-only container publication for host
+      cloudflared OR no published port on dedicated private network.
+- [ ] Check actual listeners for IPv4/IPv6; Go `:<PORT>` is not a bind-to-loopback setting.
+- [ ] Measure actual immediate Go peer after NAT; set TRUSTED_PROXY_CIDRS only
+      exact reviewed `/32` or `/128` peer(s). Empty until proved; never broad ranges.
+- [ ] Verify no alternate public origin route; private hop only; required egress works.
+- [ ] Create Tunnel only after approval, authenticated encrypted transport;
+      private token/credential JSON 0600/equivalent, isolated from app secrets.
+- [ ] Narrow ingress hostname and final catch-all `http_status:404`.
+- [ ] Prove invalid host cannot route to API; no public management/metrics route.
+
+## Future zone, DNS, HTTPS
+
+- [ ] Zone created under approved account; domain ownership confirmed.
+- [ ] Registrar nameservers active, authority verified; actual DNS TTL recorded.
+- [ ] Approved frontend target proxied where compatible; provider not invented.
+- [ ] API proxied DNS points to Tunnel route, not an origin IP.
+- [ ] Public frontend/API certificate chain and hostnames valid; HTTPS GETs work.
+- [ ] Explicit HTTP redirect/reject behavior verified; Voice POST uses HTTPS
+      directly, preserving method/body, no insecure redirect dependency.
+- [ ] No mixed-content resources; existing CSP/nosniff/frame/privacy headers intact.
+- [ ] DNSSEC enabled after stable onboarding; registrar DS and authoritative
+      chain verified; rollback coordinated, no unsupported DNSSEC claim.
+- [ ] HSTS remains DEFERRED until frontend/API/TLS/HTTP/subresources/rollback
+      proof; separate reviewed decision, no preload/blind includeSubDomains.
+
+## Future edge controls and cache
+
+- [ ] Confirm current plan's WAF/rate fields/actions/rule limits before choosing rules.
+- [ ] Free Managed Ruleset enabled; intended DDoS protections verified.
+- [ ] Managed protections tested on legitimate requests before narrow observed-abuse rules.
+- [ ] No global JS challenge/interactive Access requirement on API or Voice;
+      non-browser Siri/Shortcut + server-side Next requests work without Origin.
+- [ ] Edge rate-limit policy documented/tested; thresholds based on traffic/provider
+      budget, not copied from local 40 RPS; app defaults unchanged (20/40, Voice 2/4).
+- [ ] Health/ops behavior intentional; public `/metrics` remains 404.
+- [ ] Entire API hostname cache bypass at MVP launch, no Cache Everything.
+- [ ] Voice POST no-cache start/continue, including success/clarification/errors.
+- [ ] Health/errors no cache; repeated API GET/POST gives no HIT, reused session
+      or stale response. Inspect Age/CF-Cache-Status; validate effective rule priority.
+- [ ] GET caching deferred until snapshot freshness + Part16 revalidation proof.
+
+## Future external validation matrix (NOT RUN in Phase A)
+
+- [ ] `https://aktau.market` renders expected frontend/SSR and security headers.
+- [ ] API `/health/live` 200 and `/health/ready` 200 with sanitized JSON.
+- [ ] Frozen GET catalog/filter/product/dashboard contract regression.
+- [ ] JSON and legacy form Voice direct 201; clarification then continue 201;
+      no HTML challenge/cookie requirement, no changed speech/DTO semantics.
+- [ ] Physical Siri/Shortcut owner check through edge; no browser-only assumptions.
+- [ ] Exact CORS_ALLOWED_ORIGINS=https://aktau.market: allowed GET and POST
+      preflight; unknown/suffix origins blocked; absent Origin allowed, not authentication.
+- [ ] Trusted path CF/XFF + IPv4/IPv6 identity correct; spoofed public headers
+      cannot forge limiter identity; duplicate/malformed header fails safe.
+- [ ] Direct API origin unavailable from external IPv4/IPv6 network.
+- [ ] Voice/health/API/error no-cache proof; `/metrics` 404.
+- [ ] HTTP/TLS/DNSSEC verification recorded; WAF/rate controlled abuse and recovery tested.
+- [ ] Privacy review of edge logs/analytics, no unreviewed full query/IP retention.
+- [ ] Tunnel/cert/domain alerts planned with private operator delivery; not claimed live yet.
+
+## Future rollback and alternative route
+
+- [ ] Bad edge rule can be disabled individually without weakening app validation.
+- [ ] Deactivation removes public DNS route/stops Tunnel; API remains private.
+- [ ] DNS TTL and DNSSEC DS rollback documented; HSTS cache implications understood.
+- [ ] If Tunnel is unavailable, STOP for separate **Full (strict) + origin firewall**
+      review: valid TLS origin, current Cloudflare ingress only, direct origin denied;
+      never expose Go publicly as emergency fallback.
+- [ ] Phase B perimeter proof precedes Part15 public traffic/cutover approval.

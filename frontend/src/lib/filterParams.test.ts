@@ -18,7 +18,8 @@ describe('filterParams', () => {
   })
 
   it('ignores values of a multi-select without options', () => {
-    const noOptions: FilterDto[] = [{ key: 'volumeMl', label: 'Объём', type: 'multi-select' }]
+    // Deliberately malformed input: not a valid API v1 FilterDto.
+    const noOptions = [{ key: 'volumeMl', label: 'Объём', type: 'multi-select' }] as unknown as FilterDto[]
     expect(readFilters(new URLSearchParams('volumeMl=500'), noOptions)).toEqual({})
   })
 

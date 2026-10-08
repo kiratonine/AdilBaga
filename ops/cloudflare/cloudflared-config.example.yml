@@ -1,0 +1,11 @@
+# EXAMPLE ONLY / NOT ACTIVE — placeholder-only, do not run.
+# Live config is stored only on the VPS. Never commit tunnel UUID or credentials.
+# Go API: NOT DEPLOYED; real application origin is Part15 only.
+# Host-placement illustration; requires verified loopback-only Docker publish.
+# HSTS: DEFERRED. This template contains no actual credential path or tunnel ID.
+tunnel: <TUNNEL_UUID>
+credentials-file: <PRIVATE_CREDENTIALS_FILE_OUTSIDE_REPO>
+ingress:
+  - hostname: api.aktau.market
+    service: http://127.0.0.1:8080
+  - service: http_status:404
