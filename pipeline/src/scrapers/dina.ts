@@ -3,7 +3,10 @@ import type { SourceFile, SourceProduct } from '../types.js'
 
 const ENDPOINT = 'https://backend.dinamarket.kz/api/v1.1/customer/graph'
 const CATEGORIES_QUERY = `query getCategories($shopId: ID!) { categories(shop_id: $shopId) { id name } }`
+// Цены Dina зависят от магазина: dinamarket.kz без выбранного адреса показывает цену Актобе,
+// поэтому shop id фиксирован, а город проверяется перед сбором (assertAktauShop).
 const SHOP_ID = '28' // Гипермаркет 301 «Дина», Актау, 33 мкр
+const SHOPS_QUERY = `{ shops { id name city { name } } }`
 const PAGE_SIZE = 24 // сервер режет _limit до 24 (проверено 2026-10-05)
 
 // Глубокая пагинация без фильтра нестабильна (с ~8400-го товара страницы пересекаются),
@@ -15,6 +18,13 @@ const QUERY = `query getProducts($shopId: ID!, $page: Int, $limit: Int, $categor
       preview { url } images { url } stock { amount } categories { id name } }
   }
 }`
+
+export function assertAktauShop(shops: { id: string; city?: { name?: string } | null }[], shopId: string): void {
+  const shop = shops.find((s) => String(s.id) === shopId)
+  if (!shop) throw new Error(`DINA: shop ${shopId} not found`)
+  const city = shop.city?.name?.trim()
+  if (city !== 'Актау') throw new Error(`DINA: shop ${shopId} is not in Aktau (${city ?? 'unknown city'})`)
+}
 
 export type DinaItem = {
   id?: string; xid?: string; name?: string; slug?: string; price?: number; oldPrice?: number | null
@@ -62,6 +72,8 @@ export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: nu
     const res = await politeFetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query, variables }) }, http)
     return ((await res.json()) as GraphResponse<T>).data
   }
+  const shops = (await graph<{ shops?: { id: string; city?: { name?: string } | null }[] }>(SHOPS_QUERY, {}))?.shops ?? []
+  assertAktauShop(shops, SHOP_ID)
   const categories = (await graph<{ categories?: { id: string; name: string }[] }>(CATEGORIES_QUERY, { shopId: SHOP_ID }))?.categories ?? []
   if (categories.length === 0) throw new Error('DINA: category list is empty')
   const total = (await graph<ProductsData>(QUERY, { shopId: SHOP_ID, page: 1, limit: 1, categoryId: null }))?.products?.pageInfo?.total ?? -1
@@ -96,7 +108,7 @@ export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: nu
   }
   return {
     storeCode: 'DINA', city: 'Aktau', capturedAt: new Date().toISOString(), errorCount,
-    sourceStats: { shopId: SHOP_ID, total, pages, categories: queue.length },
+    sourceStats: { shopId: SHOP_ID, shopCity: 'Актау', total, pages, categories: queue.length },
     products: [...products.values()],
   }
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { mapDinaItem, scrapeDina } from '../src/scrapers/dina.js'
+import { assertAktauShop, mapDinaItem, scrapeDina } from '../src/scrapers/dina.js'
 
 const page = JSON.parse(readFileSync(new URL('./fixtures/dina-page.json', import.meta.url), 'utf8'))
 const edges: unknown[] = page.data.products.edges
@@ -12,6 +12,7 @@ const requests: { query: string; variables: Record<string, unknown> }[] = []
 const fakeFetch = (async (_url: string, init: RequestInit) => {
   const body = JSON.parse(String(init.body))
   requests.push(body)
+  if (/shops\s*\{/.test(body.query)) return new Response(JSON.stringify({ data: { shops: [{ id: '28', name: 'Гипермаркет 301', city: { name: 'Актау' } }] } }))
   if (/categories\s*\(/.test(body.query)) return new Response(JSON.stringify({ data: { categories: [{ id: '7', name: 'Крупы' }, { id: '1', name: 'Овощи' }] } }))
   const list = byCategory[String(body.variables.categoryId)] ?? edges
   return new Response(JSON.stringify({ data: { products: { pageInfo: { total: 3 }, edges: list } } }))
@@ -36,6 +37,18 @@ describe('dina', () => {
     expect(file.products.map((p) => p.sourceProductId).sort()).toEqual(['5865', '777', '900'])
     const used = requests.filter((r) => r.variables.categoryId).map((r) => r.variables.categoryId)
     expect(new Set(used)).toEqual(new Set(['7', '1', '70']))
-    expect(file.sourceStats).toMatchObject({ total: 3, categories: 3, shopId: '28' })
+    expect(file.sourceStats).toMatchObject({ total: 3, categories: 3, shopId: '28', shopCity: 'Актау' })
+  })
+})
+
+describe('assertAktauShop', () => {
+  it('accepts Aktau shop', () => {
+    expect(() => assertAktauShop([{ id: '28', city: { name: 'Актау' } }], '28')).not.toThrow()
+  })
+  it('rejects non-Aktau shop', () => {
+    expect(() => assertAktauShop([{ id: '28', city: { name: 'Актобе' } }], '28')).toThrow(/not in Aktau/)
+  })
+  it('rejects missing shop', () => {
+    expect(() => assertAktauShop([{ id: '14', city: { name: 'Актобе' } }], '28')).toThrow(/not found/)
   })
 })
