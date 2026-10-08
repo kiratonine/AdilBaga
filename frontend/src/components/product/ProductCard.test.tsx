@@ -30,10 +30,10 @@ const text = (el: Element) => el.textContent?.replace(/\s/g, ' ')
 describe('ProductCard', () => {
   afterEach(() => vi.useRealTimers())
 
-  it('warns about stale prices only when the snapshot is older than 36h', () => {
+  it('warns about stale prices only when the snapshot is older than 36h', async () => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-08T12:00:00Z') })
     const { unmount } = renderCard(product)
-    expect(screen.getByTestId('price-stale')).toHaveTextContent('Цены могли измениться — обновляем данные')
+    expect(await screen.findByTestId('price-stale')).toHaveTextContent('Цены могли измениться — обновляем данные')
     unmount()
     vi.setSystemTime(new Date('2026-09-24T12:00:00Z'))
     renderCard(product)

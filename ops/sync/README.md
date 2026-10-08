@@ -7,7 +7,7 @@ Ingestion не входит в API-релиз (`deploy/`) и ставится о
 
 ## Требования на VPS
 
-- checkout репозитория в `/opt/adilbaga`, Node + pnpm (`pnpm install` в `pipeline/`), Go;
+- checkout репозитория в `/opt/adilbaga`, Node + pnpm (`pnpm install` в `pipeline/`), Go (ожидается в `/usr/local/go/bin`, иначе поправьте `PATH` в юните; `Node` и `pnpm` должны быть в `/usr/local/bin` или `/usr/bin`);
 - системный пользователь `aktau-sync` с доступом на чтение/запись в `/opt/adilbaga/data`;
 - без `GEMINI_API_KEY*` — sync не использует LLM.
 

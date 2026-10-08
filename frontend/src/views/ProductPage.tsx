@@ -19,7 +19,7 @@ import { discountPercent, savingOf, sortOffers } from '../lib/offers'
 import { storeColor } from '../lib/stores'
 import { useHref } from '../lib/useLang'
 import { NotFoundPage } from './NotFoundPage'
-import { isPriceStale } from '../lib/freshness'
+import { usePriceStale } from '../lib/freshness'
 
 /** Сколько сетей видно сразу; остальные — по «Показать все N» */
 const OFFERS_VISIBLE = 5
@@ -111,6 +111,7 @@ function Offers({ product, offers, compared }: { product: ProductCardDto; offers
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const firstRevealed = useRef<HTMLLIElement>(null)
+  const stale = usePriceStale(product.snapshotAt)
   const visible = expanded ? offers : offers.slice(0, OFFERS_VISIBLE)
 
   // Кнопка исчезает — фокус переходит на первую открывшуюся сеть, а не теряется
@@ -174,7 +175,7 @@ function Offers({ product, offers, compared }: { product: ProductCardDto; offers
       <p data-testid="snapshot-date" className="mt-2 px-1 text-caption text-muted tabular">
         {t('card.priceOn', { date: formatDate(product.snapshotAt) })}
       </p>
-      {isPriceStale(product.snapshotAt) && (
+      {stale && (
         <p data-testid="price-stale" className="px-1 text-caption text-muted">{t('card.priceStale')}</p>
       )}
     </section>

@@ -9,7 +9,7 @@ import { useHref } from '../../lib/useLang'
 import { Badge } from '../ui/Badge'
 import { ProductImage } from './ProductImage'
 import { SavingLine } from './SavingLine'
-import { isPriceStale } from '../../lib/freshness'
+import { usePriceStale } from '../../lib/freshness'
 
 /** Сколько сетей видно в карточке; остальные — строкой «ещё N сетей» */
 const OFFERS_SHOWN = 3
@@ -17,6 +17,7 @@ const OFFERS_SHOWN = 3
 export function ProductCard({ product }: { product: ProductCardDto }) {
   const { t } = useTranslation()
   const href = useHref()
+  const stale = usePriceStale(product.snapshotAt)
   const { shown, hiddenCount, maxPrice } = topOffers(product.offers, OFFERS_SHOWN)
   const best = shown[0]
   const oldPrice = best?.oldPrice != null && best.oldPrice > best.price ? best.oldPrice : null
@@ -85,7 +86,7 @@ export function ProductCard({ product }: { product: ProductCardDto }) {
       <p data-testid="snapshot-date" className="mt-auto pt-2 text-caption text-muted tabular">
         {t('card.priceOn', { date: formatDate(product.snapshotAt) })}
       </p>
-      {isPriceStale(product.snapshotAt) && (
+      {stale && (
         <p data-testid="price-stale" className="text-caption text-muted">{t('card.priceStale')}</p>
       )}
     </article>

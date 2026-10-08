@@ -8,5 +8,11 @@ Type=oneshot
 User=aktau-sync
 WorkingDirectory=/opt/adilbaga
 EnvironmentFile=/etc/aktau-sync.env
+# systemd не читает профиль: Go лежит в /usr/local/go/bin, а у системного пользователя нет HOME и GOCACHE
+Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/var/lib/aktau-sync
+Environment=GOCACHE=/var/cache/aktau-sync/go
+StateDirectory=aktau-sync
+CacheDirectory=aktau-sync
 ExecStart=/usr/bin/bash pipeline/scripts/daily-sync.sh
 TimeoutStartSec=2h
