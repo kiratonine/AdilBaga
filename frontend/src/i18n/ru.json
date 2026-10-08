@@ -75,6 +75,7 @@
     "lowest": "самая низкая цена",
     "saving": "На <price>{{amount}}</price> дешевле, чем в {{store}}",
     "priceOn": "Цена на {{date}}",
+    "priceStale": "Цены могли измениться — обновляем данные",
     "discount": "Скидка {{percent}}%",
     "moreOffers_one": "ещё {{count}} сеть · до {{price}}",
     "moreOffers_few": "ещё {{count}} сети · до {{price}}",
