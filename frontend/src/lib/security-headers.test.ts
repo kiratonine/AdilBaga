@@ -11,7 +11,10 @@ describe('production security headers', () => {
     expect(headers).not.toHaveProperty('Strict-Transport-Security')
     const policy = headers['Content-Security-Policy']
     for (const directive of ["default-src 'self'", "object-src 'none'", "base-uri 'self'", "frame-ancestors 'none'", "font-src 'self'", "connect-src 'self' https://api.example.invalid"]) expect(policy).toContain(directive)
-    for (const origin of ['backend.dinamarket.kz', 'dana-market.kz', 'fix-price.kz', 'a.tile.openstreetmap.org', 'b.tile.openstreetmap.org', 'c.tile.openstreetmap.org']) expect(policy).toContain(`https://${origin}`)
+    for (const origin of ['backend.dinamarket.kz', 'dana-market.kz', 'fix-price.kz', 'tile.openstreetmap.org']) expect(policy).toContain(`https://${origin}`)
+    const images = policy.split('; ').find((directive) => directive.startsWith('img-src '))?.split(' ')
+    expect(images).toContain('https://tile.openstreetmap.org')
+    for (const obsolete of ['a', 'b', 'c']) expect(policy).not.toContain(`https://${obsolete}.tile.openstreetmap.org`)
     for (const forbidden of ['unsafe-eval', '*', 'http:', '/base', 'https://example.invalid']) expect(policy).not.toContain(forbidden)
   })
   it('keeps broken fixture image origin test-only', () => {
