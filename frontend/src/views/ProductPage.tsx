@@ -19,6 +19,7 @@ import { discountPercent, savingOf, sortOffers } from '../lib/offers'
 import { storeColor } from '../lib/stores'
 import { useHref } from '../lib/useLang'
 import { NotFoundPage } from './NotFoundPage'
+import { isPriceStale } from '../lib/freshness'
 
 /** Сколько сетей видно сразу; остальные — по «Показать все N» */
 const OFFERS_VISIBLE = 5
@@ -173,6 +174,9 @@ function Offers({ product, offers, compared }: { product: ProductCardDto; offers
       <p data-testid="snapshot-date" className="mt-2 px-1 text-caption text-muted tabular">
         {t('card.priceOn', { date: formatDate(product.snapshotAt) })}
       </p>
+      {isPriceStale(product.snapshotAt) && (
+        <p data-testid="price-stale" className="px-1 text-caption text-muted">{t('card.priceStale')}</p>
+      )}
     </section>
   )
 }

@@ -75,6 +75,7 @@
     "lowest": "ең төмен баға",
     "saving": "{{store}} дүкенінен <price>{{amount}}</price> арзан",
     "priceOn": "{{date}} күнгі баға",
+    "priceStale": "Бағалар өзгеруі мүмкін — деректерді жаңартып жатырмыз",
     "discount": "{{percent}}% жеңілдік",
     "moreOffers_one": "тағы {{count}} желі · {{price}} дейін",
     "moreOffers_other": "тағы {{count}} желі · {{price}} дейін"

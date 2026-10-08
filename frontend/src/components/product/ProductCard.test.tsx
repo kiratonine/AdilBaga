@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ProductCardDto } from '../../api/types'
 import { ProductCard } from './ProductCard'
 
@@ -28,6 +28,18 @@ function renderCard(p: ProductCardDto) {
 const text = (el: Element) => el.textContent?.replace(/\s/g, ' ')
 
 describe('ProductCard', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('warns about stale prices only when the snapshot is older than 36h', () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-08T12:00:00Z') })
+    const { unmount } = renderCard(product)
+    expect(screen.getByTestId('price-stale')).toHaveTextContent('Цены могли измениться — обновляем данные')
+    unmount()
+    vi.setSystemTime(new Date('2026-09-24T12:00:00Z'))
+    renderCard(product)
+    expect(screen.queryByTestId('price-stale')).toBeNull()
+  })
+
   it('shows min price, old price and offers sorted by price', () => {
     renderCard(product)
     const card = screen.getByTestId('product-card')
