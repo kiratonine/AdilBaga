@@ -16,7 +16,7 @@ Ingestion не входит в API-релиз (`deploy/`) и ставится о
 ```bash
 sudo cp ops/sync/aktau-sync.service ops/sync/aktau-sync.timer /etc/systemd/system/
 sudo install -m 600 -o aktau-sync ops/sync/aktau-sync.env.example /etc/aktau-sync.env
-sudoedit /etc/aktau-sync.env     # INGEST_DATABASE_URL, REVALIDATE_HMAC_SECRET
+sudoedit /etc/aktau-sync.env     # заполнить INGEST_DATABASE_URL и REVALIDATE_HMAC_SECRET; FIXPRICE_* уже заданы
 sudo systemctl daemon-reload && sudo systemctl enable --now aktau-sync.timer
 ```
 
