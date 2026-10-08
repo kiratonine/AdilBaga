@@ -26,6 +26,17 @@ export function assertAktauShop(shops: { id: string; city?: { name?: string } | 
   if (city !== 'Актау') throw new Error(`DINA: shop ${shopId} is not in Aktau (${city ?? 'unknown city'})`)
 }
 
+/**
+ * Корневые категории Dina, где есть товары публикуемого scope (DEFAULT_PUBLISH_CATEGORIES):
+ * по словарю на 2026-10-06 остальные 12 корней (красота, напитки, дом и т.д.) не дают ни одного товара.
+ * Сайт показывает только scope, поэтому остальное не скрапим; SCRAPE_ALL=1 в CLI отключает фильтр.
+ */
+export const DINA_SCOPE_ROOTS: readonly string[] = [
+  'Масло, соусы и приправы', 'Макароны, крупы, мука', 'Молоко, яйца, масло', 'Колбаса и сыр', 'Консервация', 'Заморозка',
+  'Чай', 'Мясо и рыба', 'Сухие завтраки, мюсли', 'Здоровое питание', 'Хлеб и выпечка', 'Готовая еда',
+  'Продукты быстрого приготовления', 'Овощи, фрукты', 'Торты и пироги',
+]
+
 export type DinaItem = {
   id?: string; xid?: string; name?: string; slug?: string; price?: number; oldPrice?: number | null
   price_type?: string; isWeightProduct?: boolean; preview?: { url?: string } | null
@@ -66,7 +77,7 @@ export function mapDinaItem(item: DinaItem): SourceProduct | null {
 type GraphResponse<T> = { data?: T }
 type ProductsData = { products?: { pageInfo?: { total?: number }; edges?: DinaItem[] } }
 
-export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: number; delayMs?: number } = {}): Promise<SourceFile> {
+export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: number; delayMs?: number; scopeRoots?: readonly string[] } = {}): Promise<SourceFile> {
   const http: PoliteOptions = { fetchImpl: opts.fetchImpl, delayMs: opts.delayMs ?? 300 }
   const graph = async <T>(query: string, variables: Record<string, unknown>) => {
     const res = await politeFetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query, variables }) }, http)
@@ -82,7 +93,9 @@ export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: nu
   let errorCount = 0, pages = 0
   // Корневой фильтр не отдаёт часть товаров, помеченных только подкатегорией, —
   // поэтому очередь пополняется категориями, найденными у самих товаров.
-  const queue = categories.map((c) => ({ id: c.id, name: c.name }))
+  const inScope = (root: string | undefined) => !opts.scopeRoots || (root !== undefined && opts.scopeRoots.includes(root))
+  const queue = categories.filter((c) => inScope(c.name)).map((c) => ({ id: c.id, name: c.name }))
+  if (queue.length === 0) throw new Error('DINA: no categories left after scope filter')
   const queued = new Set(queue.map((c) => c.id))
   for (let qi = 0; qi < queue.length; qi++) {
     const cat = queue[qi]!
@@ -94,7 +107,7 @@ export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: nu
         for (const e of edges) {
           const p = mapDinaItem(e)
           if (p && !products.has(p.sourceProductId)) products.set(p.sourceProductId, p)
-          for (const c of e.categories ?? []) if (!queued.has(c.id)) { queued.add(c.id); queue.push(c) }
+          for (const c of e.categories ?? []) if (!queued.has(c.id) && inScope(e.categories?.[0]?.name)) { queued.add(c.id); queue.push(c) }
         }
         if (edges.length < PAGE_SIZE || page * PAGE_SIZE >= (data?.products?.pageInfo?.total ?? Infinity)) break
       } catch (err) {
@@ -108,7 +121,7 @@ export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: nu
   }
   return {
     storeCode: 'DINA', city: 'Aktau', capturedAt: new Date().toISOString(), errorCount,
-    sourceStats: { shopId: SHOP_ID, shopCity: 'Актау', total, pages, categories: queue.length },
+    sourceStats: { shopId: SHOP_ID, shopCity: 'Актау', total, pages, categories: queue.length, scoped: Boolean(opts.scopeRoots) },
     products: [...products.values()],
   }
 }

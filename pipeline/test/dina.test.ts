@@ -41,6 +41,19 @@ describe('dina', () => {
   })
 })
 
+describe('dina scope roots', () => {
+  it('walks only the listed root categories and does not enqueue foreign sub-categories', async () => {
+    requests.length = 0
+    const file = await scrapeDina({ fetchImpl: fakeFetch, delayMs: 0, scopeRoots: ['Крупы'] })
+    const used = requests.filter((r) => r.variables.categoryId).map((r) => r.variables.categoryId)
+    expect(new Set(used)).toEqual(new Set(['7']))
+    expect(file.sourceStats).toMatchObject({ categories: 1, scoped: true })
+  })
+  it('fails when the scope matches no category', async () => {
+    await expect(scrapeDina({ fetchImpl: fakeFetch, delayMs: 0, scopeRoots: ['Нет такой'] })).rejects.toThrow(/scope filter/)
+  })
+})
+
 describe('assertAktauShop', () => {
   it('accepts Aktau shop', () => {
     expect(() => assertAktauShop([{ id: '28', city: { name: 'Актау' } }], '28')).not.toThrow()
