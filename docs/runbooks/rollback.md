@@ -45,3 +45,16 @@ fallback, switch to owner credentials, mutate schema/history or rewind snapshots
 Recovery needs artifact identity and local health/Voice proof before Tunnel start.
 Future successful releases preserve current/previous SHA images and private
 release metadata; prior-image rollback requires schema compatibility review.
+
+## Products-discovery hotfix rollback — 2026-10-08
+
+The reviewed `d6098f622dc5bb18fd9e7ec4f4a0c82033927981` application release made
+no schema/data change. A public Voice HTTP500 triggered the authorized prior-image
+rollback: stop Tunnel, restore the preserved SHA image reference to
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b`, recreate with the unchanged reviewed
+compose/private runtime env, require bounded readiness200, then restart Tunnel.
+This rollback completed; the old release is healthy and both images remain.
+Restricted READ-ONLY POST audit matched the PRE counts/fingerprints/security.
+No database rollback, grants, credentials, provider config or snapshot changed.
+Do not automatically retry the new image or infer the HTTP500 root cause from
+this observation. Further diagnosis/remediation requires external review.

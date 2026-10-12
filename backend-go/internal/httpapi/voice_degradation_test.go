@@ -80,7 +80,7 @@ func TestVoiceGracefulDegradation(t *testing.T) {
 			repo := &degradationRepository{}
 			sessions := &degradationSessions{states: map[string]voice.Session{}}
 			provider := &degradationParser{err: tc.err}
-			svc := &voice.Service{Parser: voice.NLP{Provider: provider}, Sessions: sessions, Categories: repo, Products: repo, Locations: repo}
+			svc := &voice.Service{Parser: voice.NLP{Provider: provider}, Sessions: sessions, Categories: repo, Vocabulary: repo, Products: repo, Locations: repo}
 			var logs bytes.Buffer
 			c := testConfig()
 			c.VoiceRateBurst = 100 // Test-only; limiter policy has separate coverage.

@@ -17,24 +17,20 @@ type Service struct {
 	Parser     Parser
 	Sessions   SessionStore
 	Categories catalog.CategoryRepository
+	Vocabulary catalog.VoiceVocabularyRepository
 	Products   catalog.ProductRepository
 	Locations  location.Repository
 }
 
 func (s *Service) input(ctx context.Context, text string, current *string) (Input, error) {
-	categories, err := s.Categories.ListCategories(ctx)
+	if s.Vocabulary == nil {
+		return Input{}, errors.New("voice vocabulary dependency failed")
+	}
+	vocabulary, err := s.Vocabulary.ListVoiceVocabulary(ctx)
 	if err != nil {
 		return Input{}, errors.New("voice category dependency failed")
 	}
-	in := Input{Text: text, Categories: categories, CurrentCategory: current}
-	for _, c := range categories {
-		schema, err := s.Categories.GetFilterSchema(ctx, c.Slug)
-		if err != nil {
-			return Input{}, errors.New("voice schema dependency failed")
-		}
-		in.Schemas = append(in.Schemas, schema)
-	}
-	return in, nil
+	return Input{Text: text, Categories: vocabulary.Categories, Schemas: vocabulary.Schemas, CurrentCategory: current}, nil
 }
 func (s *Service) Start(ctx context.Context, r StartRequest) (Response, error) {
 	in, err := s.input(ctx, r.Text, nil)
@@ -44,6 +40,10 @@ func (s *Service) Start(ctx context.Context, r StartRequest) (Response, error) {
 	p, err := s.Parser.Parse(ctx, in)
 	if err != nil {
 		return Response{}, errors.New("voice parsing failed")
+	}
+	_, p, err = s.liveInput(ctx, in, p)
+	if err != nil {
+		return Response{}, err
 	}
 	return s.advance(ctx, Session{Parsed: p, Latitude: r.Latitude, Longitude: r.Longitude}, "")
 }
@@ -67,7 +67,29 @@ func (s *Service) Continue(ctx context.Context, r ContinueRequest) (Response, er
 	if err != nil {
 		return Response{}, errors.New("voice parsing failed")
 	}
-	return s.advance(ctx, Merge(previous, p, in.Schemas), r.SessionID)
+	configured, originalUpdate := in.Schemas, p
+	in, p, err = s.liveInput(ctx, in, p)
+	if err != nil {
+		return Response{}, err
+	}
+	merged := Merge(previous, p, in.Schemas)
+	if merged.Category != nil && *merged.Category == "milk" {
+		for _, key := range []string{"volumeMl", "fatPercent"} {
+			// An explicit unavailable answer must ask again, not accidentally
+			// reuse a prior different value and return the wrong product.
+			if _, stated := originalUpdate.Filters[key]; stated {
+				if _, retained := p.Filters[key]; !retained {
+					delete(merged.Filters, key)
+				}
+			}
+		}
+	}
+	merged.Parsed = clarifyUnavailableMilk(merged.Parsed, configured, in)
+	// Previous session values may have become stale since the previous turn.
+	if err := validateParsed(merged.Parsed, in); err != nil {
+		return Response{}, err
+	}
+	return s.advance(ctx, merged, r.SessionID)
 }
 func (s *Service) advance(ctx context.Context, state Session, id string) (Response, error) {
 	missing := Missing(state)

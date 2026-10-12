@@ -76,6 +76,16 @@ type CategoryRepository interface {
 	ListCategories(context.Context) ([]Category, error)
 	GetFilterSchema(context.Context, string) (FilterSchema, error)
 }
+
+// VoiceVocabulary is configured metadata, not authoritative live option discovery.
+// Declared options stay internal for primitive inference and preliminary validation.
+type VoiceVocabulary struct {
+	Categories []Category
+	Schemas    []FilterSchema
+}
+type VoiceVocabularyRepository interface {
+	ListVoiceVocabulary(context.Context) (VoiceVocabulary, error)
+}
 type ProductRepository interface {
 	ListProducts(context.Context, ProductQuery) ([]Product, error)
 	GetProductByID(context.Context, string) (Product, error)
