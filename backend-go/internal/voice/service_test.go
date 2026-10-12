@@ -143,6 +143,17 @@ type fixtures struct {
 func (f *fixtures) ListCategories(context.Context) ([]catalog.Category, error) {
 	return testInput().Categories, nil
 }
+func (f *fixtures) ListVoiceVocabulary(ctx context.Context) (catalog.VoiceVocabulary, error) {
+	v := catalog.VoiceVocabulary{Categories: testInput().Categories}
+	for _, c := range v.Categories {
+		s, err := f.GetFilterSchema(ctx, c.Slug)
+		if err != nil {
+			return v, err
+		}
+		v.Schemas = append(v.Schemas, s)
+	}
+	return v, nil
+}
 func (f *fixtures) GetFilterSchema(_ context.Context, slug string) (catalog.FilterSchema, error) {
 	for _, s := range testInput().Schemas {
 		if s.Category == slug {
@@ -214,7 +225,7 @@ func TestClarificationNLPContext(t *testing.T) {
 	f := &fixtures{fatOption: true}
 	m := &memory{states: map[string]Session{}}
 	calls := 0
-	s := &Service{Sessions: m, Categories: f, Products: f, Locations: f}
+	s := &Service{Sessions: m, Categories: f, Vocabulary: f, Products: f, Locations: f}
 	s.Parser = capturingParser(func(_ context.Context, in Input) (Parsed, error) {
 		calls++
 		if calls == 1 {
@@ -242,7 +253,7 @@ func TestServiceFlow(t *testing.T) {
 	ctx := context.Background()
 	f := &fixtures{}
 	m := &memory{states: map[string]Session{}}
-	s := &Service{Parser: Fallback{}, Sessions: m, Categories: f, Products: f, Locations: f}
+	s := &Service{Parser: Fallback{}, Sessions: m, Categories: f, Vocabulary: f, Products: f, Locations: f}
 	start, err := s.Start(ctx, StartRequest{Text: "самое дешёвое молоко", Latitude: 1, Longitude: 2})
 	if err != nil || start.Status != "needs_clarification" || start.SessionID == "" || m.ttl != SessionTTL {
 		t.Fatal("start failed")
@@ -279,7 +290,7 @@ func TestSessionFailures(t *testing.T) {
 		t.Run(failure, func(t *testing.T) {
 			f := &fixtures{}
 			m := &memory{states: map[string]Session{}, fail: failure}
-			s := &Service{Parser: Fallback{}, Sessions: m, Categories: f, Products: f, Locations: f}
+			s := &Service{Parser: Fallback{}, Sessions: m, Categories: f, Vocabulary: f, Products: f, Locations: f}
 			var err error
 			switch failure {
 			case "set":

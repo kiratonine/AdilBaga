@@ -17,6 +17,22 @@ import (
 
 type voiceRepository struct{ testRepository }
 
+func (r *voiceRepository) ListVoiceVocabulary(ctx context.Context) (catalog.VoiceVocabulary, error) {
+	categories, err := r.ListCategories(ctx)
+	v := catalog.VoiceVocabulary{Categories: categories, Schemas: []catalog.FilterSchema{}}
+	if err != nil {
+		return v, err
+	}
+	for _, c := range categories {
+		s, err := r.GetFilterSchema(ctx, c.Slug)
+		if err != nil {
+			return v, err
+		}
+		v.Schemas = append(v.Schemas, s)
+	}
+	return v, nil
+}
+
 func (r *voiceRepository) GetFilterSchema(ctx context.Context, slug string) (catalog.FilterSchema, error) {
 	s, err := r.testRepository.GetFilterSchema(ctx, slug)
 	s.Filters = append(s.Filters, catalog.FilterDefinition{Key: "fatPercent", Type: "multi-select", Options: []json.RawMessage{json.RawMessage("3.2")}})
@@ -57,7 +73,7 @@ func TestVoiceProviderOutages(t *testing.T) {
 		t.Run(map[bool]string{false: "gemini_unavailable", true: "redis_unavailable"}[redisFailed], func(t *testing.T) {
 			repo := &voiceRepository{}
 			var logs bytes.Buffer
-			svc := &voice.Service{Parser: voice.NLP{Provider: failedParser{}}, Sessions: &outageSessions{fail: redisFailed}, Categories: repo, Products: repo, Locations: repo}
+			svc := &voice.Service{Parser: voice.NLP{Provider: failedParser{}}, Sessions: &outageSessions{fail: redisFailed}, Categories: repo, Vocabulary: repo, Products: repo, Locations: repo}
 			d := Dependencies{DB: pingFunc(func(context.Context) error { return nil }), Categories: repo, Products: repo, Dashboard: repo, Voice: svc}
 			c := testConfig()
 			c.VoiceRateBurst = 100

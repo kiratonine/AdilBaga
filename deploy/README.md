@@ -18,6 +18,12 @@ Hosted run37668466461 attempt2 passed all9 mandatory jobs; reviewed source was
 not changed during rollout. Portable identity, restricted local/VPS readiness,
 real application Voice/Upstash, exact measured peer and public edge checks PASS.
 Keep the SHA image and private release configuration for reviewed recovery.
+The 2026-10-08 products-discovery rollout of
+`d6098f622dc5bb18fd9e7ec4f4a0c82033927981` was rolled back after a public Voice
+HTTP500 despite local VPS application checks passing. The active release remains
+the SHA above, with Tunnel active and readiness200. Both images are retained;
+do not repeat rollout or change provider configuration without external review.
+See the appended performance-hotfix evidence in the Part15 report.
 Part16+ NOT STARTED; frontend/HSTS/ingestion are not included.
 
 Use curl or an explicitly identified operator User-Agent for edge probes. Generic

@@ -1,6 +1,11 @@
 # Products discovery — focused performance remediation
 
-Status: **READY_FOR_EXTERNAL_REVIEW**.
+Status: **BLOCKED**.
+
+The source candidate remains externally accepted. This status now reflects the
+separately authorized production rollout below: public Voice HTTP500 triggered
+rollback to the previous release. It does not invalidate the historical local
+discovery optimization evidence or establish a runtime root cause.
 
 Date: 2026-10-08. Scope: accepted `PERFORMANCE_AUDIT_2026_10_08.md`; no Part17 work.
 
@@ -137,3 +142,42 @@ The accepted audit remains unchanged. This report is the focused remediation
 evidence. Production performance impact remains unmeasured until a separately
 authorized reviewed release and bounded production observation. No further
 optimization is proposed from these small-fixture timings.
+
+## Separately authorized production deployment — 2026-10-08
+
+Source review PASS retained. Clean committed release
+`d6098f622dc5bb18fd9e7ec4f4a0c82033927981`; exact-SHA hosted
+[run37776533371](https://github.com/kiratonine/AdilBaga/actions/runs/37776533371)
+completed/success, all9 mandatory jobs independently confirmed. The earlier
+no-production-access statements describe the source-remediation phase, not this
+subsequent owner-authorized rollout.
+
+Immutable image built outside VPS, exact archive checksum verified before load,
+revision/platform/User/entrypoint/RootFS/API binary identity PASS. Restricted
+runtime/env/proxy policy preserved; local VPS catalog and real application Voice
+TOP1/TOP3/clarification plus own Upstash TTL/deletion PASS. Public catalog and CORS
+PASS, but the public Voice phase returned HTTP500. Exact failing turn/root cause
+was not captured by the bounded helper and is not inferred. Per owner instruction,
+deployment immediately rolled back to retained
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b`. Old revision/healthy/restart0/Tunnel
+active/public health/catalog PASS; READ-ONLY POST counts, fingerprints, snapshots,
+security and private env matched PRE. No runtime/provider tuning or DB repair.
+
+Bounded public timings from the same WSL curl operator context:3 sequential GETs
+per endpoint,12 pre-deploy requests, all200. Same detail ID was reserved for post.
+
+| Endpoint | Pre median TTFB, ms | Pre median total, ms | Bytes | New-release post median |
+| --- | ---: | ---: | ---: | --- |
+| categories | 777.254 | 777.282 | 798 | NOT RUN |
+| milk filters | 930.993 | 988.378 | 1826 | NOT RUN |
+| milk products24, price_asc, offset0 | 1524.054 | 1527.405 | 12365 | NOT RUN |
+| selected product detail | 859.416 | 859.441 | 557 | NOT RUN |
+
+Post measurement and full stability observation were aborted at the public Voice
+hard-gate failure. TTFB includes network/TLS/Cloudflare/API/DB, not isolated SQL.
+No production speedup or RSC improvement is claimed. This does not negate the
+historical small-fixture benefit or establish a discovery-runtime regression.
+Complete deployment/artifact/rollback evidence is appended to
+[Part15 report](PART_15_REPORT.md). Outcome: **BLOCKED — PUBLIC_VOICE_HTTP_500**.
+No production DB/catalog/ingestion/migration/snapshot write, credential rotation,
+frontend/main/Vercel/Cloudflare configuration change, commit/push or Part17 work.

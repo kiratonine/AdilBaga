@@ -103,7 +103,7 @@ func voiceParity(t *testing.T, target, reference string) {
 		"voice_text":     {marker},
 		"session_id":     {},
 	}
-	svc := &voice.Service{Parser: voice.Fallback{}, Sessions: &paritySessions{states: map[string]voice.Session{}}, Categories: repo, Products: repo, Locations: repo}
+	svc := &voice.Service{Parser: voice.Fallback{}, Sessions: &paritySessions{states: map[string]voice.Session{}}, Categories: repo, Vocabulary: repo, Products: repo, Locations: repo}
 	c := config.Config{AppEnv: "test", RateRPS: 10000, RateBurst: 10000, VoiceRateRPS: 10000, VoiceRateBurst: 10000, VoiceConcurrency: 4}
 	candidate := httptest.NewServer(httpapi.Router(c, observability.New(&logs, "info"), httpapi.Dependencies{DB: pool, Categories: repo, Products: repo, Dashboard: repo, Voice: svc}))
 	defer candidate.Close()

@@ -1,8 +1,15 @@
 # Production Part15 — Go API deployment
 
-Status: **READY_FOR_EXTERNAL_REVIEW**.
+Status: **BLOCKED**.
 
-Current outcome: **Part15 production Go deployment completed** from the exact
+Current hotfix outcome: **PUBLIC_VOICE_HTTP_500 — rolled back**. The separately
+authorized products-discovery release `d6098f622dc5bb18fd9e7ec4f4a0c82033927981`
+passed local VPS gates, but its public Voice smoke returned HTTP500. The retained
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b` release is restored, healthy and behind
+the active Tunnel. See the appended performance-hotfix section; no automatic
+runtime/provider repair was attempted.
+
+Previously accepted outcome: **Part15 production Go deployment completed** from the exact
 reviewed release. All owner-approved application/deployment gates PASS, including
 hosted CI, portable artifact identity, restricted readiness, real Voice/Upstash,
 public edge, origin isolation, stability and READ-ONLY POST audit. Final deployment
@@ -1400,3 +1407,160 @@ a later mandatory manual launch gate; no physical-device success is claimed.
 Part15 application deployment DONE. Part16+ NOT STARTED.
 No runtime/dependency/test/frontend/contract/Prisma/DB/Redis/compose modification;
 no VPS/Cloudflare/private-env/provider action in this closure.
+
+## Authorized products-discovery performance hotfix — 2026-10-08
+
+Outcome: **BLOCKED — PUBLIC_VOICE_HTTP_500; prior-image rollback completed**.
+This is a separately authorized deployment of the externally accepted performance
+candidate, not a reopening of provider benchmarking or a new Part. All preceding
+Part15 acceptance/history remains intact.
+
+### Exact source and hosted CI
+
+Fresh fetch/prune: branch `integrate/full-stack`; clean committed working tree;
+HEAD=origin=`d6098f622dc5bb18fd9e7ec4f4a0c82033927981`. No source edit was made
+for this rollout. The prior active image/revision was independently verified as
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b`, healthy, restart0, Tunnel active;
+the old image was retained before replacement.
+
+Exact-SHA [hosted run37776533371](https://github.com/kiratonine/AdilBaga/actions/runs/37776533371),
+attempt1: independently checked through GitHub API, completed/success.
+
+| Mandatory job | Job ID | Conclusion |
+| --- | --- | --- |
+| Contracts | 113308696112 | success |
+| Frontend | 113308696735 | success |
+| Go Quality | 113308696534 | success |
+| Security | 113308696608 | success |
+| Nest Reference | 113308696579 | success |
+| Pipeline Quality | 113308696476 | success |
+| PostgreSQL Integration | 113309006600 | success |
+| Ephemeral Staging | 113309432449 | success |
+| CI Gate | 113310423217 | success |
+
+### Artifact identity and controlled rollout
+
+Built on WSL, not VPS, from a clean committed export of the exact SHA. All100
+exported backend-go/deploy files were byte-checked against committed blobs. Used
+the existing Dockerfile, linux/amd64, full-SHA tag/revision, no secrets/build args.
+One docker-save file, size21,946,880 bytes, transported over SSH. File SHA256
+matched on VPS **BEFORE load**:
+`6c92ab0ac52f8d5d5f4ee8849ae09b96abb5c91b395aaa7769cb7e1474d83422`.
+
+Loaded metadata matched: revision=d6098f622dc5bb18fd9e7ec4f4a0c82033927981;
+linux/amd64; User10001:10001; entrypoint `/usr/local/bin/api`.
+RootFS diff IDs matched exactly:
+
+```text
+sha256:74d97c428c51a828f9051a7a40a53ff1fc99e54fc30323ce36760701b0b7f711
+sha256:176fc170553f5111a7b3a7065f859a30f04dd613dad5c9aa5f6b9b1e43c935c4
+sha256:38e8babd08b56cbb9398f73966a478d7e8f96ac61f09debe30f3132b455afe4d
+```
+
+Local/VPS API binary SHA256 matched:
+`e02d16010ead07022f6e5448f2ff5a82a00b5e0863f3756a8a7adf7374933cab`.
+Cross-store image .Id equality was not used. Non-root/compiler-absent/CA proof
+passed on both hosts. Reviewed compose bytes matched before rollout; no compose
+or runtime env change. Only the private image reference was replaced.
+
+Tunnel stopped before recreate and remained stopped until local checks passed.
+New cold readiness polls:503/2035ms, then200/236ms within the bounded30s gate.
+Container: running/healthy/restart0, UID10001:10001, read-only root, cap-drop ALL,
+no-new-privileges, tmpfs16MiB/noexec/nosuid, only127.0.0.1:8080 publication.
+
+### Restricted DB / proxy / local application acceptance
+
+READ-ONLY PRE, post-new-container and post-rollback audits used only the existing
+`aktau_api_runtime` credential. Fresh current_user/session_user matched; safe sole
+reader membership, SELECT6/private3 denial, no DML/schema CREATE metadata, and
+physical read-only session policy PASS. Runtime container env matched the existing
+private file; no secret value/hash was recorded. Model/keys/timeouts unchanged.
+
+The immediate peer was measured on a controlled new connection and matched the
+existing exact /32-or-/128 trust and persistent Docker network metadata. Initial
+temporary audit code incorrectly assumed host source-port preservation through
+Docker proxy and could not identify the new peer; corrected only the read-only
+measurement to compare isolated new connection tuples. No runtime/env repair.
+
+Local VPS catalog PASS:9 visible categories,15 locations, milk discovery, base-only
+and typed dynamic queries, search, three sorts, pagination, detail/offers/minPrice,
+dashboard sugar label, unknown/invalid filters and limit101→400, health200,
+non-public metrics404. Application Voice PASS: complete cheapest milk TOP1,
+search TOP3, clarification and continue, exact current product/price/store/nearest
+location/speech checks. Each response201; local durations respectively11001.847,
+8287.103,8031.760,11992.161ms. These are end-to-end durations, not provider-only
+budgets or a latency acceptance claim. Own real Upstash clarification session
+existed with TTL≤600 and was deleted after successful continue.
+
+### Public hard-gate failure and rollback
+
+After local PASS, Tunnel started. Public catalog/filter/search/sorts/pagination/
+detail/dashboard and malformed400 checks PASS; CORS allowed/denied/preflight/
+no-Origin PASS, Cloudflare edge evidence present, no HSTS/cache HIT/HTML observed
+in those checks. Expected denied-origin403 is not an unexpected403.
+
+The following public application Voice phase returned **HTTP500**. The bounded
+helper aborts on unexpected status; it did not retain response body or completed
+per-turn trace on this failure, so the exact failing start/continue turn, provider
+or session/edge cause is **not established**. No payload/raw provider output was
+logged. This is a real public gate failure observation, **not proof that the
+discovery optimization caused a runtime defect**. No speculative fix/retry/tuning
+was performed; the authorized prior-image rollback was invoked immediately.
+
+Rollback: stop Tunnel, restore preserved e6ef854... image reference, recreate
+unchanged compose/env, bounded ready polls503/2033ms,503/2002ms,503/2003ms,
+200/1969ms, then restart Tunnel. Independent inspection confirms active revision
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b`, healthy, restart0, same hardening and
+loopback binding; both SHA images retained. Public rollback checks: live200,
+ready200, categories200/9, products200/24, dashboard200. Restricted POST audit
+matched PRE counts, six runtime-table fingerprints, snapshots and security
+metadata exactly; private API env unchanged.
+
+The attempted10-minute stability observation was interrupted after its first
+healthy sample (elapsed3.39s) because of the Voice failure. At that sample:
+live200/ready200/restart0, CPU1.43%, memory9.543MiB, no ERROR-level log entries;
+bounded scan found no synthetic precise coordinates/voice phrases or configured
+secret values in captured stdout logs. Sanitized NLP telemetry included success,
+timeout/invalid_output and approved fallback; it is neither provider-perfect
+evidence nor an explanation of HTTP500. External origin80/443/8080 connections
+were denied/timed out. A complete stability/privacy gate is **not claimed**.
+
+### Bounded performance evidence
+
+Same WSL operator/curl context and identified User-Agent; three sequential public
+GETs per endpoint,12 pre-deploy requests, all200. TTFB includes DNS/TLS/edge/API/DB.
+No cache flush, cold/warm claim, load test or capacity conclusion.
+
+| Endpoint | Pre median TTFB, ms | Pre median total, ms | Response bytes |
+| --- | ---: | ---: | ---: |
+| categories | 777.254 | 777.282 | 798 |
+| milk filters | 930.993 | 988.378 | 1826 |
+| milk products24, price_asc, offset0 | 1524.054 | 1527.405 | 12365 |
+| same selected product detail | 859.416 | 859.441 | 557 |
+
+New-release post measurements **NOT RUN**: aborted at public hard-gate failure.
+Rollback health/catalog timings are recovery checks, not new-release benchmarks.
+No meaningful production speedup, frontend/RSC improvement or stable deployment
+acceptance is asserted.
+
+DB mutation: NONE. Migration: NONE. Ingestion/snapshot: NONE. Credential rotation:
+NONE. Redis activity: only authorized application sessions; no Redis configuration
+change. No frontend/main/Vercel, Gemini configuration, Cloudflare configuration,
+HSTS or infrastructure change. No physical Siri claim. Part17 NOT STARTED.
+No commit/push. Documentation and clean review archive updated for external review.
+Further public Voice diagnosis and a new rollout require review; do not redeploy
+automatically. Active old release retained; no database rollback performed.
+
+### Documentation / artifact checks
+
+Part15 verifier tests PASS31/31; static deployment verifier PASS (not live launch
+acceptance). `git diff --check` PASS. Bounded scan of the four updated documents
+found no embedded credentials, DSN, absolute private operator paths or key material.
+Protected backend-go/Nest/frontend/contracts/compose source diff is empty.
+Permanent production-part-15 archive verification PASS:524 safe regular unique
+members, source/report byte-match and bounded secret scan. The final report is
+included by rebuilding and verifying after recording this evidence.
+Only four operational/performance documents changed; no commit/push.
+Task-owned VPS transfer archive and temporary audit/session/rollout helpers were
+removed after rollback verification; both images and private rollback metadata
+remain available. No production runtime/config/credential file was deleted.
