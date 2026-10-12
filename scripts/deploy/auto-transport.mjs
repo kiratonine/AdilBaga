@@ -1,0 +1,69 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync,appendFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {check,shaPattern} from './auto-gate.mjs';
+
+export function runtimeChanged(paths) {
+  return paths.some(p=>['backend-go/Dockerfile','backend-go/.dockerignore','backend-go/go.mod','backend-go/go.sum'].includes(p)
+    || p.startsWith('backend-go/cmd/') || p.startsWith('backend-go/internal/'));
+}
+
+export function sshOptions(env,key,hosts) {
+  assert.match(env.DEPLOY_HOST,/^[a-zA-Z0-9][a-zA-Z0-9.-]{0,252}$/);
+  assert.match(env.DEPLOY_USER,/^[a-z_][a-z0-9_-]{0,31}$/); assert.notEqual(env.DEPLOY_USER,'root');
+  assert.match(env.DEPLOY_PORT,/^[0-9]{1,5}$/); assert.ok(+env.DEPLOY_PORT>0 && +env.DEPLOY_PORT<=65535);
+  return ['-T','-p',env.DEPLOY_PORT,'-i',key,'-o','BatchMode=yes','-o','IdentitiesOnly=yes',
+    '-o','StrictHostKeyChecking=yes','-o',`UserKnownHostsFile=${hosts}`,'-o','ForwardAgent=no',
+    '-o','ConnectTimeout=10','-o','ServerAliveInterval=5','-o','ServerAliveCountMax=3',
+    `${env.DEPLOY_USER}@${env.DEPLOY_HOST}`,'sudo -n /usr/local/sbin/adilbaga-deploy'];
+}
+async function main() {
+  const sha=process.env.RELEASE_SHA; assert.match(sha,shaPattern);
+  const result=await check({sha,run:Number(process.env.CI_RUN)});
+  if(result.status!=='ELIGIBLE'){console.log(result.status);return;}
+  const dir=mkdtempSync(join(process.env.RUNNER_TEMP,'adilbaga-ssh-'));
+  try {
+    assert.ok(process.env.DEPLOY_SSH_KEY && process.env.DEPLOY_KNOWN_HOSTS,'missing SSH configuration');
+    const key=join(dir,'identity'),hosts=join(dir,'hosts');
+    writeFileSync(key,process.env.DEPLOY_SSH_KEY,{mode:0o600});
+    writeFileSync(hosts,process.env.DEPLOY_KNOWN_HOSTS,{mode:0o600});
+    const args=sshOptions(process.env,key,hosts);
+    const childEnv={PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8'};
+    const call=(input,timeout=30000)=>{
+      const r=spawnSync('ssh',args,{input,env:childEnv,timeout,maxBuffer:1<<20});
+      assert.equal(r.status,0,'SSH_OR_BROKER_FAILED'); return JSON.parse(r.stdout);
+    };
+    const pre=call(JSON.stringify({operation:'status'})+'\n');
+    if(pre.active===sha){console.log('NO_OP');return;}
+    assert.match(pre.active,shaPattern); assert.equal(pre.available,true);
+    // No DB/API/compose contract change may be bundled into an automatic release.
+    const diff=spawnSync('git',['diff','--name-only',pre.active,sha,'--','backend/prisma','contracts','deploy/compose.production.yml'],{timeout:10000,maxBuffer:1<<20});
+    assert.equal(diff.status,0); assert.equal(diff.stdout.length,0,'incompatible DB/compose/contract delta');
+    const runtime=spawnSync('git',['diff','--name-only',pre.active,sha,'--','backend-go'],{timeout:10000,maxBuffer:1<<20});
+    assert.equal(runtime.status,0);
+    if(!runtimeChanged(runtime.stdout.toString().trim().split('\n'))){console.log('NO_RUNTIME_CHANGE');return;}
+    if(process.env.DEPLOY_PHASE==='plan'){
+      assert.ok(process.env.GITHUB_OUTPUT);
+      appendFileSync(process.env.GITHUB_OUTPUT,'changed=true\n');console.log('PLAN_VERIFIED');return;
+    }
+    const fresh=await check({sha,run:Number(process.env.CI_RUN)});
+    if(fresh.status!=='ELIGIBLE'){console.log(fresh.status);return;}
+    const build=readFileSync(join(process.env.RUNNER_TEMP,'adilbaga-build-path'),'utf8');
+    const manifest=JSON.parse(readFileSync(join(build,'manifest.json'))); assert.equal(manifest.sha,sha);
+    const receipt=call(Buffer.concat([Buffer.from(JSON.stringify({operation:'submit',manifest})+'\n'),readFileSync(join(build,'image.tar'))]),180000);
+    assert.ok(['ACCEPTED','NO_OP','SKIPPED_STALE'].includes(receipt.status));
+    if(receipt.status!=='ACCEPTED'){console.log(receipt.status);return;}
+    const end=Date.now()+1200000;
+    while(Date.now()<end){
+      await new Promise(r=>setTimeout(r,10000));
+      const state=call(JSON.stringify({operation:'result',sha})+'\n');
+      if(state.status==='RUNNING')continue;
+      console.log(state.status);
+      assert.equal(state.status,'DEPLOYED','rollout did not pass');return;
+    }
+    // Worker is detached and owns its bounded compensation; SSH loss does not kill it.
+    throw Error('bounded receipt wait expired');
+  } finally {rmSync(dir,{recursive:true,force:true});}
+}
+if(process.argv[1]?.endsWith('/auto-transport.mjs')) main().catch(()=>{console.error('BLOCKED_TRANSPORT_OR_ROLLOUT');process.exitCode=1;});
