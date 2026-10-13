@@ -5,7 +5,11 @@ import { extractJsonResponses, type Har } from './har.js'
 
 const API = 'https://api.fix-price.kz/buyer/v1'
 const SITE = 'https://fix-price.kz/ru/catalog/'
-const PAGE = 24
+// Размер страницы, который принимает API (ограничение сервера)
+const PAGE = 28
+
+/** Алиасы верхнеуровневых категорий публикуемого scope (остальное меню не скрапим) */
+export const FIXPRICE_SCOPE_ALIASES: readonly string[] = ['produkty-i-napitki']
 
 export type FixPriceItem = {
   id: number | string; title: string; url: string; price: string | number
@@ -49,15 +53,19 @@ export function loadFixPriceFromHar(harPath: string): SourceFile {
 }
 
 /** Путь A: прямой API с контекстом города (заголовки и id — из FIXPRICE_SOURCE.md) */
-export async function scrapeFixPrice(opts: { fetchImpl?: typeof fetch; delayMs?: number } = {}): Promise<SourceFile> {
+export async function scrapeFixPrice(opts: { fetchImpl?: typeof fetch; delayMs?: number; aliases?: readonly string[] } = {}): Promise<SourceFile> {
   const city = process.env.FIXPRICE_CITY_ID
   if (!city) throw new Error('FIXPRICE_CITY_ID is not set (see docs/data/FIXPRICE_SOURCE.md)')
   const headers = { 'x-city': city, 'x-country': process.env.FIXPRICE_COUNTRY_ID || '3', 'x-language': 'ru', 'content-type': 'application/json' }
   const http = { fetchImpl: opts.fetchImpl, delayMs: opts.delayMs ?? 300 }
   const menu = (await (await politeFetch(`${API}/category/menu`, { headers }, http)).json()) as { alias: string }[]
+  // Алиасы scope обязаны быть в меню: иначе молча получили бы пустой результат
+  const menuAliases = new Set(menu.map((m) => m.alias))
+  for (const a of opts.aliases ?? []) if (!menuAliases.has(a)) throw new Error(`FIX_PRICE: scope alias ${a} not in category menu`)
+  const aliases = opts.aliases ?? menu.map((m) => m.alias)
   const lists: unknown[] = []
   let errorCount = 0
-  for (const { alias } of menu) {
+  for (const alias of aliases) {
     for (let page = 1; ; page++) {
       try {
         const res = await politeFetch(`${API}/product/in/${alias}?page=${page}&limit=${PAGE}&sort=sold`, {
@@ -66,8 +74,11 @@ export async function scrapeFixPrice(opts: { fetchImpl?: typeof fetch; delayMs?:
         const list = (await res.json()) as unknown[]
         lists.push(list)
         if (!Array.isArray(list) || list.length < PAGE) break
+        // x-count — общее число товаров категории; дальше страниц нет
+        const total = Number(res.headers.get('x-count'))
+        if (Number.isFinite(total) && total > 0 && page * PAGE >= total) break
       } catch (err) { errorCount++; console.warn(`[FIX_PRICE] ${alias} p${page}: ${(err as Error).message}`); break }
     }
   }
-  return collect(lists, { mode: 'api', categories: menu.length }, errorCount)
+  return collect(lists, { mode: 'api', categories: aliases.length, scoped: opts.aliases !== undefined }, errorCount)
 }

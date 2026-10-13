@@ -4,7 +4,7 @@ import { sourcesDir } from '../paths.js'
 import { writeSourceFile } from '../source-file.js'
 import { STORE_CODES, type SourceFile, type StoreCode } from '../types.js'
 import { DANA_SCOPE_ROOTS, scrapeDana } from '../scrapers/dana.js'
-import { loadFixPriceFromHar, scrapeFixPrice } from '../scrapers/fixprice.js'
+import { FIXPRICE_SCOPE_ALIASES, loadFixPriceFromHar, scrapeFixPrice } from '../scrapers/fixprice.js'
 import { DINA_SCOPE_ROOTS, scrapeDina } from '../scrapers/dina.js'
 
 // По умолчанию скрапим только категории публикуемого scope; SCRAPE_ALL=1 — весь каталог
@@ -14,7 +14,7 @@ export type Scraper = () => Promise<SourceFile>
 const SCRAPERS: Partial<Record<StoreCode, Scraper>> = {
   DINA: () => scrapeDina(all ? {} : { scopeRoots: DINA_SCOPE_ROOTS }),
   DANA: () => scrapeDana(all ? {} : { roots: DANA_SCOPE_ROOTS }),
-  FIX_PRICE: () => process.env.FIXPRICE_HAR ? Promise.resolve(loadFixPriceFromHar(process.env.FIXPRICE_HAR)) : scrapeFixPrice(),
+  FIX_PRICE: () => process.env.FIXPRICE_HAR ? Promise.resolve(loadFixPriceFromHar(process.env.FIXPRICE_HAR)) : scrapeFixPrice(all ? {} : { aliases: FIXPRICE_SCOPE_ALIASES }),
 }
 
 const code = process.argv[2] as StoreCode
