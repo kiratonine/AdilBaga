@@ -1,5 +1,6 @@
 import { politeFetch, type PoliteOptions } from '../http.js'
 import type { SourceFile, SourceProduct } from '../types.js'
+import { buildBatchQuery, parseBatchResponse, type PageRequest, type PageResult } from './dina-batch.js'
 
 const ENDPOINT = 'https://backend.dinamarket.kz/api/v1.1/customer/graph'
 const CATEGORIES_QUERY = `query getCategories($shopId: ID!) { categories(shop_id: $shopId) { id name } }`
@@ -78,15 +79,24 @@ export function mapDinaItem(item: DinaItem): SourceProduct | null {
 
 type GraphResponse<T> = { data?: T }
 type ProductsData = { products?: { pageInfo?: { total?: number }; edges?: DinaItem[] } }
+type PostJson = (body: unknown) => Promise<unknown>
 
-export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: number; delayMs?: number; scopeRoots?: readonly string[] } = {}): Promise<SourceFile> {
+/** Максимум алиасов (страниц) в одном батч-запросе: больше — дольше ответ и выше риск бана */
+export const DINA_BATCH_PAGES = 20
+
+export async function scrapeDina(opts: {
+  fetchImpl?: typeof fetch; maxPages?: number; delayMs?: number; scopeRoots?: readonly string[]
+  categoryIds?: readonly string[]; batchPages?: number
+} = {}): Promise<SourceFile> {
   const http: PoliteOptions = { fetchImpl: opts.fetchImpl, delayMs: opts.delayMs ?? 300 }
-  const graph = async <T>(query: string, variables: Record<string, unknown>) => {
-    const res = await politeFetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query, variables }) }, http)
-    return ((await res.json()) as GraphResponse<T>).data
+  const post: PostJson = async (body) => {
+    const res = await politeFetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, http)
+    return res.json()
   }
+  const graph = async <T>(query: string, variables: Record<string, unknown>) => ((await post({ query, variables })) as GraphResponse<T>).data
   const shops = (await graph<{ shops?: { id: string; city?: { name?: string } | null }[] }>(SHOPS_QUERY, {}))?.shops ?? []
   assertAktauShop(shops, SHOP_ID)
+  if (opts.categoryIds && opts.categoryIds.length > 0) return scrapeDinaBatch(opts.categoryIds, opts.batchPages ?? DINA_BATCH_PAGES, post)
   const categories = (await graph<{ categories?: { id: string; name: string }[] }>(CATEGORIES_QUERY, { shopId: SHOP_ID }))?.categories ?? []
   if (categories.length === 0) throw new Error('DINA: category list is empty')
   const total = (await graph<ProductsData>(QUERY, { shopId: SHOP_ID, page: 1, limit: 1, categoryId: null }))?.products?.pageInfo?.total ?? -1
@@ -124,6 +134,75 @@ export async function scrapeDina(opts: { fetchImpl?: typeof fetch; maxPages?: nu
   return {
     storeCode: 'DINA', city: 'Aktau', capturedAt: new Date().toISOString(), errorCount,
     sourceStats: { shopId: SHOP_ID, shopCity: 'Актау', total, pages, categories: queue.length, scoped: Boolean(opts.scopeRoots) },
+    products: [...products.values()],
+  }
+}
+
+/**
+ * Батч-обход заданного набора категорий в два прохода (spec §4.1):
+ * 1) страница 1 всех категорий — из pageInfo.total узнаём число страниц;
+ * 2) все оставшиеся пары (категория, страница) одним списком.
+ * Батчи режутся по batchPages алиасов и смешивают категории, поэтому пустых алиасов почти нет.
+ */
+async function scrapeDinaBatch(categoryIds: readonly string[], batchPages: number, post: PostJson): Promise<SourceFile> {
+  if (!Number.isInteger(batchPages) || batchPages < 1) throw new Error(`DINA: batchPages must be a positive integer (${batchPages})`)
+  const ids = [...new Set(categoryIds)]
+  const products = new Map<string, SourceProduct>()
+  let errorCount = 0, pages = 0, requests = 0
+  const pageError = (msg: string) => {
+    errorCount++
+    console.warn(`[DINA] ${msg}`)
+    if (errorCount > 10) throw new Error('DINA: too many page errors, aborting')
+  }
+  const addEdges = (edges: DinaItem[]) => {
+    for (const e of edges) {
+      const p = mapDinaItem(e)
+      if (p && !products.has(p.sourceProductId)) products.set(p.sourceProductId, p)
+    }
+  }
+  // Выполняет страницы кусками по batchPages; onPage получает только удачные алиасы.
+  // Упавший HTTP-запрос — одна ошибка на весь кусок, его страницы считаются неполученными.
+  const run = async (label: string, reqs: PageRequest[], onPage: (req: PageRequest, res: Extract<PageResult, { ok: true }>) => void) => {
+    const chunks: { reqs: PageRequest[]; query: string }[] = []
+    for (let i = 0; i < reqs.length; i += batchPages) {
+      const chunk = reqs.slice(i, i + batchPages)
+      // Сборка запроса до сети: некорректный category_id роняет прогон сразу, а не посреди обхода
+      chunks.push({ reqs: chunk, query: buildBatchQuery(chunk, SHOP_ID, PAGE_SIZE) })
+    }
+    for (const [ci, chunk] of chunks.entries()) {
+      requests++
+      let results: PageResult[]
+      try {
+        results = parseBatchResponse(await post({ query: chunk.query }), chunk.reqs.length)
+      } catch (err) {
+        pageError(`${label} batch ${ci + 1}/${chunks.length} (${chunk.reqs.length} pages): ${(err as Error).message}`)
+        continue
+      }
+      results.forEach((res, i) => {
+        const req = chunk.reqs[i]!
+        if (res.ok) onPage(req, res)
+        else pageError(`category ${req.categoryId} page ${req.page}: ${res.error}`)
+      })
+      console.log(`[DINA] ${label} ${ci + 1}/${chunks.length}: total ${products.size}`)
+    }
+  }
+
+  const rest: PageRequest[] = []
+  await run('pass 1', ids.map((categoryId) => ({ categoryId, page: 1 })), (req, res) => {
+    // Без pageInfo.total число страниц неизвестно — считаем страницу ошибкой и категорию дальше не идём
+    if (res.total < 0) return pageError(`category ${req.categoryId} page 1: no pageInfo.total`)
+    pages++
+    addEdges(res.edges)
+    if (res.total === 0 || res.edges.length < PAGE_SIZE) return
+    for (let page = 2; page <= Math.ceil(res.total / PAGE_SIZE); page++) rest.push({ categoryId: req.categoryId, page })
+  })
+  await run('pass 2', rest, (_req, res) => {
+    pages++
+    addEdges(res.edges)
+  })
+  return {
+    storeCode: 'DINA', city: 'Aktau', capturedAt: new Date().toISOString(), errorCount,
+    sourceStats: { shopId: SHOP_ID, shopCity: 'Актау', mode: 'batch', categories: ids.length, pages, requests, scoped: true },
     products: [...products.values()],
   }
 }
