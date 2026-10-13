@@ -337,7 +337,7 @@ func TestFullLiveVoice(t *testing.T) {
 	repo := postgres.NewRepository(pool)
 	var logs bytes.Buffer
 	store := redis.New(cfg.UpstashURL, cfg.UpstashToken)
-	svc := &voice.Service{Parser: voice.NLP{Provider: gemini.New(cfg.GeminiKeys, cfg.GeminiModel, observability.New(&logs, "info"))}, Sessions: store, Categories: repo, Products: repo, Locations: repo}
+	svc := &voice.Service{Parser: voice.NLP{Provider: gemini.New(cfg.GeminiKeys, cfg.GeminiModel, observability.New(&logs, "info"))}, Sessions: store, Categories: repo, Vocabulary: repo, Products: repo, Locations: repo}
 	server := httptest.NewServer(httpapi.Router(cfg, observability.New(&logs, "info"), httpapi.Dependencies{DB: pool, Categories: repo, Products: repo, Dashboard: repo, Voice: svc}))
 	defer server.Close()
 	ownSessions := []string{}

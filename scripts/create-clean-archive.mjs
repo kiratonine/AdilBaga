@@ -5,10 +5,12 @@ import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = join(root, 'artifacts');
-if (process.argv[2] && !['production-part-16', 'production-part-15', 'post-scrum-7', 'production-part-14', 'production-part-13', 'production-part-12', 'production-part-11', 'production-part-10', 'production-part-08', 'production-part-07', 'production-part-05', 'production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
+if (process.argv[2] && !['production-auto-deploy', 'production-part-16', 'production-part-15', 'post-scrum-7', 'production-part-14', 'production-part-13', 'production-part-12', 'production-part-11', 'production-part-10', 'production-part-08', 'production-part-07', 'production-part-05', 'production-part-04', 'production-part-03', 'production-part-02', 'production-part-01', 'production-part-00', 'full-stack', 'full-stack-backend2', 'backend-1-part-05', 'backend-1-part-06', 'backend-2-eggs-data-quality'].includes(process.argv[2])) {
   throw new Error('Unknown archive target');
 }
-const output = join(outputDir, process.argv[2] === 'production-part-16'
+const output = join(outputDir, process.argv[2] === 'production-auto-deploy'
+  ? 'production-auto-deploy-review.tar.gz'
+  : process.argv[2] === 'production-part-16'
   ? 'production-part-16-review.tar.gz'
   : process.argv[2] === 'production-part-15'
   ? 'production-part-15-review.tar.gz'
@@ -57,9 +59,10 @@ const excludedDirs = new Set([
   '.git', 'TODO', 'artifacts', 'node_modules', 'dist', 'build', '.next',
   'coverage', 'tmp', 'temp', 'logs', 'playwright-report', 'test-results',
   'traces', '.cache', '.vite', '.vitest', '.turbo', 'cache', 'caches', '.pnpm-store',
-  '.ssh', '.aws', '.config', '.railway', '.gnupg', 'keyring', 'keyrings', 'private-keys-v1.d', 'credentials', 'secrets', 'backups', 'Presentation',
+  '.ssh', '.aws', '.config', '.railway', '.gnupg', 'keyring', 'keyrings', 'private-keys-v1.d', 'credentials', 'secrets', 'backups', 'Presentation', '__pycache__',
 ]);
 const excludedNames = new Set([
+  '.git',
   'id_rsa', 'id_ed25519', 'credentials.json', 'service-account.json',
   'serviceAccountKey.json', '.npmrc', '.pypirc', 'next-env.d.ts', 'AGENTS_backup.md',
   'app-public-schema.sql', 'app-public.sql', 'full.sql',

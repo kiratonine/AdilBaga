@@ -16,14 +16,16 @@ import (
 )
 
 type testRepository struct {
-	err   error
-	query catalog.ProductQuery
+	err         error
+	query       catalog.ProductQuery
+	filterCalls int
 }
 
 func (r *testRepository) ListCategories(context.Context) ([]catalog.Category, error) {
 	return []catalog.Category{{ID: "milk", Slug: "milk", Name: "Молоко"}}, r.err
 }
 func (r *testRepository) GetFilterSchema(_ context.Context, slug string) (catalog.FilterSchema, error) {
+	r.filterCalls++
 	if r.err != nil {
 		return catalog.FilterSchema{}, r.err
 	}
