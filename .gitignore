@@ -40,3 +40,6 @@ data/agent/
 pipeline/.env
 pipeline/node_modules/
 data/sync/
+
+# local secrets, never commit
+/secrets/
