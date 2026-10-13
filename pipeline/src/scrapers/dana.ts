@@ -10,6 +10,8 @@ export const DANA_ROOTS = [
   { path: '/catalog/kosmetika_i_gigiena_/', name: 'Косметика и гигиена' },
   { path: '/catalog/tovary_dlya_doma/', name: 'Товары для дома' },
 ]
+/** Публикуем только продукты питания (scope сайта); остальные корни — SCRAPE_ALL=1 */
+export const DANA_SCOPE_ROOTS = DANA_ROOTS.slice(0, 1)
 const MAX_PAGES_PER_ROOT = 500
 
 const digits = (s: string) => { const d = s.replace(/[^0-9]/g, ''); return d ? parseInt(d, 10) : 0 }

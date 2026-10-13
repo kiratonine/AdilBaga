@@ -27,24 +27,7 @@ bash pipeline/scripts/daily-sync.sh
 
 ## 3. Расписание (SCRUM-8)
 
-Пример `systemd` на 06:00 и 18:00 по Актау (UTC+5 → `01:00` и `13:00` UTC):
-
-```ini
-# /etc/systemd/system/aktau-sync.service
-[Service]
-Type=oneshot
-User=aktau-sync
-WorkingDirectory=/opt/adilbaga
-EnvironmentFile=/etc/aktau-sync.env
-ExecStart=/usr/bin/bash pipeline/scripts/daily-sync.sh
-
-# /etc/systemd/system/aktau-sync.timer
-[Timer]
-OnCalendar=*-*-* 01,13:00:00 UTC
-Persistent=true
-[Install]
-WantedBy=timers.target
-```
+Юниты `systemd` на 06:00 и 18:00 по Актау (UTC+5 → `01:00` и `13:00` UTC) лежат в `ops/sync/` (`aktau-sync.service`, `aktau-sync.timer`, `aktau-sync.env.example`); установка — `ops/sync/README.md`.
 
 `User=` — отдельный пользователь, файл env с правами `600`. Одновременный запуск двух ingest исключён advisory lock в `cmd/ingest`.
 

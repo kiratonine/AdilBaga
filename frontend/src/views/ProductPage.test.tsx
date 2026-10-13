@@ -11,7 +11,25 @@ import { ProductPage } from './ProductPage'
 const MILK_ID = 'p0a1f000-0000-4000-8000-000000000001'
 
 describe('ProductPage', () => {
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('warns that prices may have changed when the snapshot is older than 36h', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-08T12:00:00Z') })
+    renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)
+    expect(await screen.findByTestId('price-stale')).toHaveTextContent('Цены могли измениться — обновляем данные')
+    vi.useRealTimers()
+  })
+
+  it('does not warn when the snapshot is fresh', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-09-24T12:00:00Z') })
+    renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)
+    await screen.findByTestId('snapshot-date')
+    expect(screen.queryByTestId('price-stale')).toBeNull()
+    vi.useRealTimers()
+  })
 
   it('shows the product with offers sorted by price and the cheapest highlighted', async () => {
     renderPage(<ProductPage id={MILK_ID} />, `/ru/products/${MILK_ID}`)

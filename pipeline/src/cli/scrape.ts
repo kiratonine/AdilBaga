@@ -2,13 +2,17 @@ import 'dotenv/config'
 import { resolve } from 'node:path'
 import { writeSourceFile } from '../source-file.js'
 import { STORE_CODES, type SourceFile, type StoreCode } from '../types.js'
-import { scrapeDana } from '../scrapers/dana.js'
+import { DANA_SCOPE_ROOTS, scrapeDana } from '../scrapers/dana.js'
 import { loadFixPriceFromHar, scrapeFixPrice } from '../scrapers/fixprice.js'
-import { scrapeDina } from '../scrapers/dina.js'
+import { DINA_SCOPE_ROOTS, scrapeDina } from '../scrapers/dina.js'
+
+// По умолчанию скрапим только категории публикуемого scope; SCRAPE_ALL=1 — весь каталог
+const all = process.env.SCRAPE_ALL === '1'
 
 export type Scraper = () => Promise<SourceFile>
 const SCRAPERS: Partial<Record<StoreCode, Scraper>> = {
-  DINA: () => scrapeDina(), DANA: () => scrapeDana(),
+  DINA: () => scrapeDina(all ? {} : { scopeRoots: DINA_SCOPE_ROOTS }),
+  DANA: () => scrapeDana(all ? {} : { roots: DANA_SCOPE_ROOTS }),
   FIX_PRICE: () => process.env.FIXPRICE_HAR ? Promise.resolve(loadFixPriceFromHar(process.env.FIXPRICE_HAR)) : scrapeFixPrice(),
 }
 
