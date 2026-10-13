@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CategorySlug } from '../src/agent/taxonomy.js'
 import type { Dictionary } from '../src/mapping/dictionary.js'
-import { computeDinaScope, readDinaScope, writeDinaScope, type DinaScope } from '../src/mapping/dina-scope.js'
+import { computeDinaScope, defaultDinaScopePath, readDinaScope, writeDinaScope, type DinaScope } from '../src/mapping/dina-scope.js'
+import { publishCategories } from '../src/mapping/scope.js'
 import type { SourceFile, SourceProduct } from '../src/types.js'
 
 const at = '2026-10-13T06:00:00.000Z'
@@ -88,6 +89,24 @@ describe('readDinaScope / writeDinaScope', () => {
     expect(text.endsWith('}\n')).toBe(true)
     expect(JSON.parse(text).categoryIds).toEqual(['9', '100'])
     expect(text).toContain('\n  "version": 1')
-    expect(readDinaScope(path)).toEqual(['9', '100'])
+    expect(readDinaScope(path, scope)).toEqual(['9', '100'])
+  })
+
+  it('readDinaScope returns null when the published scope is not covered by the stored scope', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'dina-scope-')), 'scope.json')
+    writeDinaScope(path, { version: 1, generatedAt: at, scope: ['milk'], categoryIds: ['1'], coveredProducts: 1, scopeProducts: 1 })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(readDinaScope(path, new Set<CategorySlug>(['milk', 'bread']))).toBeNull()
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/bread/))
+    // Узкий опубликованный набор (env сужает) — файл годится
+    expect(readDinaScope(path, new Set<CategorySlug>(['milk']))).toEqual(['1'])
+  })
+
+  it('committed dina-scope-categories.json covers the default published scope', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const ids = readDinaScope(defaultDinaScopePath(), publishCategories(''))
+    expect(ids).not.toBeNull()
+    expect(ids!.length).toBeGreaterThan(0)
+    expect(warn).not.toHaveBeenCalled()
   })
 })

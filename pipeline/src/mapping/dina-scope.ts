@@ -5,6 +5,7 @@ import { isCategorySlug, type CategorySlug } from '../agent/taxonomy.js'
 import { mappingDir } from '../paths.js'
 import type { SourceFile, SourceProduct } from '../types.js'
 import { resolveCategory, type Dictionary } from './dictionary.js'
+import { publishCategories } from './scope.js'
 
 /**
  * Минимальный набор category_id Dina, покрывающий все товары публикуемого scope (spec §4.2).
@@ -62,8 +63,12 @@ export function computeDinaScope(file: SourceFile, dict: Dictionary, scope: Set<
   return { version: 1, generatedAt, scope: [...scope].sort(), categoryIds: categoryIds.sort(byNumber), coveredProducts, scopeProducts }
 }
 
-/** null — файла нет, он битый или пустой: тогда скрапер откатывается на обход по DINA_SCOPE_ROOTS */
-export function readDinaScope(path: string): string[] | null {
+/**
+ * null — файла нет, он битый, пустой или посчитан для более узкого scope, чем публикуемый сейчас:
+ * тогда скрапер откатывается на обход по DINA_SCOPE_ROOTS. Устаревший набор молча терял бы товары
+ * новых опубликованных категорий.
+ */
+export function readDinaScope(path: string, published: Set<CategorySlug> = publishCategories()): string[] | null {
   if (!existsSync(path)) return null
   let parsed: DinaScope
   try {
@@ -74,6 +79,12 @@ export function readDinaScope(path: string): string[] | null {
   }
   if (parsed.categoryIds.length === 0) {
     console.warn(`[scope:dina] ${path} has no categoryIds, falling back to scope roots`)
+    return null
+  }
+  const stored = new Set<string>(parsed.scope)
+  const missing = [...published].filter((slug) => !stored.has(slug))
+  if (missing.length > 0) {
+    console.warn(`[scope:dina] ${path} was computed without published categories ${missing.join(', ')}; falling back to scope roots (run pnpm scope:dina)`)
     return null
   }
   return parsed.categoryIds
