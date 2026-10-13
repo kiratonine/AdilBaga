@@ -1,12 +1,20 @@
 # Production Part15 — Go API deployment
 
-Status: **BLOCKED**.
+Status: **READY_FOR_EXTERNAL_REVIEW**.
 
-Current hotfix outcome: **PUBLIC_VOICE_HTTP_500 — rolled back**. The separately
+Current production release: **438ecdfa3d386a186dcd8b73c3c10aef5e79dc82**.
+Owner-authorized deployment from merged `main` completed on 2026-10-13 local date.
+VPS/public application, security, real Redis, stability and READ-ONLY POST gates
+PASS. **Owner-reported physical iPhone Siri E2E PASS**; the owner performed and
+confirmed the manual tests, not the AI agent. See the appended owner-confirmed
+closure; earlier pending-device statements describe their historical checkpoints.
+
+Historical hotfix outcome: **PUBLIC_VOICE_HTTP_500 — rolled back**. The separately
 authorized products-discovery release `d6098f622dc5bb18fd9e7ec4f4a0c82033927981`
 passed local VPS gates, but its public Voice smoke returned HTTP500. The retained
-`e6ef854e2973e5b0871888bbc3111e026cdccc5b` release is restored, healthy and behind
-the active Tunnel. See the appended performance-hotfix section; no automatic
+`e6ef854e2973e5b0871888bbc3111e026cdccc5b` release was restored, healthy and behind
+the active Tunnel at that checkpoint. It is now retained as the previous image.
+See the appended performance-hotfix section; no automatic
 runtime/provider repair was attempted.
 
 Previously accepted outcome: **Part15 production Go deployment completed** from the exact
@@ -1564,3 +1572,217 @@ Only four operational/performance documents changed; no commit/push.
 Task-owned VPS transfer archive and temporary audit/session/rollout helpers were
 removed after rollback verification; both images and private rollback metadata
 remain available. No production runtime/config/credential file was deleted.
+
+## Owner-authorized main release — Voice remediation deployment, 2026-10-13
+
+Outcome: **APPLICATION DEPLOYMENT PASS — physical Siri pending owner**.
+Runtime revision **438ecdfa3d386a186dcd8b73c3c10aef5e79dc82** is active behind
+the existing Cloudflare Tunnel. No rollback was required. This new deployment
+resolves the previously blocked rollout gate with actual automated application
+evidence; it does not retrospectively establish the exact cause of the old500,
+erase historical failures, or claim physical Siri success.
+
+### Exact main / Git / hosted CI
+
+Fresh fetch/prune: working branch `integrate/full-stack`, clean tree;
+HEAD=origin/integration=`20a96120c165fd45ecfcf740c3ef66e2703a2bf7`.
+Release origin/main=`438ecdfa3d386a186dcd8b73c3c10aef5e79dc82`, merge PR20 of
+the approved Voice candidate. Backend-go/deploy/contracts are byte-identical
+between the integration commit and this main merge. Main was fetched/rechecked
+again immediately before cutover and still matched the frozen release SHA.
+No branch reset/rebase/switch, commit/push, merge or source change by this task.
+
+Independently queried GitHub API for exact-SHA
+[run38298368043](https://github.com/kiratonine/AdilBaga/actions/runs/38298368043):
+event push, branch main, attempt1, completed/success. All9 required jobs:
+
+| Job | ID | Conclusion |
+| --- | --- | --- |
+| Contracts | 114974906071 | success |
+| Frontend | 114974906546 | success |
+| Go Quality | 114974906493 | success |
+| Security | 114974906550 | success |
+| Nest Reference | 114974906558 | success |
+| Pipeline Quality | 114974906358 | success |
+| PostgreSQL Integration | 114975540919 | success |
+| Ephemeral Staging | 114975897783 | success |
+| CI Gate | 114976694772 | success |
+
+### Fresh VPS / restricted PRE audit
+
+Existing old revision e6ef854... independently verified running/healthy/restart0;
+Docker29.8.2 active, Tunnel active; local live200/ready200. Existing reviewed
+compose bytes matched the committed file. Private API env/release env root0600,
+compose root0644; only loopback8080 listener, no80/443 listeners. Existing
+credentials/provider configuration were preserved and runtime Env values matched
+the private file without printing values or secret-material hashes.
+
+Supabase remains production. Fresh independent operator connections used only
+the configured `aktau_api_runtime`, never owner/ingest/backup credentials. SQL
+proved current_user=session_user=aktau_api_runtime, sole reader membership with
+ADMINfalse/INHERITtrue/SETfalse, no unsafe role flags/schema CREATE, SELECT6 only,
+private raw_products/product_mappings/source_runs denied by privilege metadata,
+and no table write privileges. No DML/DDL denial probes were run on production.
+
+Initial temporary operator audit incorrectly assumed libpq startup PGOPTIONS
+would make default_transaction_read_only=on. It stopped before any application
+cutover. Safe diagnostic proved both role identities correct but the fresh
+operator client's startup setting off. The endpoint was privately classified
+as Supabase **session pooler5432**, not transaction pooler6543. Only the temporary
+audit helper was corrected to perform SELECT metadata/count/fingerprint work
+inside explicit **BEGIN READ ONLY → SELECT → ROLLBACK**. This is transaction
+control, not a DB/security-setting mutation. The committed Go AfterConnect
+session initializer was not changed; new-runtime readiness enforces its existing
+physical identity/default read-only policy. No env/role/grant/config hot-fix.
+
+PRE counts: stores3, store_locations15, categories10, canonical_products3425,
+offers4215, snapshots2. Full-row JSON fingerprints of these six reader tables,
+snapshot content, role/membership/ACL/schema-CREATE metadata and public RLS/FORCE/
+policy/ownership metadata were compared privately with POST. Private3 counts
+were not read, and this task does not claim a new full owner schema/backup audit.
+
+### Immutable artifact and transport
+
+Built on WSL, never on VPS, from clean `git archive` of exact main SHA. All108
+exported backend-go/deploy files byte-checked against committed blobs; no real
+env/credential file exported. Existing Dockerfile, linux/amd64, full-SHA tag
+`adilbaga-api:438ecdfa3d386a186dcd8b73c3c10aef5e79dc82`, exact revision label,
+no secret build args/registry/token. Go1.27.2 API binary, CGOdisabled/trimpath;
+runtime Alpine3.24, CA present, compiler absent, User10001:10001 and sole
+entrypoint `/usr/local/bin/api`.
+
+ONE docker-save archive, **21,975,552 bytes**, encrypted SSH transport. Local
+SHA256 matched VPS file **BEFORE load**:
+`08abca3c175cd8b062fa5f51164a337b91714e0a764d64062512099257fddc35`.
+
+Loaded revision/platform/User/entrypoint, all RootFS diff IDs and API binary
+SHA256 matched local image programmatically. RootFS:
+
+```text
+sha256:74d97c428c51a828f9051a7a40a53ff1fc99e54fc30323ce36760701b0b7f711
+sha256:176fc170553f5111a7b3a7065f859a30f04dd613dad5c9aa5f6b9b1e43c935c4
+sha256:7a03db5179b5dd405c9ce7cce70b5b593d854903b8863e6766084fc89c6d1691
+```
+
+API binary SHA256:
+`ee64c90f096f242d1ecb312e99e7e9260070e28037f67481e88e97088986c08b`.
+VPS OCI image ID:
+`sha256:439f43e3f00f7d4831bbd4f523bedc91745e29ac7e13033b406414b0842f3291`.
+Cross-store image .Id equality was deliberately not required. The previous
+working/accepted e6ef854... SHA image remains present and was rechecked after
+rollout. No image pruning or database rollback.
+
+### Closed cutover / hardening / measured peer
+
+Stopped cloudflared before assembly. Atomically replaced only the private
+release image reference, preserving its root0600 permissions; recreated the API
+with the unchanged reviewed compose and private API env. No VPS git pull/build.
+
+Bounded cold readiness:503/2033.270ms,503/2002.675ms, then200/1934.555ms, within
+the approximately30-second gate. Not a persistent readiness failure. Container
+running, healthy, restart0; actual UID10001, read-only root, dropALL,
+no-new-privileges, tmpfs16MiB/noexec/nosuid, CA present/compiler absent, local
+rotated logging, sole127.0.0.1:8080 publication. Immediate Docker peer measured
+using one held controlled connection in the container network namespace; it
+matched the existing exact /32-or-/128 trust. No proxy-env guess/update or broad
+CIDR. Existing persistent production network retained.
+
+### Real local/public API and Voice gates
+
+VPS-local smoke passed before reopening Tunnel. Public HTTPS smoke passed after
+Tunnel start. Both used genuine current Supabase data and existing providers,
+not fixtures, mock Redis, memory session fallback or synthetic product prices.
+
+- live/ready200;9 visible categories, legacy other not exposed;
+- milk discovery with current numeric1000/3.2 options;
+- base-only milk products24, all3 sort requests, bounded pagination/search;
+- selected dynamic-filter products, detail, offers priceASC/minPrice invariants;
+- unknown/invalid filters and limit101→400 compatible JSON;
+- dashboard15 locations, basket sugar label «Сахар»; metrics404;
+- public CORS exact allowed origin200, denied origin403 JSON, POSTpreflight204,
+  and no-Origin non-browser traffic accepted;
+- cf-ray present, no HTML/browser challenge or API cache HIT/STALE/UPDATING;
+  HSTS remained OFF. No Cloudflare/Tunnel topology/WAF/rule configuration change.
+
+This is bounded production smoke, not an exhaustive all-product Nest/Go parity
+run or a capacity benchmark. Independent result checks compared Voice products,
+lowest current prices and permissible equal-price store ties with actual
+filtered GET products; verified images, real nearest location/Haversine rounding
+and exact existing Russian speech. No product names/result payloads, utterances,
+precise coordinates, session identifiers or provider bodies are recorded here.
+
+| Application turn | VPS-local201, ms | Public201, ms |
+| --- | ---: | ---: |
+| Complete cheapest milk TOP1 | 3409.642 | 4012.790 |
+| Search milk TOP3 | 2904.724 | 3466.496 |
+| Incomplete start | 2330.131 | 2447.531 |
+| Volume-only continue | 2212.720 | 2606.841 |
+| Fat answer / completed result | 2960.295 | 4075.888 |
+
+Both actual owned Upstash sessions were GET/TTL-verified with0<TTL≤600 and
+GET-null after completion. No session IDs/payloads persisted in report or logs.
+Bounded new-container NLP window:6success /4invalid_output, durations
+1044/777/656/707/623/936/784/668/614/795ms. Approved fallback preserved all
+application results. These are aggregate deployment-window events, not exact
+per-request NLP attribution or a provider-perfect benchmark. No model/key/
+prompt/schema/timeout tuning, direct provider benchmark or additional key-health
+claim. Configuration remains Gemini3.5 flash-lite, original keys/failover/budgets.
+
+### Origin isolation / stability / POST
+
+WSL external direct-origin TCP checks:22reachable;80/443/8080 timed out/denied.
+Public host/IP is deliberately omitted. Host inspection again showed only
+127.0.0.1:8080 and no80/443 listener. No firewall/infrastructure changes.
+
+Stability **PASS605.518s**,18 samples, starting
+2026-10-12T19:55:59.436Z; final sample2026-10-12T20:06:04.953Z. These UTC times
+are2026-10-13 local Asia/Qyzylorda. All samples running/healthy/restart0, Tunnel
+active, public live200/ready200, unchanged private env/compose. CPU0.00–3.48%,
+memory6.910–9.703MiB on3.824GiB host. No load/capacity claim.
+
+Fresh READ-ONLY POST **PASS**: same six counts, full-row fingerprints, snapshot
+content and role/ACL/RLS/policy/security metadata as PRE. No ownership/grant/schema
+repair. Bounded actual runtime log scan found no synthetic sensitive inputs or
+configured keys/tokens/DB URL/password, no panic/http_error or ERROR-level event.
+Final independent default-curl public readiness200,0.920281s.
+
+Rollback readiness: previous e6ef854... image retained; same compose/API private
+config is schema-compatible; only release image reference needs restoration
+under the approved closed-cutover runbook. Rollback **NOT NEEDED** in this task.
+Historical old-release Voice500 remains documented; recovery availability must
+not be described as new physical Siri acceptance.
+
+### Final status / explicit exclusions
+
+**Active production Go API:438ecdfa3d386a186dcd8b73c3c10aef5e79dc82.**
+Automated VPS/public application deployment gates PASS.
+**Physical Siri:NOT RUN, PENDING OWNER manual iPhone E2E**. Do not claim full
+client-launch acceptance until that manual test succeeds. Generic Python-UA
+Cloudflare403 remains a historical compatibility observation, not retested or
+silently repaired here. Required operator/curl paths passed without challenges.
+
+No runtime/source hot-fix, DB migration/seed/ingestion/new snapshot/data write,
+roles/grants/credential rotation, frontend/Vercel change, Cloudflare rule/DNS/
+HSTS change, scheduler, Ubuntu/system package upgrade, Part17, commit or push.
+Only approved image deployment and ephemeral owned application sessions occurred.
+Temporary operator/pre-transfer audit state and transfer files are task-owned;
+cleanup does not remove API private configuration or either SHA image.
+Reports/operations docs updated for external review. STOP for owner's manual Siri.
+
+## Owner-confirmed Siri E2E — PASS
+
+The project owner confirms that all manual Siri E2E tests on a real iPhone
+passed after deployment of Go API release
+`438ecdfa3d386a186dcd8b73c3c10aef5e79dc82`.
+These tests were performed and confirmed by the owner, not by the AI agent.
+No screenshots, precise test times or additional device evidence were supplied
+or independently verified by the agent; none are claimed here.
+
+Final Part15 outcome: **production application PASS; owner-reported Siri E2E PASS**.
+This confirmation closes the previously pending manual-device gate. Earlier
+NOT RUN / PENDING OWNER statements remain as historical evidence, together with
+all HTTP500 diagnostics and rollback history, unchanged by this closure.
+Report status remains **READY_FOR_EXTERNAL_REVIEW** for this documentation update.
+
+Documentation-only closure: no runtime/configuration change, VPS access,
+deployment, provider/DB action, commit or push; no subsequent Part started.

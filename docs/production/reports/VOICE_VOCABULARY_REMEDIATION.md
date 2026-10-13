@@ -263,3 +263,28 @@ Modified relative to the accepted uncommitted candidate:
 Added only `backend-go/internal/httpapi/voice_unavailable_option_test.go` for focused HTTP baseline/candidate, strict-scope, TTL/cleanup and single-parse regressions. All other existing uncommitted work remains present. Gemini/model/keys/failover/8s timeout, 15s middleware timeout, state/Validate/Merge/Missing/Question definitions, Redis adapter/TTL, product selection, repository live discovery, products-discovery optimization, public DTOs/contracts, Nest/frontend, Prisma and dependencies are unchanged. CI continues to read the Go version from go.mod without workflow edits.
 
 No commit/push/merge, Docker image build, production access, VPS/Cloudflare/Vercel action, provider benchmark, deployment, ingestion or production snapshot. The earlier review archive is a pre-correction historical artifact, not falsely claimed current. Part17 not started. Both source review fixes PASS; STOP for independent Code Review before any release.
+
+## 10. Separately authorized production deployment — 2026-10-13
+
+Owner merged the reviewed source into main and explicitly authorized deployment.
+Deployed immutable main revision: **438ecdfa3d386a186dcd8b73c3c10aef5e79dc82**,
+containing source commit20a96120c165fd45ecfcf740c3ef66e2703a2bf7. Independent
+exact-SHA hosted CI run38298368043: all9 mandatory jobs success. No source/runtime
+change or provider tuning during rollout. Go1.27.2 binary was built from clean
+Git export outside VPS; single-file SSH transport and portable image identity PASS.
+
+Actual VPS/public Voice TOP1, TOP3 and clarification/partial continue/completion
+all201; real owned Upstash TTL≤600/session deletion PASS. Public Voice durations
+2447.531–4075.888ms in five bounded application turns.6provider success and
+4invalid_output in the combined deployment window; strict validation and approved
+fallback preserved genuine business results. This is not a provider benchmark
+or a promise about all future requests. Origin isolation, CORS,605.518s stability
+and restricted READ-ONLY POST counts/fingerprints/security comparison PASS.
+
+Detailed CI IDs/artifact/hardening/timings/limitations are in the final main-release
+section of [PART_15_REPORT.md](PART_15_REPORT.md). Previous failed deployment and
+source-only checkpoints above remain historical. Previous e6ef854... image is
+retained; rollback was not needed. Production Supabase/provider credentials and
+configuration unchanged; no DB/catalog/ingestion/snapshot or frontend changes.
+No commit/push by this task. **Physical iPhone Siri NOT RUN / PENDING OWNER**;
+automated HTTP success does not close that manual gate. STOP for owner Siri E2E.

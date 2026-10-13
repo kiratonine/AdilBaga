@@ -21,6 +21,23 @@ security and local restricted Go smoke. Restore only an owned loopback target
 until owner separately approves production recovery. Take a fresh backup before
 any destructive recovery; preserve existing backups and audit evidence.
 
+## Current production release — 2026-10-13
+
+Active API revision `438ecdfa3d386a186dcd8b73c3c10aef5e79dc82` passed the
+owner-authorized VPS/public application, real Redis,605.518s stability and
+READ-ONLY POST gates. Physical Siri remains PENDING OWNER. Retained prior image:
+`adilbaga-api:e6ef854e2973e5b0871888bbc3111e026cdccc5b`.
+
+If an approved rollback is needed: stop cloudflared; atomically restore only
+API_IMAGE to that full-SHA image reference; recreate with existing compose/API
+env; require bounded readiness200, healthy/non-root/read-only/loopback-only
+checks before restarting Tunnel. Preserve Supabase/provider credentials and
+configuration; no DB rollback, migration, ingestion or schema repair. The
+previous image is an availability recovery option, not a claim that its historical
+Voice500 or older toolchain is resolved. Diagnose/review before any repeat rollout.
+
+Older first-release and failed-hotfix procedures below remain historical evidence.
+
 ## VPS — first Go release rollback
 
 Railway retired. First release has no prior production Go image. Safe reviewed

@@ -13,15 +13,22 @@ single-VPS transport is docker save → encrypted SSH → docker load. No VPS bu
 
 ## Current release
 
-Active production Go release: `e6ef854e2973e5b0871888bbc3111e026cdccc5b`.
-Hosted run37668466461 attempt2 passed all9 mandatory jobs; reviewed source was
-not changed during rollout. Portable identity, restricted local/VPS readiness,
-real application Voice/Upstash, exact measured peer and public edge checks PASS.
-Keep the SHA image and private release configuration for reviewed recovery.
+Active production Go release: `438ecdfa3d386a186dcd8b73c3c10aef5e79dc82`,
+deployed from merged main on2026-10-13 local date. Exact-SHA hosted
+run38298368043 attempt1 passed all9 mandatory jobs. Portable identity, restricted
+VPS readiness, real Voice/Upstash TOP1/TOP3/clarification, exact measured peer,
+public HTTPS/CORS/origin isolation and605.518s stability/READ-ONLY POST checks PASS.
+Physical iPhone Siri E2E: owner-reported PASS after this deployment; tests were
+performed and confirmed by the owner, not independently by the AI agent.
+Production application PASS; owner-reported Siri E2E PASS. See the appended
+owner-confirmed closure in the Part15 report. Retain previous image e6ef854...
+and unchanged private API config for
+reviewed recovery. No further rollout/provider tuning without authorization.
 The 2026-10-08 products-discovery rollout of
 `d6098f622dc5bb18fd9e7ec4f4a0c82033927981` was rolled back after a public Voice
-HTTP500 despite local VPS application checks passing. The active release remains
-the SHA above, with Tunnel active and readiness200. Both images are retained;
+HTTP500 despite local VPS application checks passing. At that checkpoint e6ef854...
+was restored; the new release above now has Tunnel active and readiness200.
+Previous/current SHA images are retained;
 do not repeat rollout or change provider configuration without external review.
 See the appended performance-hotfix evidence in the Part15 report.
 Part16+ NOT STARTED; frontend/HSTS/ingestion are not included.
@@ -107,9 +114,9 @@ flow. Broader natural-language/category cases rely on Gemini and may require
 additional clarification during provider degradation. This accepted limitation
 must be monitored after launch; not every phrase/category works without Gemini.
 
-## First-release rollback
+## Historical first-release zero-application rollback
 
-There is no earlier Go production image. Accepted rollback target is Part14B
+The initial Go release had no earlier production image. Its fallback was Part14B
 zero-application state, not another backend/provider or DB rollback:
 
 ```bash
@@ -119,5 +126,7 @@ ssh my-vps 'sudo ss -lntup'
 
 Require no8080 listener and no public80/443/8080; retain the verified image and
 private configuration for reviewed recovery. Never expose origin as fallback.
-Future releases preserve current/previous SHA images before replacement and
+The current release instead retains e6ef854... for the reviewed prior-image
+rollback described in the rollback runbook. Preserve current/previous SHA images
+before replacement and
 validate DB compatibility. No DB rollback, migration, ingest or snapshot action.
