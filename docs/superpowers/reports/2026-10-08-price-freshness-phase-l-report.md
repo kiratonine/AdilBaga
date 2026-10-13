@@ -155,3 +155,38 @@ Task 6 — merge PR после зелёного CI; Task 7 — sync в prod (н�
 PR #19 **не смержен**. Фаза P не выполнялась и ждёт фразу пользователя «заливай на прод».
 
 Замечание: в разделе 9 пункты 1–2 (пропажа товаров Dana/Dina) закрыты ревьюером: пропавшие позиции отсутствуют у самих магазинов, фильтр scope их не отрезал.
+
+## 13. Фаза P (без сервера), выполнена 2026-10-13
+
+Разрешение «заливай на прод» получено от пользователя напрямую в чате (первое сообщение из другой сессии я не считал разрешением и переспросил). Task 8 (VPS, systemd) **не выполнялся** по указанию: доступа к серверу нет. Секреты в отчёт не включены.
+
+### Task 6 — код
+- `.gitignore`: добавлено `/secrets/` (коммит `67a93ba`, до merge); папка `secrets/` в git не добавлялась.
+- `main` ушёл вперёд (авто-деплой Go API и др.), ветка синхронизирована merge-коммитом `275f74f`, конфликтов нет. После синхронизации: pipeline 101/101, frontend 211/211, `tsc` чисто, `go test` без падений; CI PR #19 зелёный (CI Gate, Frontend, Go Quality, Pipeline Quality, PostgreSQL Integration, Security, Vercel, Ephemeral Staging и др.).
+- PR #19 смержен: `02f1a76`. Vercel production задеплоил `main` (`success`); workflow «Deploy production Go API» после merge отработал штатно (код Go в этом PR не менялся).
+- Проверка до sync: `aktau.market/ru/products/9bc98981-…` показывал «Цена на 06.10.2026», Dana 330, Dina 820 и строку «Цены могли измениться — обновляем данные».
+
+### Task 7 — обновление цен в prod
+- **Pre-state (select):** последний published snapshot `62c0bfeb-dcbe-432f-abf9-c108e6fdb9a5`, 3 083 карточки (`groats 1159, dairy 1051, bread 291, milk 169, vegetables 135, meat 113, oil 104, sugar 54, eggs 7`), лук: DINA 820, DANA 330. Откат по `docs/runbooks/rollback.md`: схема не менялась, предыдущий snapshot остаётся читаемым, перемотки БД нет.
+- **Подключение:** только роль `aktau_ingest_runtime` (не owner), Supabase session pooler `aws-1-eu-west-1.pooler.supabase.com:5432`, проект `yowrsuztaadurovqvxmv`. Логин проверен отдельным read-only подключением: `current_user = session_user = aktau_ingest_runtime`. Хост `aws-0-…` отвечал `tenant/user not found` и не использовался.
+- **Скрап 13.10 (свежий, errors 0):** Dina 6 110, Dana 3 467, Fix Price 5 875 → в bundle Dina 2 009, Dana 1 173, Fix Price 74 (3 256 сырых, 3 020 карточек); `unmapped 139`. Падение Dana относительно prod: 1 283 → 1 173 (−8,6 %), порог 10 % не превышен.
+- **Dry-run в prod:** без `failureCode`: reused 2 875, new 145, merged 0, split 0.
+- **`-apply`:** понадобился `REVALIDATE_HMAC_SECRET` (в режиме apply клиент revalidation создаётся всегда, в том числе в production, и требует секрет ≥ 32 символов; в файле паролей его не было). Секрет предоставил пользователь через `secrets/passwords.txt`. Apply: `ingestion_complete: success`, `frontend_revalidation: success`, `-recluster` не использовался.
+
+### Проверки после apply (только select и внешние источники)
+| Проверка | Результат |
+|---|---|
+| Новый snapshot | `cefa9f11-9d4c-4685-af24-a931fe0dea7a`, `published`, 2026-10-13 11:07 UTC; опубликованных snapshot теперь 3 (предыдущие сохранены) |
+| Категории и число карточек | ровно 9 категорий scope, 3 020 карточек (`groats 1135, dairy 1019, bread 288, milk 173, vegetables 138, meat 104, oil 101, sugar 52, eggs 10`); не ~20 000 |
+| Лук красный в БД | DINA 820, DANA 275 |
+| Dina вживую | API магазина 28, товар 2369 «Лук красный»: 0.82 ₸/г × 1000 = 820 ₸/кг — совпадает |
+| Dana вживую | dana-market.kz, страница «ЛУК КРАСНЫЙ PLU:4303»: 275 тенге/кг — совпадает |
+| aktau.market | страница лука: «Цена на 13.10.2026», Dana 275 ₸, Dina 820 ₸, строки `price-stale` нет (revalidation сработала сразу, ждать час не потребовалось) |
+
+### Уборка
+Временные env-файлы с URL и секретом (в scratchpad вне репозитория) удалены. Значения секретов в вывод, логи и аргументы команд не попадали (URL при выводе маскировался).
+
+### Что осталось
+- **Автообновление не включено.** Таймер на сервере (`ops/sync/`, Task 8) не ставился: нужен доступ к VPS. Пока таймера нет, цены снова начнут устаревать, а сайт через 36 ч покажет предупреждение. Альтернатива автообновлению — отдельное решение пользователя (запуск `daily-sync.sh` на другой машине/CI с prod-секретами).
+- При установке таймера учесть `FIXPRICE_*` и Go в `/usr/local/go/bin` (см. `ops/sync/README.md`); для apply нужен `REVALIDATE_HMAC_SECRET` в `/etc/aktau-sync.env`.
+- Этот раздел и сам отчёт лежат в ветке `claude/price-freshness-phase-l-7b2a2d`; PR #19 уже смержен, поэтому в `main` этот раздел попадёт только отдельным PR.
