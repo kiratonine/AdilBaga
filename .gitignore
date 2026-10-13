@@ -35,8 +35,10 @@ Thumbs.db
 Presentation/
 AGENTS_backup.md
 data/sources/
+data/sources-full/
 data/agent/
 *.har
 pipeline/.env
 pipeline/node_modules/
 data/sync/
+data/sync-full/
