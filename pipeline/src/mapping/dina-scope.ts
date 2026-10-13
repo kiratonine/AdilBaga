@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { isCategorySlug, type CategorySlug } from '../agent/taxonomy.js'
 import { mappingDir } from '../paths.js'
 import type { SourceFile, SourceProduct } from '../types.js'
-import { identity, storeCategoryKey, type Dictionary } from './dictionary.js'
+import { resolveCategory, type Dictionary } from './dictionary.js'
 
 /**
  * Минимальный набор category_id Dina, покрывающий все товары публикуемого scope (spec §4.2).
@@ -22,13 +22,6 @@ export const DinaScopeSchema = z.object({
 export type DinaScope = z.infer<typeof DinaScopeSchema>
 
 export const defaultDinaScopePath = () => resolve(mappingDir(), 'dina-scope-categories.json')
-
-/** Категория товара — та же логика, что в buildSyncBundle: карточка словаря, иначе категория магазина, иначе 'other' */
-function productCategory(dict: Dictionary, product: SourceProduct): CategorySlug {
-  const key = dict.products[identity('DINA', product.sourceProductId)]
-  const card = key ? dict.canonicals[key] : undefined
-  return card ? card.category : dict.storeCategories[storeCategoryKey('DINA', product.sourceCategoryPath)] ?? 'other'
-}
 
 /** id категорий Dina из сырого ответа API (rawPayload.categories[].id) */
 function dinaCategoryIds(product: SourceProduct): string[] {
@@ -52,7 +45,8 @@ export function computeDinaScope(file: SourceFile, dict: Dictionary, scope: Set<
   for (const product of file.products) {
     const cats = dinaCategoryIds(product)
     for (const c of cats) size.set(c, (size.get(c) ?? 0) + 1)
-    if (!scope.has(productCategory(dict, product))) continue
+    // То же правило категории, что в buildSyncBundle → набор покрывает ровно то, что публикует сайт
+    if (!scope.has(resolveCategory(dict, 'DINA', product).category)) continue
     scopeProducts++
     if (cats.length > 0) uncovered.set(product.sourceProductId, cats)
   }

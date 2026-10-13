@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildBundle } from '../src/agent/bundle.js'
-import { buildDictionary, canonicalKey, identity, readDictionary, storeCategoryKey, writeDictionary } from '../src/mapping/dictionary.js'
+import { buildDictionary, canonicalKey, identity, readDictionary, resolveCategory, storeCategoryKey, writeDictionary } from '../src/mapping/dictionary.js'
 import { cp } from './helpers.js'
 
 const a = cp('DINA', '1', 'Молоко FoodMaster 3.2% 1 л', { volumeMl: 1000, fatPercent: 3.2 })
@@ -50,5 +50,26 @@ describe('dictionary', () => {
     d.products['DINA:999'] = 'c_0000000000000000'
     writeDictionary(path, d)
     expect(() => readDictionary(path)).toThrow(/missing canonical/)
+  })
+})
+
+describe('resolveCategory', () => {
+  const d = buildDictionary(buildBundle([{ members: [a], method: 'deterministic', confidence: 1, review: 'approved' }], sources, '2026-10-06T06:00:00.000Z'))
+  const base = { sourceProductId: 'new', sourceCategoryPath: ['Молоко, яйца, масло', 'Молоко'] }
+
+  it('takes the canonical card first', () => {
+    const r = resolveCategory(d, 'DINA', { sourceProductId: '1', sourceCategoryPath: ['Бакалея'] })
+    expect(r.category).toBe('milk')
+    expect(r.card?.name).toBeTruthy()
+  })
+
+  it('falls back to the store category, then to other', () => {
+    expect(resolveCategory(d, 'DINA', base)).toEqual({ category: 'milk' })
+    expect(resolveCategory(d, 'DINA', { ...base, sourceCategoryPath: ['Бакалея'] })).toEqual({ category: 'other' })
+  })
+
+  it('ignores a product entry whose canonical is missing', () => {
+    const broken = { ...d, products: { ...d.products, 'DINA:new': 'c_missing' } }
+    expect(resolveCategory(broken, 'DINA', base)).toEqual({ category: 'milk' })
   })
 })
