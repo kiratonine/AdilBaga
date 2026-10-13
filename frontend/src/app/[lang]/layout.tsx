@@ -5,6 +5,7 @@ import { SkipLink } from '../../components/layout/Main'
 import { Providers } from '../../components/Providers'
 import { getI18n, isLanguage, LANGUAGES } from '../../i18n'
 import { SITE_URL } from '../../lib/site'
+import { SITE_NAME } from '../../lib/brand'
 import { golos, montserrat } from '../fonts'
 import '../globals.css'
 
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: LayoutProps<'/[lang]'>): Prom
     // Относительные URL в canonical, hreflang и Open Graph дополняются адресом сайта
     metadataBase: SITE_URL,
     // Страницы задают только своё название, бренд дописывает шаблон
-    title: { default: t('brand.title'), template: `%s — ${t('brand.name')}` },
+    title: { default: t('brand.title'), template: `%s — ${SITE_NAME}` },
     description: t('brand.tagline'),
     // Разрешаем Google крупное превью картинок (Discover, выдача) и сниппет любой длины.
     // index/follow не пишем — это и так поведение по умолчанию, а на 404 Next сам ставит noindex.

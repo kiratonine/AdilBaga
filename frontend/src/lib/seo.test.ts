@@ -40,7 +40,7 @@ describe('seo', () => {
 
   it('uses the brand title on pages without their own and the product photo when there is one', () => {
     expect(pageMetadata({ lang: 'ru', path: '/', description: '' }).title).toEqual({
-      absolute: 'Adil Bağa — сравнение цен в Актау',
+      absolute: 'Aktau Market — сравнение цен в Актау',
     })
     const metadata = pageMetadata({ lang: 'ru', path: '/products/p1', title: 'Молоко', description: '', image: 'https://cdn/1.jpg' })
     expect(metadata.openGraph?.images).toEqual([{ url: 'https://cdn/1.jpg', alt: 'Молоко' }])

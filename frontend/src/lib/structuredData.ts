@@ -2,6 +2,7 @@ import type { ProductCardDto } from '../api/types'
 import type { Language } from '../i18n/languages'
 import { localePath } from './paths'
 import { absoluteUrl } from './site'
+import { SITE_NAME } from './brand'
 
 // JSON-LD (schema.org) для поисковиков: цены товара и «хлебные крошки» в выдаче
 
@@ -11,7 +12,7 @@ type Crumb = { name: string; path: string }
  * WebSite + Organization для главной (каталога): по ним Google показывает в выдаче название сайта
  * вместо домена. Один @graph — организация публикует сайт
  */
-export function siteJsonLd(lang: Language, { name, description }: { name: string; description: string }) {
+export function siteJsonLd(lang: Language, { description }: { description: string }) {
   const organizationId = absoluteUrl('/#organization')
   return {
     '@context': 'https://schema.org',
@@ -19,14 +20,14 @@ export function siteJsonLd(lang: Language, { name, description }: { name: string
       {
         '@type': 'Organization',
         '@id': organizationId,
-        name,
+        name: SITE_NAME,
         url: absoluteUrl('/'),
         logo: absoluteUrl('/icon.svg'),
       },
       {
         '@type': 'WebSite',
         '@id': absoluteUrl(`${localePath(lang, '/')}#website`),
-        name,
+        name: SITE_NAME,
         description,
         url: absoluteUrl(localePath(lang, '/catalog')),
         inLanguage: lang,

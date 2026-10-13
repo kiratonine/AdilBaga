@@ -1,4 +1,4 @@
-# Adil Bağa — frontend (Next.js)
+# Aktau Market — frontend (Next.js)
 
 Единственный frontend проекта после Production Part 01. План — `../docs/context/08_NEXTJS_MIGRATION_PLAN.md` (COMPLETE).
 Все страницы перенесены, язык — в префиксе URL (`/ru`, `/kk`), данные приходят в HTML с сервера.
@@ -29,7 +29,7 @@ pnpm dev --port 3100         # Backend отдельно на :3000
 
 | Что | Где |
 |---|---|
-| Адрес сайта для абсолютных URL | `NEXT_PUBLIC_SITE_URL` обязателен для production build/start; planned `https://aktau.market` → `src/lib/site.ts` |
+| Адрес сайта для абсолютных URL | `NEXT_PUBLIC_SITE_URL` обязателен для production build/start; существующий production domain `https://aktau.market` → `src/lib/site.ts` |
 | title, description, canonical, hreflang (ru/kk/x-default), Open Graph | `pageMetadata` в `src/lib/seo.ts`, вызывается из `generateMetadata` страниц; тексты — `meta.*` в словарях |
 | JSON-LD: `Product` + `AggregateOffer`, `BreadcrumbList` | `src/lib/structuredData.ts`, компонент `src/components/seo/JsonLd.tsx` |
 | `/sitemap.xml`, `/robots.txt` | `src/app/sitemap.ts` (страницы, категории, товары из API на обоих языках), `src/app/robots.ts` |

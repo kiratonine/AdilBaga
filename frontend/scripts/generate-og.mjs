@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { SITE_NAME } from '../src/lib/brand.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const fontCss = (pkg) => pathToFileURL(join(root, 'node_modules', '@fontsource-variable', pkg, 'index.css')).href
@@ -13,8 +14,8 @@ const languages = ['ru', 'kk']
 
 // Заголовок и пример (одна позиция, самая низкая цена выделена) — тексты бывшего лендинга, в словарях их больше нет
 const texts = {
-  ru: { title: 'Где продукты в Актау выгоднее', exampleProduct: 'Молоко 3,2%, 1 л', exampleCheapest: 'Выгоднее всего' },
-  kk: { title: 'Ақтауда азық-түлік қай жерде тиімді', exampleProduct: 'Сүт 3,2%, 1 л', exampleCheapest: 'Ең тиімді' },
+  ru: { title: 'Где продукты в Актау выгоднее', exampleProduct: 'Молоко 3,2%, 1 л', exampleCheapest: 'Выгоднее всего', illustrative: 'Иллюстрация · цены условные' },
+  kk: { title: 'Ақтауда азық-түлік қай жерде тиімді', exampleProduct: 'Сүт 3,2%, 1 л', exampleCheapest: 'Ең тиімді', illustrative: 'Көрнекі мысал · бағалар шартты' },
 }
 
 const offers = [
@@ -47,10 +48,11 @@ const html = (t, og) => `<!doctype html>
   .price { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .best .price { color: #17744a; }
   .label { margin-top: 18px; font-size: 20px; font-weight: 600; color: #17744a; }
+  .illustrative { margin-top: 12px; font-size: 18px; color: #697178; }
 </style></head>
 <body>
   <div>
-    <div class="brand display">${logo}${t.brand.name}</div>
+    <div class="brand display">${logo}${SITE_NAME}</div>
     <h1 class="display">${og.title}</h1>
     <p class="tagline">${t.brand.tagline}</p>
   </div>
@@ -62,6 +64,7 @@ const html = (t, og) => `<!doctype html>
       )
       .join('')}
     <p class="label">${og.exampleCheapest}</p>
+    <p class="illustrative">${og.illustrative}</p>
   </div>
 </body></html>`
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useHref } from '../../lib/useLang'
+import { SITE_NAME } from '../../lib/brand'
 
 /** Знак: ценник со знаком «=» — «справедливая цена» */
 export function LogoMark({ className = 'size-8' }: { className?: string }) {
@@ -20,9 +21,9 @@ export function LogoMark({ className = 'size-8' }: { className?: string }) {
 export function Logo() {
   const href = useHref()
   return (
-    <Link href={href('/catalog')} className="flex shrink-0 items-center justify-self-start gap-1 rounded-md" aria-label="Adil Bağa">
+    <Link href={href('/catalog')} className="flex shrink-0 items-center justify-self-start gap-1 rounded-md" aria-label={SITE_NAME}>
       <LogoMark />
-      <span className="font-display text-[1.0625rem] whitespace-nowrap font-extrabold tracking-[-0.02em]">Adil Bağa</span>
+      <span className="font-display text-[1.0625rem] whitespace-nowrap font-extrabold tracking-[-0.02em]">{SITE_NAME}</span>
     </Link>
   )
 }

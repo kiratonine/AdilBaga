@@ -3,6 +3,7 @@ import type { ProductCardDto } from '../api/types'
 import { DEFAULT_LANGUAGE, getI18n, LANGUAGES, type Language } from '../i18n'
 import { formatDate, formatPrice } from './format'
 import { localePath } from './paths'
+import { SITE_NAME } from './brand'
 
 const OG_LOCALES: Record<Language, string> = { ru: 'ru_KZ', kk: 'kk_KZ' }
 
@@ -49,7 +50,7 @@ type PageSeo = {
 export function pageMetadata({ lang, path, title, description, image }: PageSeo): Metadata {
   const { t } = getI18n(lang)
   // В карточке соцсети шаблона из layout нет — бренд дописываем сами
-  const socialTitle = title ? `${title} — ${t('brand.name')}` : t('brand.title')
+  const socialTitle = title ? `${title} — ${SITE_NAME}` : t('brand.title')
   return {
     title: title ?? { absolute: t('brand.title') },
     description,
@@ -57,7 +58,7 @@ export function pageMetadata({ lang, path, title, description, image }: PageSeo)
     // openGraph из layout не сливается с этим, а заменяется — поэтому поля целиком
     openGraph: {
       type: 'website',
-      siteName: t('brand.name'),
+      siteName: SITE_NAME,
       locale: OG_LOCALES[lang],
       alternateLocale: LANGUAGES.filter((l) => l !== lang).map((l) => OG_LOCALES[l]),
       url: localePath(lang, path),

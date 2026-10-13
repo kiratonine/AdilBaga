@@ -60,19 +60,19 @@ describe('structuredData', () => {
   })
 
   it('publishes the site name as WebSite by the Organization, on the catalog of the page language', () => {
-    const data = siteJsonLd('kk', { name: 'Adil Bağa', description: 'Бағаларды салыстыру' })
+    const data = siteJsonLd('kk', { description: 'Бағаларды салыстыру' })
     expect(data['@graph']).toEqual([
       {
         '@type': 'Organization',
         '@id': 'http://localhost:3000/#organization',
-        name: 'Adil Bağa',
+        name: 'Aktau Market',
         url: 'http://localhost:3000/',
         logo: 'http://localhost:3000/icon.svg',
       },
       {
         '@type': 'WebSite',
         '@id': 'http://localhost:3000/kk#website',
-        name: 'Adil Bağa',
+        name: 'Aktau Market',
         description: 'Бағаларды салыстыру',
         url: 'http://localhost:3000/kk/catalog',
         inLanguage: 'kk',
