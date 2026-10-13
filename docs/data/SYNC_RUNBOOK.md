@@ -31,7 +31,7 @@ export APP_ENV=development INGEST_MAX_STORE_DROP_PERCENT=10 INGEST_DATABASE_URL=
 bash pipeline/scripts/daily-sync.sh
 ```
 
-В production дополнительно `APP_ENV=production` и `INGEST_PRODUCTION_APPLY_CONFIRM=1` (только по решению владельца). Скрипт сначала делает dry-run, затем `-apply`; `set -e` останавливает его на первой ошибке.
+В production дополнительно `APP_ENV=production` и `INGEST_PRODUCTION_APPLY_CONFIRM=1` (только по решению владельца). Скрипт сначала скрапит три сети параллельно (упавший скрапер сам не останавливает скрипт), затем публикует: `pnpm sync`, dry-run, `-apply`. Ошибка на этапе публикации (`set -e` действует только здесь) останавливает скрипт с кодом 1. Коды выхода 0/1/3 — в §4 и `ops/sync/README.md`.
 
 ## 3. Расписание (SCRUM-8)
 
@@ -55,7 +55,7 @@ bash pipeline/scripts/daily-sync.sh
 | `required_source_missing` | в bundle нет товаров одной из сетей — скрапер сети упал или вернул пустой файл |
 | `store_count_drop` | товаров сети стало заметно меньше (порог `INGEST_MAX_STORE_DROP_PERCENT`) — проверить источник, не публиковать |
 | `canonical_merge_conflict` | словарь меняли (объединили карточки) — запустить `cmd/ingest` с `-recluster` |
-| ошибка скрапера / `sync` | snapshot не публикуется, на сайте остаются вчерашние цены |
+| ошибка `sync` или ingest (exit 1) | snapshot не публикуется, на сайте остаются прошлые цены. Падение одного скрапера сюда не относится: оно даёт exit 3 (следующая строка) |
 | exit 3 — stale stores | snapshot **опубликован**, но сети из строки `[sync] stale stores: <список>` взяты из прошлого удачного файла; юнит в статусе `failed` намеренно. Смотрите `journalctl -u aktau-sync`, ищите `[<сеть>]` с причиной падения скрапера. Цены такой сети устаревают, и через `SYNC_MAX_SOURCE_AGE_HOURS` (36 ч) `sync` откажется их публиковать (`... source file is stale`) — до этого срока скрапер надо починить |
 | `all scrapers failed, nothing to publish` (exit 1) | упали все три скрапера, ничего не опубликовано — сначала проверить сеть и доступность VPS в целом |
 | `FIX_PRICE: scope alias ... not in category menu` | магазин переименовал или убрал категорию из `FIXPRICE_SCOPE_ALIASES` — скрапер упал намеренно, чтобы не публиковать 0 товаров. Найти новое имя в `category/menu` и поправить `FIXPRICE_SCOPE_ALIASES` в `pipeline/src/scrapers/fixprice.ts` |
