@@ -33,7 +33,7 @@ export default async function Page({ params }: PageProps<'/[lang]/catalog'>) {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <JsonLd data={siteJsonLd(lang, { name: t('brand.name'), description: t('brand.tagline') })} />
+      <JsonLd data={siteJsonLd(lang, { description: t('brand.tagline') })} />
       <CatalogPage />
     </HydrationBoundary>
   )

@@ -1,12 +1,12 @@
 <p align="center">
   <img
-    src="assets/logo/Logo.jpg"
-    alt="Логотип Adil Bağa"
+    src="frontend/src/app/icon.svg"
+    alt="Логотип Aktau Market — зелёный ценник со знаком равенства"
     width="150"
   />
 </p>
 
-<h1 align="center">Adil Bağa — Әділ баға</h1>
+<h1 align="center">Aktau Market</h1>
 
 <p align="center">
   <strong>Сервис для жителей Актау, который сравнивает цены на продукты, показывает городскую аналитику и помогает найти самое выгодное предложение через web и Siri.</strong>
@@ -16,7 +16,7 @@
   <a href="https://drive.google.com/file/d/1-tAK564vpBrJkKRu9fofxACQNTRgFW72/view?usp=sharing">
     <img src="https://img.shields.io/badge/Презентация-Google%20Drive-4285F4?logo=googledrive&logoColor=white" alt="Презентация" />
   </a>
-  <a href="https://adil-baga.vercel.app/">
+  <a href="https://aktau.market/">
     <img src="https://img.shields.io/badge/Live%20App-Vercel-000000?logo=vercel&logoColor=white" alt="Live App" />
   </a>
   <a href="docs/">
@@ -33,15 +33,23 @@
 
 ---
 
-## Что такое Adil Bağa? 🏷️
+## Что такое Aktau Market? 🏷️
 
-**Adil Bağa (Әділ баға, «Справедливая цена»)** — веб-сервис мониторинга и сравнения цен на социально значимые и повседневные продукты в Актау.
+**Aktau Market** — веб-сервис мониторинга и сравнения цен на социально значимые и повседневные продукты в Актау.
+
+Публичное имя **Aktau Market** утверждено одинаково для RU/KK. Историческое имя —
+Adil Bağa (Әділ баға, «Справедливая цена»); GitHub repository `kiratonine/AdilBaga`
+и Vercel project `adil-baga` не переименовываются. Existing зелёный SVG-знак выше
+утверждён как финальный логотип; новый знак не требуется. Старый `assets/logo/Logo.jpg`
+и скриншоты сохранены как исторические материалы. Frontend branding/SEO implementation
+подготовлена как source candidate, ещё не merged/deployed. Контакты и юридические
+данные остаются pending: [Part17 Frontend handoff](docs/production/PART_17_FRONTEND_HANDOFF.md).
 
 Проект объединяет данные магазинов в единый каталог и помогает быстро получить ответ на простой вопрос:
 
 > **Где нужный товар сегодня дешевле и где находится ближайшая точка этого магазина?**
 
-В MVP используются данные трёх торговых сетей:
+Используются данные трёх торговых сетей:
 
 - **Dana Market**;
 - **Dina Market**;
@@ -67,7 +75,7 @@
 
 ## Решение ✅
 
-Adil Bağa сокращает путь от поиска до конкретного решения:
+Aktau Market сокращает путь от поиска до конкретного решения:
 
 ```text
 Нужный товар
@@ -97,7 +105,7 @@ Adil Bağa сокращает путь от поиска до конкретно
 - 📍 **Ближайший магазин** — расстояние рассчитывается по геолокации пользователя;
 - 🎙 **Интеграция с Siri** — голосовой запрос возвращает товар, цену, сеть, адрес и изображение;
 - 🤖 **Gemini только для NLP** — AI извлекает intent и фильтры, но не выбирает самый дешёвый товар;
-- 🧯 **Fallback для voice-flow** — при недоступности внешнего AI demo-сценарий не должен ломаться.
+- 🧯 **Fallback для voice-flow** — при недоступности внешнего AI используется утверждённый deterministic degradation path.
 
 ---
 
@@ -137,6 +145,9 @@ Adil Bağa сокращает путь от поиска до конкретно
 
 ## Что уже работает? ✅
 
+Числа 849 товаров / 6 категорий ниже относятся к историческому исходному snapshot,
+не являются текущими live counts; актуальный опубликованный каталог меняется.
+
 - единый snapshot данных магазинов Актау;
 - **849** canonical products;
 - **3** торговые сети;
@@ -154,7 +165,7 @@ Adil Bağa сокращает путь от поиска до конкретно
 - три Gemini API key с failover;
 - Upstash Redis для коротких voice sessions;
 - rich notification Siri с изображением товара;
-- frontend и backend работают локально;
+- frontend и backend доступны в production; локальный flow также сохранён;
 - unit, integration и Playwright E2E проверки.
 
 ---
@@ -182,7 +193,7 @@ Dana Market / Dina Market / Fix Price
 ```text
 Next.js App Router (SSR, ru/kk)
      ↓ REST
-  NestJS API
+  Go API (production)
      ↓
 PostgreSQL
 ```
@@ -190,9 +201,12 @@ PostgreSQL
 ### Voice flow
 
 `backend-go/` уже реализует frozen v1 business parity для catalog/dashboard/voice.
-Backend сейчас **local-only**: VPS и production-домены ещё не provisioned,
-Railway retired. NestJS `backend/` остаётся reference до отдельного reviewed
-cutover. Запуск и проверки: [backend-go/README.md](backend-go/README.md).
+Production frontend: `main` → Vercel → **https://aktau.market**.
+Production API: immutable Go container на VPS → Cloudflare Tunnel →
+**https://api.aktau.market**; PostgreSQL остаётся Supabase. Railway retired.
+NestJS `backend/` остаётся reference для frozen v1 parity, не production traffic
+owner. Запуск и проверки: [backend-go/README.md](backend-go/README.md).
+Это документирование принятого deployment, не новая проверка VPS.
 
 ```text
 Siri
@@ -201,7 +215,7 @@ POST /api/voice/start
  ↓
 Gemini: текст → intent + filters
  ↓
-NestJS / PostgreSQL: поиск и сравнение цен
+Go / PostgreSQL: поиск и сравнение цен
  ↓
 Nearest Store / Haversine
  ↓
@@ -210,7 +224,7 @@ Nearest Store / Haversine
 Siri speech + notification
 ```
 
-> **Важно:** Gemini не сравнивает цены, не выбирает магазин и не определяет самый дешёвый товар. Эти решения выполняются детерминированно в NestJS/PostgreSQL.
+> **Важно:** Gemini не сравнивает цены, не выбирает магазин и не определяет самый дешёвый товар. Эти решения выполняются детерминированно в Go/PostgreSQL; NestJS сохранён как reference.
 
 ---
 
@@ -222,15 +236,15 @@ Siri speech + notification
 | UI / routing | Tailwind CSS, Next.js routing, ru/kk URL prefixes |
 | Data fetching | TanStack Query |
 | Карта | Leaflet / React Leaflet |
-| Backend | Go — frozen v1 business parity; NestJS 11 / TypeScript — reference до cutover |
+| Backend | Go — production API с frozen v1 parity; NestJS 11 / TypeScript — reference |
 | Database | PostgreSQL / Supabase |
-| ORM | Prisma |
+| DB tooling / reference ORM | Prisma; Go runtime — pgx |
 | Voice NLP | Gemini API |
 | Voice sessions | Upstash Redis |
 | Geolocation | Haversine distance |
 | Tests | Node Test Runner, Vitest, Playwright |
 | Frontend deploy | Vercel |
-| Backend production target | Сейчас local-only; будущий VPS / immutable Go container, VPS и домены ещё не provisioned |
+| Backend production target | VPS / immutable Go container; Cloudflare Tunnel, loopback-only origin |
 | Railway | Retired; not a production target |
 
 ---
@@ -420,8 +434,11 @@ pnpm test:e2e
 Siri-flow дополнительно проверяется вручную на реальном iPhone.
 
 Production build/start требуют явных HTTP mode, публичного API URL и site URL.
-Планируемые адреса: `https://aktau.market` и `https://api.aktau.market`;
-бренд пока **Adil Bağa**, production deploy не выполнен. Backend может быть
+Production адреса: `https://aktau.market` и `https://api.aktau.market`.
+Публичное имя — **Aktau Market**; frontend branding/SEO изменения реализованы
+как source candidate и ещё не выпущены в production.
+Part16 signed production verification ещё открыт; Automatic CI/CD Activation
+остаётся **FROZEN / WAITING_FOR_OWNER**. Backend может быть
 недоступен при `next build`: каталог, Dashboard и sitemap читают API в runtime;
 серверные GET кешируются до 3600 секунд. Mock production build разрешён только
 через `NEXT_PUBLIC_ENABLE_TEST_MOCKS=1` для Playwright, не для deployment.
@@ -509,5 +526,5 @@ AdilBaga/
 ---
 
 <p align="center">
-  <strong>Adil Bağa — справедливая цена за один запрос.</strong>
+  <strong>Aktau Market — сравнение цен на продукты в Актау.</strong>
 </p>
