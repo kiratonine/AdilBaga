@@ -11,11 +11,13 @@ const PAGE_SIZE = 24 // сервер режет _limit до 24 (проверен
 
 // Глубокая пагинация без фильтра нестабильна (с ~8400-го товара страницы пересекаются),
 // поэтому обходим каталог по category_id: в каждой категории < 8400 товаров.
+// Список полей товара общий для одиночного запроса и алиасного батча (dina-batch.ts)
+export const DINA_PRODUCT_FIELDS = `id xid name slug price oldPrice price_type isWeightProduct
+      preview { url } images { url } stock { amount } categories { id name }`
 const QUERY = `query getProducts($shopId: ID!, $page: Int, $limit: Int, $categoryId: ID) {
   products(shop_id: $shopId, _page: $page, _limit: $limit, category_id: $categoryId) {
     pageInfo { total }
-    edges { id xid name slug price oldPrice price_type isWeightProduct
-      preview { url } images { url } stock { amount } categories { id name } }
+    edges { ${DINA_PRODUCT_FIELDS} }
   }
 }`
 
