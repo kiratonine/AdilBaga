@@ -12,9 +12,10 @@ pnpm sync (словарь data/mapping/dictionary.json) →  data/sync/bundle.js
 go run ./cmd/ingest -bundle data/sync/bundle.json [-apply]   →  новый snapshot (staging, quality gates, атомарный publish)
 ```
 
-- Скраперы идут параллельно, весь прогон занимает около 1–1,5 минуты. Каждая строка вывода помечена сетью (`[dina]`, `[dana]`, `[fixprice]`), итог сети — `[sync] <сеть> exit=<код> took=<N>s`.
-- Dina скрапится батчами: один GraphQL-запрос содержит до 20 страниц (`DINA_BATCH_PAGES`, `1` возвращает прежнее поведение «страница = запрос»), и только по категориям из `data/mapping/dina-scope-categories.json`. Нет файла или он пуст — обход по `DINA_SCOPE_ROOTS`.
+- Скраперы идут параллельно, весь прогон занимает около 4 минут (замер 2026-10-13): критический путь — HTML-скрапер Dana (~3,7 мин, не менялся; JSON-адаптер — следующая задача, spec §6), Dina и Fix Price — по ~22 с. Каждая строка вывода помечена сетью (`[dina]`, `[dana]`, `[fixprice]`), итог сети — `[sync] <сеть> exit=<код> took=<N>s`.
+- Dina скрапится батчами: один GraphQL-запрос содержит до 20 страниц (`DINA_BATCH_PAGES`, максимум 20: больше 20, ноль или мусор — 20 с предупреждением; `1` возвращает прежнее поведение «страница = запрос»), и только по категориям из `data/mapping/dina-scope-categories.json`. Нет файла, он пуст или посчитан без какой-то из публикуемых сейчас категорий — обход по `DINA_SCOPE_ROOTS`. Выбранный режим — строка `[DINA] mode: ...` в журнале.
 - Fix Price обходит только `FIXPRICE_SCOPE_ALIASES` (сейчас `produkty-i-napitki`).
+- Узкий скрап Dina (батчи) и Fix Price (по алиасу) с хотя бы одной ошибкой страницы файл не пишет и падает: одна ошибка там теряет целую категорию или остаток каталога. Dana, `SCRAPE_ALL=1` и обход Dina по корням терпят отдельные ошибки, как раньше.
 - `SCRAPE_ALL=1` включает полный каталог (используется только еженедельным прогоном, §5).
 - Если сеть упала, а её прошлый удачный файл не старше лимита, публикуется он; прогон завершается кодом 3 (см. §4). Если упали все три сети, sync и ingest не запускаются.
 
@@ -52,15 +53,16 @@ bash pipeline/scripts/daily-sync.sh
 
 | Код / симптом | Что значит и что делать |
 |---|---|
-| `required_source_missing` | в bundle нет товаров одной из сетей — скрапер сети упал или вернул пустой файл |
+| `required_source_missing` | в bundle нет ни одного товара обязательной сети. Упавший скрапер к этому больше не приводит: берётся прошлый удачный файл (exit 3), пустой файл не записывается вовсе. Нет source-файла или он старше лимита — `sync` останавливается ещё раньше (`source file missing` / `source file is stale`, строка ниже). Значит, сеть выпала из bundle иначе: `SYNC_STORES` без неё или ни один её товар не попал в публикуемые категории — проверить env и source-файл сети |
 | `store_count_drop` | товаров сети стало заметно меньше (порог `INGEST_MAX_STORE_DROP_PERCENT`) — проверить источник, не публиковать |
 | `canonical_merge_conflict` | словарь меняли (объединили карточки) — запустить `cmd/ingest` с `-recluster` |
 | ошибка `sync` или ingest (exit 1) | snapshot не публикуется, на сайте остаются прошлые цены. Падение одного скрапера сюда не относится: оно даёт exit 3 (следующая строка) |
 | exit 3 — stale stores | snapshot **опубликован**, но сети из строки `[sync] stale stores: <список>` взяты из прошлого удачного файла; юнит в статусе `failed` намеренно. Смотрите `journalctl -u aktau-sync`, ищите `[<сеть>]` с причиной падения скрапера. Цены такой сети устаревают, и через `SYNC_MAX_SOURCE_AGE_HOURS` (36 ч) `sync` откажется их публиковать (`... source file is stale`) — до этого срока скрапер надо починить |
 | `all scrapers failed, nothing to publish` (exit 1) | упали все три скрапера, ничего не опубликовано — сначала проверить сеть и доступность VPS в целом |
 | `FIX_PRICE: scope alias ... not in category menu` | магазин переименовал или убрал категорию из `FIXPRICE_SCOPE_ALIASES` — скрапер упал намеренно, чтобы не публиковать 0 товаров. Найти новое имя в `category/menu` и поправить `FIXPRICE_SCOPE_ALIASES` в `pipeline/src/scrapers/fixprice.ts` |
+| `<СЕТЬ>: scoped scrape finished with N error(s) ... keeping previous file` | узкий скрап Dina (батчи) или Fix Price (алиас) получил ошибки страниц и намеренно не перезаписал свой файл. Сеть берётся из прошлого удачного файла: exit 3, сеть в `[sync] stale stores`. Разовое — дождаться следующего прогона; повторяется — разобрать ошибки `[dina]`/`[fixprice]` в журнале выше этой строки |
 | `DINA: too many page errors` | более 10 ошибок страниц за прогон (ответ с `errors` в одном из алиасов батча тоже считается). Повторить запуск; если повторяется — `DINA_BATCH_PAGES=1` в env-файле как временный откат на «страница = запрос», затем разобрать формат ответа |
-| `... source file is stale` | файл источника старше порога — перезапустить соответствующий `pnpm scrape:*` |
+| `... source file missing` / `... source file is stale` | source-файла обязательной сети нет или он старше `SYNC_MAX_SOURCE_AGE_HOURS`: удачного скрапа сети давно не было или файл удалили — перезапустить соответствующий `pnpm scrape:*` и разобрать, почему он падает |
 
 ## 5. Еженедельный полный прогон и новые товары
 
@@ -72,13 +74,21 @@ bash pipeline/scripts/daily-sync.sh
 
 Упавший скрапер, `scope:dina` или `sync` дают ненулевой код и `failed` у юнита; ничего не публикуется в любом случае.
 
-**Ручной коммит набора категорий.** Кандидат сам не применяется: изменение набора должно быть осознанным. После воскресного прогона:
+**Ручной коммит набора категорий.** Кандидат сам не применяется: изменение набора должно быть осознанным. После воскресного прогона — через обычный PR:
 
 ```bash
-diff data/mapping/dina-scope-categories.json data/sources-full/dina-scope-categories.candidate.json
-cp data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
+# 1. На машине разработчика, в checkout репозитория на свежем main: забрать кандидат с VPS
+git switch -c data/refresh-dina-scope
+scp <vps>:/opt/adilbaga/data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
+git diff data/mapping/dina-scope-categories.json          # просмотреть изменения набора
 git add data/mapping/dina-scope-categories.json && git commit -m "data(mapping): refresh dina scope categories"
+git push -u origin HEAD                                    # дальше — PR и мерж в main
+
+# 2. После мержа — на VPS
+sudo -u aktau-sync git -C /opt/adilbaga pull --ff-only
 ```
+
+Не коммитьте прямо в `/opt/adilbaga`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
 
 Новые категории в диффе значат, что в магазине появились товары в категориях вне старого набора: до коммита ежедневный прогон их не видит. Разрастание набора в разы тоже повод разобраться, прежде чем коммитить.
 

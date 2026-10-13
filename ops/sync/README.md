@@ -2,7 +2,7 @@
 
 Два таймера:
 
-- `aktau-sync.timer` запускает `pipeline/scripts/daily-sync.sh` дважды в день: 06:00 и 18:00 по Актау (`01:00` и `13:00` UTC). Три скрапера идут параллельно, затем sync по словарю и ingest с публикацией snapshot. Рассчитан примерно на 1–1,5 минуты, лимит юнита `TimeoutStartSec=20min`.
+- `aktau-sync.timer` запускает `pipeline/scripts/daily-sync.sh` дважды в день: 06:00 и 18:00 по Актау (`01:00` и `13:00` UTC). Три скрапера идут параллельно, затем sync по словарю и ingest с публикацией snapshot. Занимает около 4 минут (замер 2026-10-13): критический путь — HTML-скрапер Dana (~3,7 мин, не менялся; переход на JSON-адаптер — следующая задача, spec §6), Dina и Fix Price — по ~22 с. Лимит юнита `TimeoutStartSec=20min`.
 - `aktau-sync-full.timer` запускает `pipeline/scripts/weekly-full-scrape.sh` раз в неделю: воскресенье 22:00 UTC (понедельник 03:00 по Актау). Это полный скрап каталога (`SCRAPE_ALL=1`) **без публикации**: ingest не запускается. Лимит `TimeoutStartSec=2h`.
 
 Ingestion не входит в API-релиз (`deploy/`) и ставится отдельно.
@@ -68,12 +68,20 @@ systemctl status aktau-sync              # status=0/SUCCESS или failed
 - `data/sources-full/dina-scope-categories.candidate.json` — **кандидат** нового набора категорий Dina (его пересчитывает `pnpm scope:dina`);
 - `data/sync-full/unmapped.json` — товары вне словаря для еженедельной обработки новых товаров.
 
-Кандидат не применяется автоматически. Набор категорий меняется осознанно, вручную:
+Кандидат не применяется автоматически. Набор категорий меняется осознанно, вручную, через обычный PR:
 
 ```bash
-diff data/mapping/dina-scope-categories.json data/sources-full/dina-scope-categories.candidate.json
-cp data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
+# 1. На машине разработчика, в checkout репозитория на свежем main: забрать кандидат с VPS
+git switch -c data/refresh-dina-scope
+scp <vps>:/opt/adilbaga/data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
+git diff data/mapping/dina-scope-categories.json          # просмотреть изменения набора
 git add data/mapping/dina-scope-categories.json && git commit -m "data(mapping): refresh dina scope categories"
+git push -u origin HEAD                                    # дальше — PR и мерж в main
+
+# 2. После мержа — на VPS
+sudo -u aktau-sync git -C /opt/adilbaga pull --ff-only
 ```
+
+Не коммитьте прямо в `/opt/adilbaga`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
 
 Разбор ошибок — `docs/data/SYNC_RUNBOOK.md §4`, еженедельный прогон — `§5`.
