@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=aktau-sync
-WorkingDirectory=/opt/adilbaga
+WorkingDirectory=/opt/aktau-sync
 EnvironmentFile=/etc/aktau-sync.env
 # systemd не читает профиль: Go лежит в /usr/local/go/bin, а у системного пользователя нет HOME и GOCACHE
 Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin

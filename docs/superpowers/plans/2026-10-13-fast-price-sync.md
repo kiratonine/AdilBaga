@@ -245,11 +245,11 @@ coveredProducts = покрытые; scopeProducts = все товары в scope
 - Modify: `ops/sync/aktau-sync.service` (`TimeoutStartSec=20min`; `SuccessExitStatus` НЕ добавлять — код 3 должен давать `failed`, чтобы проблема была видна)
 - Create: `ops/sync/aktau-sync-full.service` (копия ежедневного юнита: `ExecStart=/usr/bin/bash pipeline/scripts/weekly-full-scrape.sh`, `TimeoutStartSec=2h`, `Description=Aktau Market weekly full catalog scrape (no publish)`)
 - Create: `ops/sync/aktau-sync-full.timer` (`OnCalendar=Sun *-*-* 22:00:00 UTC`, `Persistent=true`)
-- Modify: `ops/sync/README.md` (установка обоих таймеров; коды выхода 0/1/3; где кандидат набора категорий; как обновить код на VPS: `sudo -u aktau-sync git -C /opt/adilbaga pull --ff-only` + `pnpm install --frozen-lockfile` в `pipeline/`)
+- Modify: `ops/sync/README.md` (установка обоих таймеров; коды выхода 0/1/3; где кандидат набора категорий; как обновить код на VPS: `sudo -u aktau-sync git -C /opt/aktau-sync pull --ff-only` + `pnpm install --frozen-lockfile` в `pipeline/`)
 - Modify: `docs/data/SYNC_RUNBOOK.md` (§1 новая схема с параллельным скрапом и батчами; §3 два таймера; §4 строки «exit 3 — stale stores», «scope alias ... not in category menu», «DINA: too many page errors»; §5 еженедельный полный прогон и ручной коммит `dina-scope-categories.json`)
 
 - [ ] **Step 1: Внести изменения в юниты и доки.**
-- [ ] **Step 2: Проверить юниты** на синтаксис: `docker run --rm -v "$PWD/ops/sync:/u" debian:13 bash -c 'apt-get -qq update >/dev/null && apt-get -qq install -y systemd >/dev/null && systemd-analyze verify --man=no /u/aktau-sync.service /u/aktau-sync.timer /u/aktau-sync-full.service /u/aktau-sync-full.timer'` → допустимы только предупреждения об отсутствующем пользователе/пути `/opt/adilbaga`, без синтаксических ошибок.
+- [ ] **Step 2: Проверить юниты** на синтаксис: `docker run --rm -v "$PWD/ops/sync:/u" debian:13 bash -c 'apt-get -qq update >/dev/null && apt-get -qq install -y systemd >/dev/null && systemd-analyze verify --man=no /u/aktau-sync.service /u/aktau-sync.timer /u/aktau-sync-full.service /u/aktau-sync-full.timer'` → допустимы только предупреждения об отсутствующем пользователе/пути `/opt/aktau-sync`, без синтаксических ошибок.
 - [ ] **Step 3: `pnpm test && pnpm typecheck`** в `pipeline/` → PASS (регрессия).
 - [ ] **Step 4: Commit** `ops(sync): weekly full scrape timer, faster daily unit, runbook`.
 
@@ -296,8 +296,8 @@ coveredProducts = покрытые; scopeProducts = все товары в scope
   6. (Опционально) свежий дамп прод-каталога для повторной локальной проверки — если в Task 9 был `canonical_merge_conflict`.
   Секреты не просить вставлять в чат, если владелец может вписать их сам в `/etc/aktau-sync.env` через `sudoedit`; если присылает в чат — не повторять значения в ответах, логах и коммитах.
 - [ ] **Step 2: Merge** PR (после одобрения), убедиться, что CI на `main` зелёный (`gh run list --branch main --limit 3`).
-- [ ] **Step 3: Проверка VPS (только чтение)**: `systemctl list-timers --all | grep aktau`; наличие `/opt/adilbaga` (git checkout), `node`, `pnpm`, `/usr/local/go/bin/go`; пользователь `aktau-sync`; права на `/opt/adilbaga/data`. Сообщить, чего не хватает, и ставить недостающее только по `ops/sync/README.md`.
-- [ ] **Step 4: Код на VPS**: checkout/`git pull --ff-only` в `/opt/adilbaga` на коммит из `main`; `pnpm install --frozen-lockfile` в `pipeline/`; владелец данных — `aktau-sync`.
+- [ ] **Step 3: Проверка VPS (только чтение)**: `systemctl list-timers --all | grep aktau`; наличие `/opt/aktau-sync` (git checkout), `node`, `pnpm`, `/usr/local/go/bin/go`; пользователь `aktau-sync`; права на `/opt/aktau-sync/data`. Сообщить, чего не хватает, и ставить недостающее только по `ops/sync/README.md`.
+- [ ] **Step 4: Код на VPS**: checkout/`git pull --ff-only` в `/opt/aktau-sync` на коммит из `main`; `pnpm install --frozen-lockfile` в `pipeline/`; владелец данных — `aktau-sync`.
 - [ ] **Step 5: Env**: `/etc/aktau-sync.env` по `ops/sync/aktau-sync.env.example` (права `600`, владелец `aktau-sync`), значения из Step 1. Не печатать файл.
 - [ ] **Step 6: Юниты**: скопировать 4 файла из `ops/sync/` в `/etc/systemd/system/`, `sudo systemctl daemon-reload`.
 - [ ] **Step 7: Первый ручной прогон**: `sudo systemctl start aktau-sync`; `journalctl -u aktau-sync -n 200 --no-pager` → строки `[sync] <s> exit=0 took=…`, сводка ingest `"applied":true`. Через Supabase MCP (только чтение): последний `snapshots` — `published`, `createdAt` = сейчас, `qualityReport.rawCount` в пределах ±10% от 3 256, `failureCode` пуст; `source_runs.capturedAt` трёх сетей свежие (у Dana — допустимо старое, если сайт лежит; тогда `exit 3`).

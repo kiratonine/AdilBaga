@@ -80,16 +80,16 @@ bash pipeline/scripts/daily-sync.sh
 ```bash
 # 1. На машине разработчика, в checkout репозитория на свежем main: забрать кандидат с VPS
 git switch -c data/refresh-dina-scope
-scp <vps>:/opt/adilbaga/data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
+scp <vps>:/opt/aktau-sync/data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
 git diff data/mapping/dina-scope-categories.json          # просмотреть изменения набора
 git add data/mapping/dina-scope-categories.json && git commit -m "data(mapping): refresh dina scope categories"
 git push -u origin HEAD                                    # дальше — PR и мерж в main
 
 # 2. После мержа — на VPS
-sudo -u aktau-sync git -C /opt/adilbaga pull --ff-only
+sudo -u aktau-sync git -C /opt/aktau-sync pull --ff-only
 ```
 
-Не коммитьте прямо в `/opt/adilbaga`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
+Не коммитьте прямо в `/opt/aktau-sync`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
 
 Новые категории в диффе значат, что в магазине появились товары в категориях вне старого набора: до коммита ежедневный прогон их не видит. Разрастание набора в разы тоже повод разобраться, прежде чем коммитить.
 

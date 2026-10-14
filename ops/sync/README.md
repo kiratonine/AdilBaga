@@ -21,9 +21,11 @@ Ingestion не входит в API-релиз (`deploy/`) и ставится о
 
 ## Требования на VPS
 
-- checkout репозитория в `/opt/adilbaga`, Node + pnpm (`pnpm install --frozen-lockfile` в `pipeline/`), Go (ожидается в `/usr/local/go/bin`, иначе поправьте `PATH` в юнитах; `Node` и `pnpm` должны быть в `/usr/local/bin` или `/usr/bin`);
-- системный пользователь `aktau-sync` с доступом на чтение/запись в `/opt/adilbaga/data` (и на чтение репозитория; запись в `.git` нужна для обновления кода, см. ниже);
-- без `GEMINI_API_KEY*` — sync не использует LLM.
+- checkout репозитория в `/opt/aktau-sync`, Node + pnpm (`pnpm install --frozen-lockfile` в `pipeline/`), Go (ожидается в `/usr/local/go/bin`, иначе поправьте `PATH` в юнитах; `Node` и `pnpm` должны быть в `/usr/local/bin` или `/usr/bin`);
+- системный пользователь `aktau-sync` с доступом на чтение/запись в `/opt/aktau-sync/data` (и на чтение репозитория; запись в `.git` нужна для обновления кода, см. ниже);
+- без `GEMINI_API_KEY*` — sync не использует LLM;
+- каталог `/opt/aktau-sync` отдельный: на production-VPS `/opt/adilbaga` занят `compose.production.yml` боевого Go API, туда sync не кладётся и API не затрагивается;
+- у production-VPS нет IPv6, поэтому `INGEST_DATABASE_URL` указывает на Supabase **session pooler** (порт 5432; логин вида `aktau_ingest_runtime.<project_ref>`), а не на прямой хост `db.<project_ref>.supabase.co` (только IPv6). Порт 6543 (transaction pooler) не использовать.
 
 ## Установка
 
@@ -41,8 +43,8 @@ sudo systemctl enable --now aktau-sync.timer aktau-sync-full.timer
 ## Обновление кода на VPS
 
 ```bash
-sudo -u aktau-sync git -C /opt/adilbaga pull --ff-only
-cd /opt/adilbaga/pipeline && sudo -u aktau-sync pnpm install --frozen-lockfile
+sudo -u aktau-sync git -C /opt/aktau-sync pull --ff-only
+cd /opt/aktau-sync/pipeline && sudo -u aktau-sync pnpm install --frozen-lockfile
 ```
 
 `pnpm install` нужен только если менялись `package.json` / `pnpm-lock.yaml`, но безопасно запускать всегда. После обновления юнитов из `ops/sync/` скопируйте их заново и выполните `sudo systemctl daemon-reload`.
@@ -73,15 +75,15 @@ systemctl status aktau-sync              # status=0/SUCCESS или failed
 ```bash
 # 1. На машине разработчика, в checkout репозитория на свежем main: забрать кандидат с VPS
 git switch -c data/refresh-dina-scope
-scp <vps>:/opt/adilbaga/data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
+scp <vps>:/opt/aktau-sync/data/sources-full/dina-scope-categories.candidate.json data/mapping/dina-scope-categories.json
 git diff data/mapping/dina-scope-categories.json          # просмотреть изменения набора
 git add data/mapping/dina-scope-categories.json && git commit -m "data(mapping): refresh dina scope categories"
 git push -u origin HEAD                                    # дальше — PR и мерж в main
 
 # 2. После мержа — на VPS
-sudo -u aktau-sync git -C /opt/adilbaga pull --ff-only
+sudo -u aktau-sync git -C /opt/aktau-sync pull --ff-only
 ```
 
-Не коммитьте прямо в `/opt/adilbaga`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
+Не коммитьте прямо в `/opt/aktau-sync`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
 
 Разбор ошибок — `docs/data/SYNC_RUNBOOK.md §4`, еженедельный прогон — `§5`.

@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=aktau-sync
-WorkingDirectory=/opt/adilbaga
+WorkingDirectory=/opt/aktau-sync
 # Из env-файла нужны только FIXPRICE_*; INGEST_* и REVALIDATE_* скрипт не читает (ingest не запускается)
 EnvironmentFile=/etc/aktau-sync.env
 # systemd не читает профиль: Go лежит в /usr/local/go/bin, а у системного пользователя нет HOME и GOCACHE
