@@ -5,7 +5,9 @@
 #   SOURCES_DIR  — каталог source-файлов сетей (по умолчанию data/sources);
 #   SYNC_OUT_DIR — каталог bundle.json/unmapped.json (по умолчанию data/sync);
 #     относительные пути считаются от корня репозитория, абсолютные остаются как есть;
-#   SYNC_MAX_SOURCE_AGE_HOURS — сколько часов можно публиковать прошлый удачный файл упавшей сети (по умолчанию 36).
+#   SYNC_MAX_SOURCE_AGE_HOURS — сколько часов можно публиковать прошлый удачный файл упавшей сети (по умолчанию 36);
+#   SCRAPE_TIMEOUT_SEC — лимит времени на один скрапер в секундах (по умолчанию 720); зависший скрапер
+#     убивается и считается упавшим, чтобы медленная сеть не блокировала публикацию остальных.
 # Упавший скрапер не перезаписывает свой source-файл, поэтому sync берёт прошлый удачный (если он не старше лимита).
 # Коды выхода:
 #   0 — все три скрапера удачны, snapshot опубликован;
@@ -30,14 +32,27 @@ BUNDLE="$SYNC_OUT/bundle.json"
 STORES=(dina dana fixprice)
 started=$SECONDS
 
+# Лимит на один скрапер: TERM по истечении, через 30 с принудительный KILL (код выхода 124 / 137).
+# Должен быть заметно меньше TimeoutStartSec юнита (20 мин), чтобы остались время на sync и ingest.
+SCRAPE_TIMEOUT="${SCRAPE_TIMEOUT_SEC:-720}"
+case "$SCRAPE_TIMEOUT" in
+  '' | *[!0-9]* | 0)
+    echo "[sync] invalid SCRAPE_TIMEOUT_SEC, using 720" >&2
+    SCRAPE_TIMEOUT=720
+    ;;
+esac
+
 # Скраперы фоном; каждая строка вывода помечена сетью, итог сети подоболочка печатает сама в момент завершения
 pids=()
 for s in "${STORES[@]}"; do
   (
     t0=$SECONDS
-    pnpm "scrape:$s" 2>&1 | sed -u "s/^/[$s] /"
+    timeout --kill-after=30s "${SCRAPE_TIMEOUT}s" pnpm "scrape:$s" 2>&1 | sed -u "s/^/[$s] /"
     code=$?
     echo "[sync] $s exit=$code took=$((SECONDS - t0))s"
+    if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
+      echo "[sync] $s timed out after ${SCRAPE_TIMEOUT}s, treating as failed" >&2
+    fi
     exit "$code"
   ) &
   pids+=("$!")
