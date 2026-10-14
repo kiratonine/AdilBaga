@@ -85,3 +85,19 @@ describe('sync', () => {
     }
   })
 })
+
+describe('assertFresh after a failed scrape', () => {
+  const now = new Date('2026-10-07T06:00:00.000Z')
+  const ago = (h: number) => new Date(now.getTime() - h * 3_600_000).toISOString()
+  const filesWith = (danaAgeH: number): SourceFile[] => [
+    { ...meta('DINA'), capturedAt: ago(1), products: [a.product] },
+    { ...meta('DANA'), capturedAt: ago(danaAgeH), products: [b.product] },
+    { ...meta('FIX_PRICE'), capturedAt: ago(1), products: [f.product] },
+  ]
+  it('does not throw while the failed store file is still within maxAge', () => {
+    expect(() => assertFresh(filesWith(20), ['DINA', 'DANA', 'FIX_PRICE'], now, 36)).not.toThrow()
+  })
+  it('throws when the failed store file is older than maxAge', () => {
+    expect(() => assertFresh(filesWith(40), ['DINA', 'DANA', 'FIX_PRICE'], now, 36)).toThrow(/DANA: source file is stale/)
+  })
+})

@@ -3,7 +3,7 @@ import type { Attributes, ClassifiedProduct } from '../agent/classify.js'
 import type { Cluster } from '../agent/match.js'
 import type { CategorySlug } from '../agent/taxonomy.js'
 import { extractFat, extractSize } from '../agent/units.js'
-import { identity, storeCategoryKey, type Dictionary } from '../mapping/dictionary.js'
+import { resolveCategory, type Dictionary } from '../mapping/dictionary.js'
 import { isolateForPublish } from '../mapping/publish.js'
 import { filterClustersByScope } from '../mapping/scope.js'
 import type { SourceFile, StoreCode } from '../types.js'
@@ -27,15 +27,13 @@ export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generated
   const unmapped: Unmapped[] = []
   for (const file of files) {
     for (const product of file.products) {
-      const key = dict.products[identity(file.storeCode, product.sourceProductId)]
-      const card = key ? dict.canonicals[key] : undefined
+      const { key, card, category: guessed } = resolveCategory(dict, file.storeCode, product)
       if (key && card) {
         // Все участники несут данные карточки из словаря → buildBundle выдаст то же название/бренд/атрибуты
         known.set(key, [...(known.get(key) ?? []), { storeCode: file.storeCode, product, category: card.category,
           productType: 'dictionary', brand: card.brand, attributes: card.attributes as Attributes, displayName: card.name, flags: [] }])
         continue
       }
-      const guessed = dict.storeCategories[storeCategoryKey(file.storeCode, product.sourceCategoryPath)] ?? 'other'
       if (scope && !scope.has(guessed)) continue
       const fat = extractFat(product.name)
       unmapped.push({ storeCode: file.storeCode, sourceProductId: product.sourceProductId, name: product.name,

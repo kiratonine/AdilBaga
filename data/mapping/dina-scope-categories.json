@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-13T13:13:54.593Z",
+  "scope": [
+    "bread",
+    "dairy",
+    "eggs",
+    "groats",
+    "meat",
+    "milk",
+    "oil",
+    "sugar",
+    "vegetables"
+  ],
+  "categoryIds": [
+    "1",
+    "2",
+    "3",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "11",
+    "13",
+    "18",
+    "19",
+    "108",
+    "1577"
+  ],
+  "coveredProducts": 2019,
+  "scopeProducts": 2019
+}

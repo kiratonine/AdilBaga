@@ -4,7 +4,7 @@ import { dirname } from 'node:path'
 import { z } from 'zod'
 import type { Bundle } from '../agent/bundle.js'
 import { isCategorySlug, type CategorySlug } from '../agent/taxonomy.js'
-import type { StoreCode } from '../types.js'
+import type { SourceProduct, StoreCode } from '../types.js'
 
 const Slug = z.string().refine(isCategorySlug, 'unknown category').transform((s) => s as CategorySlug)
 const Canonical = z.object({
@@ -21,6 +21,22 @@ export type DictionaryCanonical = z.infer<typeof Canonical>
 export const identity = (store: StoreCode, sourceProductId: string) => `${store}:${sourceProductId}`
 export const storeCategoryKey = (store: StoreCode, path: string[] | string | null) =>
   `${store}|${Array.isArray(path) ? path.join(' / ') : path ?? ''}`
+
+export type ResolvedCategory =
+  | { category: CategorySlug; key: string; card: DictionaryCanonical }
+  | { category: CategorySlug; key?: undefined; card?: undefined }
+
+/**
+ * Единое правило категории товара (sync и scope:dina): карточка словаря, иначе категория магазина, иначе 'other'.
+ * card есть только у товаров, уже сопоставленных со словарём.
+ */
+export function resolveCategory(dict: Dictionary, store: StoreCode,
+  product: Pick<SourceProduct, 'sourceProductId' | 'sourceCategoryPath'>): ResolvedCategory {
+  const key = dict.products[identity(store, product.sourceProductId)]
+  const card = key ? dict.canonicals[key] : undefined
+  if (key && card) return { category: card.category, key, card }
+  return { category: dict.storeCategories[storeCategoryKey(store, product.sourceCategoryPath)] ?? 'other' }
+}
 
 /** Ключ задаётся один раз при создании карточки и дальше не пересчитывается — новые участники его не меняют */
 export function canonicalKey(memberIds: string[]): string {
