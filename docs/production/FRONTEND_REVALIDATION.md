@@ -21,7 +21,10 @@ Timestamp skew/replay window is ±300 seconds; replay within that window is
 idempotent. Authentication uses constant-time digest comparison. Body max128
 bytes (stream counted, not trusting Content-Length). Missing/short server secret
 503; bad/missing authentication or oversize body401; authenticated non-fixed body
-or query400; success204; GET405. Responses are empty/no-store. No input logging.
+or query400; success204; GET405. All POST outcomes are empty and require
+Cache-Control: no-store. The automatically generated Next.js GET405 is an approved
+exception to the no-store requirement; it does not perform revalidation.
+No input logging.
 There are no caller-selected tags, paths, product IDs or URLs.
 
 ## Cache strategy
