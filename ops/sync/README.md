@@ -68,6 +68,7 @@ systemctl status aktau-sync              # status=0/SUCCESS или failed
 
 - `data/sources-full/*.json` — полные source-файлы сетей;
 - `data/sources-full/dina-scope-categories.candidate.json` — **кандидат** нового набора категорий Dina (его пересчитывает `pnpm scope:dina`);
+- `data/sources-full/dana-scope-sections.candidate.json` — **кандидат** набора подразделов Dana (`pnpm scope:dana`; завершается с кодом 1, если у товаров scope нет подраздела, тогда еженедельный прогон падает, а кандидат всё равно записан для разбора);
 - `data/sync-full/unmapped.json` — товары вне словаря для еженедельной обработки новых товаров.
 
 Кандидат не применяется автоматически. Набор категорий меняется осознанно, вручную, через обычный PR:
@@ -83,6 +84,10 @@ git push -u origin HEAD                                    # дальше — PR
 # 2. После мержа — на VPS
 sudo -u aktau-sync git -C /opt/aktau-sync pull --ff-only
 ```
+
+Кандидат Dana обновляется так же: `scp <vps>:/opt/aktau-sync/data/sources-full/dana-scope-sections.candidate.json data/mapping/dana-scope-sections.json`, ветка `data/refresh-dana-scope`, коммит `data(mapping): refresh dana scope sections`, PR и мерж в `main`, затем `git pull --ff-only` на VPS.
+
+Режимы Dana в журнале: `[DANA] mode: sections` (штатный, ~70 с), `legacy root` (нет или устарел scope-файл, ~80 с), `full` (еженедельный). `DANA_CONCURRENCY` по умолчанию 3, максимум 4; при 429/5xx от Dana поставить `1` в `/etc/aktau-sync.env`. Если подраздел пропал с сайта или упал, скрап Dana завершается с ошибкой, прежний файл остаётся, юнит получает exit 3 (stale `dana`).
 
 Не коммитьте прямо в `/opt/aktau-sync`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
 
