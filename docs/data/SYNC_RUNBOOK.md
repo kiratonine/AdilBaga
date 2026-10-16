@@ -42,7 +42,7 @@ bash pipeline/scripts/daily-sync.sh
 | Таймер / юнит | Когда | Что делает | Лимит |
 |---|---|---|---|
 | `aktau-sync.timer` → `aktau-sync.service` | 06:00 и 18:00 по Актау (UTC+5 → `01:00` и `13:00` UTC) | `daily-sync.sh`: узкий параллельный скрап, sync, ingest с публикацией | `TimeoutStartSec=20min` |
-| `aktau-sync-full.timer` → `aktau-sync-full.service` | воскресенье 22:00 UTC (понедельник 03:00 по Актау), `Persistent=true` | `weekly-full-scrape.sh`: полный скрап, `scope:dina`, `sync`; **без ingest и публикации** | `TimeoutStartSec=2h` |
+| `aktau-sync-full.timer` → `aktau-sync-full.service` | воскресенье 22:00 UTC (понедельник 03:00 по Актау), `Persistent=true` | `weekly-full-scrape.sh`: полный скрап, `scope:dina`, `scope:dana`, `sync` (упавший scope-шаг не пропускает `sync`, но даёт код 1 и строку `[full] failed scope steps: ...`); **без ingest и публикации** | `TimeoutStartSec=2h` |
 
 Файлы: `aktau-sync.service`, `aktau-sync.timer`, `aktau-sync-full.service`, `aktau-sync-full.timer`, `aktau-sync.env.example`.
 
