@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { parseDanaPage, scrapeDana } from '../src/scrapers/dana.js'
+import { parseDanaPage, parseDanaPageCount, parseDanaSections, scrapeDana } from '../src/scrapers/dana.js'
 
 const html = readFileSync(new URL('./fixtures/dana-page.html', import.meta.url), 'utf8')
 
@@ -27,5 +27,24 @@ describe('dana', () => {
     const file = await scrapeDana({ fetchImpl: fakeFetch, delayMs: 0, roots: [{ path: '/catalog/x/', name: 'X' }] })
     expect(file.errorCount).toBe(0)
     expect(file.products).toHaveLength(20)
+  })
+})
+
+describe('dana pagination and sections', () => {
+  const ROOT = '/catalog/produkty_pitaniya_/'
+  it('reads the page count from the pagination block', () => {
+    expect(parseDanaPageCount(html)).toBe(6)
+    expect(parseDanaPageCount('<html><body></body></html>')).toBe(1)
+  })
+  it('lists first-level sections of a root, sorted and unique', () => {
+    const sections = parseDanaSections(html, ROOT)
+    expect(sections).toHaveLength(15)
+    expect(sections).toContain(`${ROOT}molochnye_produkty/`)
+    expect(sections).toContain(`${ROOT}bakaleya/`)
+    expect(sections.some(s => /^\/catalog\/produkty_pitaniya_\/[a-z0-9_]+\/[a-z0-9_]+\//.test(s))).toBe(false)
+    expect(sections).toEqual([...sections].sort())
+  })
+  it('returns no sections for an unknown root', () => {
+    expect(parseDanaSections(html, '/catalog/nonexistent/')).toEqual([])
   })
 })

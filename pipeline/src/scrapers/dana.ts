@@ -46,6 +46,30 @@ export function parseDanaPage(html: string, sectionPath: string[]): SourceProduc
   return out
 }
 
+/** Число страниц раздела: максимум PAGEN_1 в ссылках блока пагинации; нет блока — одна страница */
+export function parseDanaPageCount(html: string): number {
+  const $ = cheerio.load(html)
+  let max = 1
+  $('.module-pagination a[href]').each((_, a) => {
+    const m = /PAGEN_1=(\d+)/.exec($(a).attr('href') ?? '')
+    if (m) max = Math.max(max, parseInt(m[1]!, 10))
+  })
+  return max
+}
+
+/** Подразделы первого уровня корня (`<rootPath><slug>/`), уникальные и отсортированные */
+export function parseDanaSections(html: string, rootPath: string): string[] {
+  const $ = cheerio.load(html)
+  const escaped = rootPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`^${escaped}[a-z0-9_]+/$`)
+  const found = new Set<string>()
+  $('a[href]').each((_, a) => {
+    const href = $(a).attr('href') ?? ''
+    if (re.test(href)) found.add(href)
+  })
+  return [...found].sort()
+}
+
 export async function scrapeDana(opts: { fetchImpl?: typeof fetch; delayMs?: number; roots?: typeof DANA_ROOTS } = {}): Promise<SourceFile> {
   const products = new Map<string, SourceProduct>()
   let errorCount = 0, pages = 0
