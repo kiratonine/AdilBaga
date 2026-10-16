@@ -58,3 +58,34 @@ func TestApplyRevalidationPreflightBeforeConnection(t *testing.T) {
 		}
 	}
 }
+
+func TestC2AttemptIDEnvironment(t *testing.T) {
+	for _, tc := range []struct {
+		name, value   string
+		absent, valid bool
+	}{
+		{"absent", "", true, false}, {"empty", "", false, false},
+		{"uppercase", strings.Repeat("A", 32), false, false},
+		{"nonhex", strings.Repeat("g", 32), false, false},
+		{"short", strings.Repeat("a", 31), false, false},
+		{"long", strings.Repeat("a", 33), false, false},
+		{"newline", strings.Repeat("a", 32) + "\n", false, false},
+		{"valid", "0123456789abcdef0123456789abcdef", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("C2_EVENT_ATTEMPT_ID", tc.value)
+			if tc.absent {
+				if err := os.Unsetenv("C2_EVENT_ATTEMPT_ID"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			want := ""
+			if tc.valid {
+				want = tc.value
+			}
+			if c2AttemptID() != want {
+				t.Fatal("attempt env acceptance changed")
+			}
+		})
+	}
+}

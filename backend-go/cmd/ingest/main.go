@@ -124,6 +124,16 @@ func run() (resultErr error) {
 			return err
 		}
 		defer staged.Close()
+		// Optional diagnostic receipt only; no FIFO I/O in the notification budget.
+		fifo := os.Getenv("C2_EVENT_FIFO")
+		var receipt revalidation.Attempt
+		attemptID := ""
+		if fifo != "" {
+			attemptID = c2AttemptID()
+			if attemptID != "" {
+				notifier.WithTrace(func(a revalidation.Attempt) { receipt = a })
+			}
+		}
 		phase = "publication"
 		outcome, publishErr := revalidation.PublishThenNotify(ctx, true, staged.Publish, notifier.Notify)
 		if publishErr != nil {
@@ -131,6 +141,13 @@ func run() (resultErr error) {
 		}
 		report = staged.Report
 		logger.Info("frontend_revalidation", "outcome_class", outcome)
+		if fifo != "" {
+			class := "skipped"
+			if attemptID != "" {
+				class = revalidation.Relay(fifo, revalidation.Event(staged.SnapshotID(), attemptID, receipt))
+			}
+			logger.Info("c2_trace", "outcome_class", class)
+		}
 	} else {
 		phase = "validation"
 		report, err = engine.DryRun(ctx, bundle)
@@ -150,6 +167,13 @@ func run() (resultErr error) {
 		return errors.New("summary unavailable")
 	}
 	return nil
+}
+func c2AttemptID() string {
+	id := os.Getenv("C2_EVENT_ATTEMPT_ID")
+	if !revalidation.ValidAttemptID(id) {
+		return ""
+	}
+	return id
 }
 func main() {
 	if err := run(); err != nil {

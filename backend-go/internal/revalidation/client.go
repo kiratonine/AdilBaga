@@ -20,6 +20,16 @@ const Body = `{"event":"snapshot_published"}`
 type Client struct {
 	endpoint, secret string
 	http             *http.Client
+	trace            func(Attempt)
+}
+
+// WithTrace is opt-in, configured before use. It never changes Notify's result.
+// Hooks must be bounded; cmd/ingest only copies the receipt, relaying afterwards.
+func (c *Client) WithTrace(trace func(Attempt)) *Client { c.trace = trace; return c }
+
+func (c *Client) emit(a Attempt) {
+	defer func() { _ = recover() }() // diagnostics must not break a committed publish
+	c.trace(a)
 }
 
 func New(endpoint, secret, environment string) (*Client, error) {
@@ -47,7 +57,35 @@ func (c *Client) Notify(ctx context.Context) error {
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Adilbaga-Timestamp", timestamp)
 	request.Header.Set("X-Adilbaga-Signature", Signature(c.secret, timestamp))
+	var attempt Attempt
+	if c.trace != nil {
+		attempt.BootID, _ = BootID()
+		attempt.StartMono, _ = MonotonicNS()
+	}
 	response, err := c.http.Do(request)
+	if c.trace != nil {
+		attempt.EndMono, _ = MonotonicNS() // headers received, before consuming body
+		attempt.ErrorClass = "none"
+		if response != nil {
+			attempt.Status = response.StatusCode
+		}
+		if err != nil {
+			attempt.ErrorClass = "transport"
+			var timeout interface{ Timeout() bool }
+			if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
+				attempt.ErrorClass = "timeout"
+			}
+			if errors.Is(err, context.Canceled) {
+				attempt.ErrorClass = "canceled"
+			}
+		} else if attempt.Status < 200 || attempt.Status >= 300 {
+			attempt.ErrorClass = "rejected"
+		}
+		if attempt.StartMono == "" || attempt.EndMono == "" || attempt.BootID == "" {
+			attempt.ErrorClass = "clock_unavailable"
+		}
+		c.emit(attempt)
+	}
 	if err != nil {
 		return errors.New("revalidation transport unavailable")
 	}

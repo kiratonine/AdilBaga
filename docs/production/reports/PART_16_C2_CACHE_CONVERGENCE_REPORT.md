@@ -462,3 +462,536 @@ Source candidate ready for independent Code Review; no commit/push/PR performed.
 Production handoff remains **BLOCKED**, and local PASS is not production C2 PASS.
 Previous review archive is not rebuilt/claimed current in this narrow task.
 STOP for Code Review.
+
+## C2 event-handoff discovery
+
+Status: **BLOCKED** — pending Backend2 agreement on event hooks and revision
+provenance, then separate Owner approval. This section is a proposed contract,
+not an implemented production integration. Historical FAIL/BLOCKED evidence and
+the final sparse-polling classification correction above remain unchanged.
+
+### Baseline, scope and independently inspected source facts
+
+2026-10-16: `rtk git fetch origin --prune` exit0; fresh origin/main and new HEAD
+**1c3be58893e764f2e4cb029d9d4b46b31381f11b**. Created separate native-WSL worktree
+`aktau-part16-c2-event-handoff`, branch **feat/part16-c2-event-handoff**. Initial
+working tree clean. The merged diagnostic observer and its classification fix
+are already present. No merge/rebase/reset, reuse of the old diagnostic branch,
+or edits in existing worktrees. No AGENTS.md at new worktree root; supplied root
+project rules and scoped TODO followed. Frontend runtime was inspected, not edited.
+
+The actual route is:
+
+`daily-sync.sh → cmd/ingest -apply → PublishThenNotify → staged.Publish COMMIT
+→ Client.Notify original signed POST → [missing receipt/IPC boundary] → JS observer`.
+
+| Phase/data | Confirmed source fact | What is NOT exposed today |
+| --- | --- | --- |
+| Daily orchestration | daily-sync.sh scrapes, builds bundle, runs dry-run then apply; systemd oneshot runs as aktau-sync | no observer process, private IPC protocol, event receipt or revision manifest |
+| Before publication | ingestion.Staged has public SnapshotID(); private groups/captures/previous; decoded bundle contains source CapturedAt or GeneratedAt fallback | cmd stdout/report contains counts, not snapshot identity or marker vectors |
+| Publication | Staged.Publish commits before notification; publishedAt is assigned in SQL using DB clock and previous publishedAt+1ms | Publish returns error only; exact new publishedAt is not returned to cmd |
+| Notification | Client.Notify has exactly one fixed HMAC POST,5s HTTP timeout/no redirects; actual response.StatusCode exists locally | method returns only error, discards bounded body; no status/start/receipt callback |
+| Existing outcome | Notify accepts **all2xx**; tests include200 and204. PublishThenNotify returns success/degraded and protects committed publication | frontend_revalidation success does NOT prove actual204; ingestion exit0 does not prove C2 readiness |
+| JS trust | createEventSource uses its own clock/function identity and module-local WeakSet | serialized Go time.Now/UTC/foreign object cannot be imported as a trusted event |
+| Existing public marker | Product.snapshotAt is MAX usable offer.snapshotAt for that product in selected published snapshot | not snapshot ID, not necessarily new publishedAt or changed every publication |
+| Dashboard marker | summary.snapshotAt is MAX per-product usable timestamp aggregate | not DB publication time; can remain unchanged with reused/stale source captures |
+
+Source references: [notifier and publication wrapper](../../../backend-go/internal/revalidation/client.go),
+[cmd/ingest](../../../backend-go/cmd/ingest/main.go),
+[staging/publication](../../../backend-go/internal/ingestion/ingestor.go),
+[sync runbook](../../../ops/sync/README.md), and the
+[frozen wire/cache contract](../FRONTEND_REVALIDATION.md). No production state,
+active unit/timer or deployed source was independently inspected in this stage.
+
+Observed source semantics for revisions: offer.snapshotAt is inserted from the
+per-store source capture time, with bundle.GeneratedAt fallback. It is not the
+publication timestamp. Stable canonical IDs may be reused, captures may be old,
+and top-deal ranks/first-page membership can change. The current schema and
+existing cmd summary therefore do **not** supply a qualified six-path manifest
+for free. No actual next publication's stable/changed witness is established.
+
+### Alternatives and recommendation — PROPOSED, not approved
+
+| Approach | Benefit | Boundary/cost | Decision |
+| --- | --- | --- | --- |
+| Pre-armed JS observer + causal private IPC with Go | retains existing Flight/XML parser and bounded GET runner; all clock bounds captured in JS | requires new opt-in Go receipt/handshake hooks and approved orchestration, plus marker provenance | recommended for Backend2 agreement |
+| Go-native co-located measurement | notifier/GET timestamps can share one monotonic clock | would duplicate or port JS Flight/XML extraction, measurement caps/tests and touch pipeline; no evidence this is smaller | not implemented; alternative only |
+| Post-hoc Go/Vercel UTC log correlation | useful duration/region/cache diagnostics | current log has no actual status or interval; wall-clock offset/delivery uncertainty cannot be assumed≤100ms | cannot by itself close strict C2≤5s |
+
+No local cross-process PoC was added: current Go has no hook that can causally
+gate its original send and attest its receipt. Fabricating that signal in JS or
+parsing `outcome_class=success` would bypass the very incompatibility under
+review. This is the explicit discovery STOP condition, not a failed cache test.
+Existing local same-process mock tests are runnable and checked below; they do
+not prove the proposed Go/JS handoff.
+
+### Proposed minimal causal protocol for Backend2 review
+
+1. Owner authorizes observation of one **legitimate** publication, not a replay,
+   extra sync or second signed POST. Backend2 owns publisher integration and
+   pre-arms the JS child/companion using private inherited pipes before Notify.
+   No public listener, socket exposed to other users, secret transport, queue or
+   scheduler. Descriptor/process ownership and go-run child inheritance need
+   local verification before choosing the concrete launcher.
+2. A run-local attempt identifier and `staged.SnapshotID()` correlate PREPARE,
+   COMMIT-success, READY, RESULT and the marker manifest. Same snapshot can have
+   different notification attempts; bind both identifiers. They are local
+   metadata, never extra fields in the fixed public HMAC body. Event/status
+   messages must come from the trusted owned process/pipe, not arbitrary JSONL.
+3. Immediately before the existing HTTP send, Go sends PREPARE. JS calls
+   `source.begin(attemptId)`, records monotonic **A**, then sends READY. Go must
+   receive that matching READY before starting its **one original** HTTP request.
+   JS's local arm object remains inside its WeakSet; it does not import a Go
+   timestamp. Publication must already be committed before the POST.
+4. After the original response is received, Go sends a bounded RESULT containing
+   matching run/snapshot/attempt, actual integer http_status and a fixed
+   transport/outcome class. No body, URL, auth/signature/timestamp headers, DSN or
+   secret. For verified status204 and no transport failure, JS records monotonic
+   **B** and calls `source.accept204(204)` at receipt. Preserve identity checks
+   before this transition. A RESULT for200/201/202/206 is **not** a C2 event,
+   even though existing Notify must continue treating those statuses as success.
+5. Causality gives **A ≤ original HTTP send ≤ actual204 ≤ Go receive ≤ B**.
+   JS measures the full A..B interval, including IPC/scheduling/transport delay;
+   no Go-vs-Node clock comparison or guessed precision. The widest plausible5s
+   deadline is B+5000ms; conservative PASS needs fresh body by A+5000ms. FAIL
+   needs valid stale GET **started after B+5000ms**. Late first fresh alone is
+   INCONCLUSIVE. Unknown, broken, reversed, expired or overly wide bounds admit
+   no acceptance claim. UTC remains correlation-only.
+6. Observer begins GET only with matching committed publication, verified204,
+   and a complete independently justified before/after manifest. A late manifest
+   consumes the same A..B event window, never starts another5s. Missing or
+   unchanged witness means INCONCLUSIVE/no GET, not a forced PASS/FAIL. Duplicate,
+   unrelated, out-of-order or replayed messages must not create a second run.
+
+This handshake is **not currently wired**. Observer readiness/failure must not
+become a condition for committing data, retrying publication or changing the
+legacy notification success/degraded classification. Any waiting/IPC must be
+bounded and observation opt-in; preserving the existing5s notification budget
+without extending it or consuming it with a blocking observer is an explicit
+Backend2 design gate. If safe READY cannot be established, abandon measurement
+and perform the original notification under its existing policy. Do not send an
+extra notification to obtain a better measurement. After send, pipe loss or
+timeout produces INCONCLUSIVE; committed snapshot stays committed.
+
+### Manifest provenance and bounded evidence — also awaiting agreement
+
+Require a versioned local manifest bound to run/snapshot/attempt, source Git
+revision and verified frontend deployment. Its six targets retain the current
+fixed URL forms and expected.before/after fields; catalog additionally requires
+the selected visible top8 product's productBefore/productAfter, sitemap requires
+both snapshot and product marker pairs plus the exact category/product locs.
+IDs/slugs must meet the existing allowlist. Different selected product IDs per
+target are allowed only if each is explicitly qualified; never silently replace
+one after observation. The current manifest has these data slots but no producer.
+
+**Before source:** an independently captured, snapshot-bound previous marker set
+with known top-deal/first-page membership, from an approved existing audit/read
+context. **After source:** a qualified projection of the committed snapshot's
+public usable set using the same existing repository semantics, not the cached
+frontend being measured. Available staged group/capture metadata alone does not
+prove dashboard rank or category pagination; do not duplicate SQL/ranking logic
+in a new generic calculator. SnapshotID can correlate the run but cannot replace
+the actual Product/dashboard snapshotAt values.
+
+Backend2 must confirm whether it already has these projections. If not, the
+additional bounded **read-only** acquisition and its precise timing/role/request
+budget require separate review; no new SQL/API requests are implemented or
+authorized here. Any reads would be outside the publication transaction. Exact
+new publishedAt, if needed for correlation, also needs an approved source rather
+than pretending Publish returned it. No schema/index/cache/public DTO change.
+
+The selected product must actually change and remain in both relevant rendered
+sets. RU/KK share product data but require two complete HTML bodies. Catalog
+checks dashboard plus its real selected product. Sitemap covers only eight
+exact matrix locs: RU/KK catalog, dashboard, category and product; first six
+lastmod use dashboard summary timestamp, last two product timestamp. These can
+differ. Do not claim all sitemap URLs fresh. If no qualified changed witness
+exists for a normal publish, record INCONCLUSIVE, never change production data
+merely to manufacture a marker delta.
+
+Concurrent publications or deployment changes invalidate attribution. Backend2's
+session advisory lock protects its staging/publication run, not automatically
+the entire20s observer period after the CLI exits. Require coordinated exclusion
+or a separately approved revision check with its own bounded budget; do not add
+unbudgeted GET/SQL or prolong a production lock here.
+
+Recommended evidence destination: Owner-selected private operator directory
+outside Git/backups/secrets, directory0700/file0600; one bounded JSONL per run,
+proposed maximum64 records/128KiB. Retain protocol version, correlation IDs,
+source/deployment revision, actual status, JS A/B bounds and current allowlisted
+GET measurements/decision only. No raw HTML/XML, cookie/auth/signature, provider
+or source payload. Final write/close and custody need explicit operator checks;
+I/O loss means evidence INCONCLUSIVE, not silently durable PASS. No file/FD/
+directory was provisioned in production. No log stream is itself a trusted relay.
+
+Keep current limits:≤21 GET,≤2 sitemap GET,≤6 concurrent with one/path, per-path
+spacing≥2500ms, complete-body cap2MiB HTML/4MiB XML, timeout≤4s/remaining budget,
+no redirects/error retries/cookies/auth/proxy inheritance, acceptance5s and
+diagnostics≤20s. Observer sends0 POST/HEAD. No automatic second observation after
+a duplicate receipt, failed measurement or loss of manifest.
+
+### Concrete questions and later file scope
+
+Backend2 answers required before implementation:
+
+1. Is opt-in causal PREPARE/READY/RESULT around the **existing** single notifier
+   HTTP operation acceptable, with actual204 distinct from generic2xx? Which
+   owned process/FD arrangement works with current `go run ./cmd/ingest`?
+2. Can SnapshotID and one attempt ID be supplied to both ends after confirmed
+   COMMIT, without exposing secrets or changing current stdout consumers?
+3. Where do qualified old/new Product/dashboard markers and membership/rank
+   evidence already exist? If absent, what precise read-only acquisition is
+   acceptable before the event, without measuring the cache against itself?
+4. How are observer startup/handshake bounded without changing the original
+   notification timeout, exit codes,2xx semantics or publish atomicity?
+5. Who coordinates concurrent publish/deploy exclusion, evidence custody and
+   any separately authorized preflight reads? How are loss/duplicates reported?
+
+After agreement, likely narrow changes: backend-go/internal/revalidation/client.go
+and its tests for optional receipts/hooks around the same send; cmd/ingest/main.go
+and appropriate CLI tests for publication correlation; new private IPC adapter
+beside scripts/revalidation/production-observer.mjs with mock tests, preserving
+its trusted same-process event creation. Any daily-sync.sh launcher or ops/sync
+unit adjustment belongs to Backend2 and needs its own approved scope; avoid it
+if cmd can safely own the child. A new ingestion metadata/read accessor would
+be separately reviewed **only if needed**, not assumed. No frontend/API/schema
+change, new dependency, secret/env change or new HMAC webhook is proposed.
+
+### Actual local checks and readiness
+
+| Executed check | Exit/result |
+| --- | --- |
+| `rtk git fetch origin --prune`; new worktree/branch/base/initial status | 0; clean main-based worktree at1c3be58893e764f2e4cb029d9d4b46b31381f11b |
+| `node --check scripts/revalidation/production-observer.mjs` | 0 |
+| `node --test scripts/revalidation/production-observer.test.mjs scripts/revalidation/cache-observer.test.mjs scripts/revalidation/verify-part16.test.mjs` under clean Node24.10.0 environment | 0;35/35 PASS,0FAIL,0SKIP |
+| `node scripts/revalidation/verify-part16.mjs` | 0; static boundaries PASS, not deployment evidence |
+| Inline assertions against unchanged createEventSource API, mock clock only | 0;7/7 PASS: reject200/201/202/206/503, duplicate204, unrelated publication;0 HTTP |
+| Cross-process Go/JS IPC PoC / notifier hook tests | NOT IMPLEMENTED / BLOCKED on agreed Backend2 hook; no simulated UTC trust bypass |
+| Go tests / full frontend tests / local Next cache-smoke | NOT RUN in this stage; no executable source change or new dependency; historical results above not re-claimed |
+| `rtk git status --short`; `rtk git diff --check`; `rtk git diff --stat`; scope/links/bounded scan | exit0; only this report modified; append-only,7 relative links resolve, bounded scan PASS |
+| Historical report preservation | full pre-existing HEAD report prefix byte-identical; other tracked reports/source unchanged |
+
+Only this existing report is edited, append-only. No executable PoC/new source
+is necessary or justified before Backend2 answers; existing tests exercise the
+present fail-closed boundary, not an imagined integrated system. Required future
+PoC coverage remains actual204 versus other2xx, degraded/timeout, duplicates,
+unrelated publication, missing/unchanged markers, interval/expiry, late-fresh
+INCONCLUSIVE, proved late-stale FAIL,0 GET without trusted handoff, cap21 and no
+extra POST. Those integration claims are pending, not inherited from unit PASS.
+
+Next gate: independent Code Review of this proposed handoff → Backend2 agreement
+on hooks/revisions/budgets → Owner authorization of a narrow source PR/local PoC
+→ separate release/production read-only observation permission. No implication
+that agreement authorizes VPS/deploy or a new test publication. C2 stays OPEN,
+historical reported FAIL, until three consecutive trustworthy production
+observations≤5s under the agreed Jira gate or an explicit written Owner SLA
+decision. Production root cause remains unproven. No production HTTP/SSH/SQL,
+sync/ingest/systemctl/timers, Vercel/Cloudflare/env/secrets, Backend2 code/branch,
+commit/push/PR/merge or deployment action. STOP for independent Code Review.
+
+## Local Go/FIFO/Node handoff — Backend2-approved local candidate
+
+2026-10-16. **Local candidate: READY_FOR_EXTERNAL_REVIEW. Production readiness:
+BLOCKED; production C2 remains OPEN.** This append-only section supersedes the
+earlier proposed PREPARE/READY handshake, not its historical evidence. Owner
+supplied `C2_BACKEND2_EVENT_REPLY.md`; read the actual file in the main checkout's
+local TODO directory after initially stopping for its missing path. Its approval
+covers local implementation/tests only, not rollout, drop-in or VPS observation.
+Worktree/branch/base unchanged from discovery above; pre-existing report edits
+preserved. No other worktree was edited.
+
+### Implemented opt-in boundary
+
+`WithTrace(func(Attempt))` is configured before client use. With nil trace,
+Notify does not read boot/monotonic clocks or relay. Enabled trace records Linux
+CLOCK_MONOTONIC immediately before `http.Client.Do` and immediately after it
+returns headers, before draining the existing bounded body. Callback receives
+actual status, decimal-ns strings, boot ID and fixed error class only. It copies
+the receipt in cmd/ingest; FIFO I/O occurs **after PublishThenNotify returns**,
+outside DB transactions and the notification deadline. Callback panic is contained;
+callbacks must remain bounded (the installed callback is a struct assignment).
+
+Original `Notify(ctx) error`, any2xx-success rule, errors, HMAC/body/URL, no retry,
+5s client/context timeout and PublishThenNotify's committed-publication protection
+are unchanged.200 succeeds for Notify but is INCONCLUSIVE for C2;204 is the only
+admitted C2 status.401 and timeout remain degraded without undoing publication.
+No extra signed POST, IPC handshake, DB query or transaction was introduced.
+
+In the one-shot apply command only, absent `C2_EVENT_FIFO` disables all new trace/
+relay work. When explicitly configured, a fresh random attempt ID is paired with
+existing staged.SnapshotID(). Failed publication exits before relay. After a
+successful publication the receipt is attempted once; sent/skipped is the only
+new log outcome. FIFO path, IDs, boot ID, clocks, payload and secrets are not
+logged there. No production env/settings or examples were changed/activated.
+
+Version1 wire event has exactly: version, snapshotId, attemptId, status,
+startMono, endMono, bootId, errorClass. Ns are decimal strings, never JSON numbers.
+No captures, prices, product data, headers, URL, DSN or credentials are emitted.
+Captures alone would be misleading as a qualified product witness.
+
+Linux relay requires a private owned0700 parent, no symlink ancestors and no
+untrusted writable ancestor (root-owned sticky temp directories excepted).
+FIFO must be current-euid owned, mode0600. Directory-relative openat uses
+O_NOFOLLOW/O_NONBLOCK/O_CLOEXEC; fstat checks inode/device/mode/owner against the
+validated FIFO. Payload including one newline≤4096bytes, one write only.
+ENXIO/EAGAIN/missing path/invalid object/full pipe/short write yields skipped;
+no write retry or blocking wait for reader. Non-Linux build-tag stub always
+skips and cannot fabricate monotonic receipt evidence.
+
+### Node adapter, trust and measured clocks
+
+`fifo-adapter.mjs` opens only an explicitly supplied, owned private FIFO, validates
+type/permissions/ancestors and descriptor identity, and polls nonblocking with a
+bounded wait (default2s, explicit local PoC timeout scenario8s). It accepts one
+complete canonical JSON line≤4096bytes. Missing newline/partial write, duplicate
+JSON key, trailing/extra records, oversized data, unknown keys/version, wrong
+snapshot/attempt/boot, duplicate consumed attempt, invalid ordering, expired
+receipt or unverified manifest cannot admit GET. Replay ledger is capped256,
+then fails closed. Descriptors close in finally. No raw message/body is logged.
+
+**bootId is not authentication.** Trust rests on the owned private directory/
+FIFO, descriptor checks and expected snapshot/attempt. Same euid and root are
+trusted; a FIFO cannot attest writer PID/executable. A compromised same-UID
+process is outside this boundary. Production permission, process/time-namespace
+and operator-context checks still require separate authorization/review.
+
+Clock calibration executes the reviewed local Go probe five times, bracketing
+each CLOCK_MONOTONIC sample with Node24 hrtime.bigint(). It intersects observed
+offset intervals, requires consistent boot IDs/overlap including zero and width
+≤100ms, and accepts only its own in-memory calibration object (not supplied
+JSON). Calibration expires after60s and is rechecked on receipt. This is local
+evidence, not a claim that bootId alone proves clock equality across namespaces.
+
+Recorded local run: measured Go→Node offset interval **[-3992600,+549399]ns**, width
+**4541999ns (4.542ms)** across5 samples; no zero-uncertainty assumption. Prior
+successful run interval[-4107501,+535400]ns, width4642901ns. Bounds include process
+startup/scheduling, not just timer resolution; they are not benchmark promises.
+Production must recalibrate in its approved execution context; calibration from
+this WSL host is not portable to VPS or another boot/time namespace.
+
+Event times stay BigInt until subtraction of a local anchor and validation of
+bounded relative durations. Bounds are rounded outward by≤1us at conversion to
+the existing observer's millisecond clock. Request interval and clock mapping
+uncertainty remain in that interval. Receipt age/delivery delay is consumed,
+never reset to FIFO arrival. On that private validated boundary only, adapter
+reconstructs begin/accept204 via an injected clock in the existing same-process
+createEventSource; **production-observer.mjs is byte-unchanged**. No generic
+foreign event constructor, parser rewrite or raw UTC trust bypass was added.
+
+Acceptance remains fresh complete markers by earliest possible204+5s. FAIL needs
+valid stale GET started after latest possible204+5s; late first fresh alone is
+INCONCLUSIVE. Uncertain/missing data remains INCONCLUSIVE. Caps21 GET /2 sitemap,
+one in flight per path, shared5s acceptance and≤20s diagnostics are inherited
+unchanged; actual-adapter persistent-stale test exhausted exactly21 mock GET
+and2 sitemap reads in about15s, within20s. Observer has no POST/HEAD sender.
+
+### Fixtures and remaining production blockers
+
+Local fixture manifest derives selected ID/category/membership from approved
+frontend mocks, confirms selected top8 spread/first-page membership and assigns
+explicitly synthetic distinct after-markers. Dashboard and product timestamps
+are deliberately different; sitemap checks their respective eight exact locs.
+This is test-only data, never a production manifest or new production SQL.
+The fixtureOnly flag requires an explicitly injected test GET transport; without
+one the adapter returns INCONCLUSIVE/0 GET, preventing accidental public reads.
+
+Regression shows identical per-store capture map with two different product
+memberships produces two different product maxima. A captures-only manifest is
+rejected with0 GET. Captures also do not establish frontend rank or first-page
+membership, and reused capture times can leave a marker unchanged. No current
+production before/after witness, stable membership, frontend deployment or
+concurrent-publication exclusion was observed in this stage.
+
+Remaining gates: Backend2 reviews these exact source hooks/transport; Owner
+separately approves any release and FIFO/operator setup; approved read-only
+provenance supplies complete snapshot/attempt-bound before/after targets without
+self-validating against the cached frontend; verify same clock context and
+private ownership on the actual host, coordinate publish/deploy exclusion.
+No drop-in, timer, service, env, FIFO or listener was created on VPS. No new
+publication, replay notification, production HTTP/SSH/SQL, ingest, image build,
+deployment, commit/push/PR/merge. C2 closure still requires the previously agreed
+trustworthy production observations or explicit Owner SLA decision.
+
+### Exact review scope
+
+- backend-go/cmd/ingest/main.go
+- backend-go/go.mod
+- backend-go/internal/revalidation/client.go
+- backend-go/internal/revalidation/relay.go
+- backend-go/internal/revalidation/relay_linux.go
+- backend-go/internal/revalidation/relay_other.go
+- backend-go/internal/revalidation/relay_linux_test.go
+- backend-go/internal/revalidation/trace_test.go
+- backend-go/internal/revalidation/testdata/relayprobe/main.go
+- scripts/revalidation/fifo-adapter.mjs
+- scripts/revalidation/fifo-adapter.test.mjs
+- scripts/revalidation/fixtures/c2-manifest.mjs
+- this existing PART_16_C2_CACHE_CONVERGENCE_REPORT.md
+
+Only existing golang.org/x/sys v0.48.0 moves indirect→direct; tidy adds no
+dependency/version/checksum drift, go.sum unchanged. No systemd/daily-sync,
+ingestor SQL, schemas/migrations, frontend runtime, API/DTO/HMAC/ISR, production
+env/secrets or other Backend2 source was changed. Local probe binaries are outside
+Git and not a Docker image or deployable production release. Test-owned FIFOs/
+directories are cleaned by test finally/after; pre-existing resources untouched.
+
+### Actual verification, including initial failures
+
+First new Node run:52/53 PASS, unordered-event negative fixture FAIL because its
+future timestamp was computed when registering tests, before the5s timeout
+scenario. Fixed fixture to compute at execution time; no acceptance rule relaxed.
+First focused Go race run FAIL: new test-only HTTP counter was unsynchronized.
+Replaced new test/probe counters with atomics. Full race suite then PASS.
+
+Commands below use clean process environments (Go auto-selected module toolchain
+1.27.2; Node24.10.0), no private config or external provider credentials. Local
+Go probe is built outside Git from testdata; no cmd/ingest execution or DB access.
+
+| Command/check | Actual result |
+| --- | --- |
+| `go build -o <owned-temp>/relayprobe ./internal/revalidation/testdata/relayprobe` | exit0; local helper only |
+| `C2_LOCAL_PROBE=<owned-temp>/relayprobe node --test scripts/revalidation/fifo-adapter.test.mjs scripts/revalidation/production-observer.test.mjs scripts/revalidation/cache-observer.test.mjs scripts/revalidation/verify-part16.test.mjs` | final run56/56 PASS,0FAIL,0SKIP:21 FIFO/PoC +35 existing |
+| Real Go→httptest HTTP→private FIFO→Node:200/204/401/timeout | PASS; exactly1 loopback POST each; publish true for all, success for200/204, degraded for401/timeout; only204 admits6 fixture GET, others0 |
+| No reader/crashed receiver | PASS; notification/publication success, relay skipped,1 loopback POST |
+| Go relay tests | PASS: missing/no reader, atomic payload, injected short write/error, full pipe, regular file/symlink/unsafe permissions |
+| Node negative/security/cap tests | PASS: bad boot/unordered/delayed/wrong snapshot+attempt, duplicate, missing event, incomplete/duplicate-key/oversized/extra metadata, fake calibration, unchanged marker, wrong manifest, unsafe FIFO;0 GET on invalid handoff; cap21/sitemap2 |
+| `go test -count=1 ./...` | exit0; all normal packages PASS; external DB/live integrations not claimed |
+| `go test -race -count=1 ./...` | exit0; full race suite PASS after counter fix |
+| `go vet ./...` | exit0 |
+| `go tool staticcheck ./...`; `go tool staticcheck -tags=integration ./...` | both exit0; pinned module tools |
+| `go tool govulncheck ./...` | exit0; No vulnerabilities found |
+| `go mod tidy`; `go mod verify` | exit0; existing x/sys promotion only; all modules verified |
+| `GOOS=windows GOARCH=amd64 go test -c -o <owned-temp>/revalidation-windows.test.exe ./internal/revalidation` | exit0; safe non-Linux stub compiles; Windows runtime NOT RUN |
+| `gofmt -l` changed Go files; `node --check` adapter/tests/fixture/unchanged observer; Part16 static verifier | exit0; gofmt empty; static boundaries PASS |
+| `node scripts/ci/check-source.mjs` | exit0;612 safe source files, immutable migration check PASS; bounded patterns only |
+| Final fetch/branch/base check | exit0; HEAD=origin/main=1c3be58893e764f2e4cb029d9d4b46b31381f11b; current feat/part16-c2-event-handoff |
+| Diff/scope/Markdown/bounded secret scan/preservation | exit0;13-path allowlist PASS,7 links resolve; HEAD report prefix byte-identical and append-only; observer/frontend/SQL/pipeline/ops/contracts/CI/go.sum unchanged |
+
+Full frontend/build/cache-smoke and PostgreSQL integrations were NOT rerun: their
+runtime sources/schema/observer are unchanged and no DB/profile was authorized.
+Source candidate ready for independent Code Review; **production readiness
+remains BLOCKED**, not inferred from fixture PASS. STOP.
+
+## PR #34 Backend2 review corrections — append-only
+
+2026-10-16. **Local candidate READY_FOR_EXTERNAL_REVIEW; production readiness
+BLOCKED / C2 OPEN.** Read Owner-supplied C2_BACKEND2_PR34_REVIEW.md in the main
+checkout's local TODO directory once available. Read-only GitHub inspection:
+[PR #34](https://github.com/kiratonine/AdilBaga/pull/34) OPEN, main base,
+feat/part16-c2-event-handoff head **00e66b858139c2758f86a90bf79091b7a45d2527**,
+matching this worktree's HEAD. Initial tree clean. GitHub review/comment API had
+no review text; the actual local Backend2 document was read, not reconstructed.
+Fetch exit0; origin/main remains1c3be58893e764f2e4cb029d9d4b46b31381f11b.
+No branch reset/rebase/merge, new PR, Draft/settings change or push was performed.
+Historical source facts and results above are retained, not current correlation
+requirements where superseded by this correction.
+
+### P0: usable attempt/snapshot correlation
+
+The operator/observer must provision one lowercase hex32 attempt ID **before**
+arming the receiver, and pass the same value as `C2_EVENT_ATTEMPT_ID` to the
+one-shot ingestion process. This is a local correlation value, not a credential.
+Go no longer generates an internal attempt ID. The existing FIFO opt-in remains:
+
+- C2_EVENT_FIFO absent: no trace/relay/logging, as before.
+- FIFO set but attempt absent/empty/invalid: no trace or FIFO write; after a
+  successful publication c2_trace outcome is skipped, without altering notifier
+  result, publish status, existing errors or exit code.
+- Both present and attempt valid: same one original notifier request, optional
+  receipt and one nonblocking post-notify relay. Validation rejects uppercase,
+  nonhex, wrong length, whitespace/newline; no normalization or fallback ID.
+
+`openReceiver` no longer accepts/requires a pre-known snapshotId. Expected
+attempt ID is still supplied in advance; snapshot UUID is learned only from the
+validated private-FIFO message with matching attempt/boot/clock checks. Before
+ANY GET, it must match the **independent manifest.snapshotId** and its attempt.
+Missing/mismatched manifest remains INCONCLUSIVE/0 GET. Learning the snapshot ID
+does not make event metadata or captures into an independent revision oracle.
+Receiver also enforces exact ID lengths, avoiding JavaScript `$` accepting a
+terminal newline unlike Go's end-of-text regex behavior.
+
+The local probe now takes the attempt from env, not an argv that sidesteps the
+actual proposed integration. It still uses an explicit synthetic snapshot for
+the no-DB fake publication. A real Go HTTP/FIFO test arms Node without any
+snapshotId option, receives a distinct snapshot from Go, and admits6 mock GET
+only against its separately prepared fixture manifest. No real Stage/production
+DB run or dynamic production manifest producer is claimed.
+
+No additional public latest-snapshot request, endpoint, SQL or IPC handshake was
+added. Backend2's optional suggestion of an extra snapshot GET is not implemented;
+the frozen API provides no new snapshot endpoint. Production env/drop-in setup
+and actual independent marker acquisition remain separately authorized gates.
+
+### P1: close ownership and parent validation-to-use gap
+
+Both Go and Node now reject any ancestor owned by a UID other than root/current
+euid, even a0755 ancestor not writable by group/others. Otherwise that ancestor's
+owner could substitute path components. Existing no-symlink, private0700 parent,
+FIFO0600/current-euid, root-sticky temp exception and nonblocking checks remain.
+
+Go saves the validated parent metadata; after opening the directory, fstat must
+confirm directory type, current-euid ownership,0700 permissions and matching
+device/inode/uid/gid/full mode before any FIFO lookup/write. This closes the
+specific lstat→open substitution window without a handshake, blocking reader
+wait or retry. Subsequent FIFO operations remain relative to that checked fd.
+
+Tests use a controlled lstat seam for foreign-UID ancestor metadata (no real
+chown/sudo); both root and current-euid controls pass. Node mocks the same0755
+foreign-owner case. Go's deterministic opener seam **really renames/replaces an
+owned test parent**, creates a readable replacement FIFO, and proves inode-swap
+and mode-change cases skip without invoking the writer. Existing valid atomic
+FIFO write still succeeds, while symlink/regular-file/full/no-reader/short-write
+cases continue to fail closed. The repository's single-agent rule was respected:
+source-to-sink/compatibility and post-patch bypass review were separate manual
+passes, guided by the fix-finding skill, not delegated scans.
+
+No surviving alternate changed-helper caller was found: production Relay always
+uses real unix.Lstat/unix.Open; only same-package tests inject metadata/opener.
+Root and same euid remain trusted; FIFO is not executable/PID authentication.
+No broader FIFO protocol, trace, clock-calibration, cache or publisher redesign.
+
+### Exact changed files relative to reviewed PR head
+
+- backend-go/cmd/ingest/main.go
+- backend-go/cmd/ingest/main_test.go
+- backend-go/internal/revalidation/relay.go
+- backend-go/internal/revalidation/relay_linux.go
+- backend-go/internal/revalidation/relay_linux_test.go
+- backend-go/internal/revalidation/testdata/relayprobe/main.go
+- scripts/revalidation/fifo-adapter.mjs
+- scripts/revalidation/fifo-adapter.test.mjs
+- this existing PART_16_C2_CACHE_CONVERGENCE_REPORT.md
+
+No new source files, dependency versions or go.mod/go.sum changes. In particular
+client.go/Notify/PublishThenNotify, HMAC,5s timeouts, public API/DTO, observer/cache
+contracts, SQL/schema/migrations, frontend runtime, systemd/timers/daily-sync,
+CI and production env remain unchanged. Private test binaries are temporary and
+outside Git. No production HTTP/SSH/SQL, ingestion, sync, deploy or provider call.
+
+### Actual checks for this correction
+
+Clean Go1.27.2/Node24 environments, local fixtures/httptest/FIFO only:
+
+| Command/check | Actual result |
+| --- | --- |
+| `go test -count=1 ./internal/revalidation ./cmd/ingest` | exit0; focused trigger/control regressions PASS |
+| `go test -count=1 ./...` | exit0; all normal packages PASS |
+| `go test -race -count=1 ./...` | exit0; all normal packages race PASS |
+| `go vet ./...` | exit0 |
+| `go tool staticcheck ./...`; `go tool staticcheck -tags=integration ./...` | both exit0; pinned tools |
+| `go tool govulncheck ./...` | exit0; No vulnerabilities found |
+| Build updated local testdata relayprobe; Windows revalidation stub test compilation | exit0; no image build/deploy, Windows runtime not executed |
+| `C2_LOCAL_PROBE=<temporary probe> node --test scripts/revalidation/fifo-adapter.test.mjs scripts/revalidation/production-observer.test.mjs scripts/revalidation/cache-observer.test.mjs scripts/revalidation/verify-part16.test.mjs` | exit0;68/68 PASS,0FAIL,0SKIP |
+| Node scenarios | absent/empty/uppercase/nonhex/short/long/newline env => skipped, published true/success, exactly1 loopback POST,0 GET; valid env204 =>6 fixture GET;200 remains success/0 GET,401/timeout degraded/0 GET |
+| Correlation/security cases | actual snapshot from Go with no receiver snapshot argument; wrong attempt/manifest, missing manifest, foreign-owner ancestor, parent inode/mode swap; existing missing FIFO/reader/crash/partial/duplicate/clock/frame regressions PASS |
+| Caps and clock | real-clock adapter cap21 GET/sitemap2 PASS;5-sample clock offset bound[-3549301,+462501]ns, width4011802ns; no zero-uncertainty assumption |
+| `gofmt -l` changed Go; `node --check` adapter/tests; Part16 verifier | exit0; gofmt empty; static boundaries PASS |
+| `node scripts/ci/check-source.mjs`; `git diff --check`; exact scope/link/privacy checks | exit0;612 source files PASS,9-file scope,7 links resolve, bounded secret scan PASS; historical HEAD report prefix byte-identical |
+
+Full frontend/build/cache-smoke and external PostgreSQL integrations not rerun:
+their runtime/observer/SQL is unchanged; their historical PASS is not claimed as
+a new execution. Original P0 integration dead-end is removed locally; source
+candidate awaits independent Code Review before commit/push. Production remains
+BLOCKED on independent marker manifests, actual-host operator/clock/permission
+verification and separate Owner rollout/observation authorization. Historical
+C2 reported FAIL is not closed. STOP.
