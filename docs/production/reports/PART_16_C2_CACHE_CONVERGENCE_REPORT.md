@@ -995,3 +995,199 @@ candidate awaits independent Code Review before commit/push. Production remains
 BLOCKED on independent marker manifests, actual-host operator/clock/permission
 verification and separate Owner rollout/observation authorization. Historical
 C2 reported FAIL is not closed. STOP.
+
+## Trusted before/after manifest — local preparation, 2026-10-16 (append-only)
+
+**Local preparation candidate: READY_FOR_EXTERNAL_REVIEW. Production C2:
+OPEN / NOT VERIFIED; production execution NOT AUTHORIZED.** The historical
+reported FAIL/BLOCKED entries above remain unchanged. This section does not
+assert trusted production projections exist or close any production gate.
+
+Fetched origin with prune (exit0); PR #34 is included in fresh origin/main
+**3103c28372e3b44b7d7949b854704984aec7eb3c**, also this new worktree's HEAD.
+Created separate native-WSL branch **feat/part16-c2-manifest-provenance** from
+that exact commit; initial tree clean. Old worktrees/branches left untouched.
+No root AGENTS.md in the new checkout; supplied project rules and the complete
+Owner TODO were read from the existing main checkout. Backend2's existing
+event reply/review were inspected as historical local-hook approval, NOT approval
+of a new SQL/provider/projection contract. No such approval is inferred.
+
+### Source-to-witness matrix: verified source, not newly executed DB reads
+
+| Witness | Exact source semantics | Acquisition phase / present capability | Missing approval or proof |
+| --- | --- | --- | --- |
+| Selected snapshot | backend-go/internal/postgres/snapshots.go: latestSnapshotSQL orders publishedAt DESC, id DESC; snapshotReader pins read-only repeatable-read view including canonical metadata | BEFORE and AFTER must each name the actually selected published snapshot | No existing exported two-state projection provider; a snapshot UUID alone proves no representation marker |
+| Product marker/category | backend-go/internal/postgres/products.go: productBaseSQL joins current canonical_products/categories and usable offers (inStock, price>0) for the selected snapshot; MAX offer.snapshotAt, UTC Product time.Time | BEFORE must be acquired/sealed before canonical mutation; AFTER from committed state | Existing Product methods are latest-selected, not a ready snapshot-qualified composite audit interface |
+| Dashboard marker/rank | backend-go/internal/postgres/dashboard.go: dashboardSQL selects latest published; usable aggregate MAX timestamp, spreads require at least two distinct stores; rounded difference DESC, id COLLATE ru-x-icu | Both states: exact summary string and ordered first eight spread IDs, not captures alone | One SQL statement is coherent, but a separate Product/category call is not automatically the same DB view |
+| Catalog product | frontend/src/api/queries.ts: topDealIds takes first eight; frontend/src/app/[lang]/(site)/catalog/page.tsx hydrates each selected product after dashboard | Both states: selected ID must belong to actual top eight and have its own Product marker | Do not infer price-spread rank from product minimum-price order or approximate PostgreSQL collation in JS |
+| Category first page | frontend/src/app/[lang]/(site)/collections/[slug]/page.tsx and api/queries.ts: limit24/offset0; lib/filterParams.ts default price_asc, no filters on fixed target | Both states: exact category and first-page IDs; backend products.go sorts min_price ASC then id ru-x-icu | Mutable category/name/attributes after COMMIT cannot reconstruct the old page by querying old offers |
+| Sitemap subset | frontend/src/app/sitemap.ts: categories plus products default price_asc, sequential 100/page, maximum50 pages; RU/KK entries | Both states: affirmative selected category and product membership in actual bounded traversal | Top-eight spread membership and category first24 do NOT prove product is among the first5000 global products |
+| Eight sitemap lastmods | Same sitemap.ts: catalog/dashboard/category use dashboard.summary.snapshotAt; product locs use that Product.snapshotAt | Six exact locs with dashboard value, two product locs with product value | Only these eight entries are witnessed; no claim of whole-sitemap freshness |
+| Mutation boundary | backend-go/internal/ingestion/ingestor.go: Stage records captures/groups; publish UPDATEs reused canonical masters and INSERTs offers before status update and COMMIT | BEFORE seal before Publish mutation; AFTER requires committed selected snapshot | Existing Staged.previous/captures/groups are private and not a projection; timestamps without membership/rank are insufficient |
+| Event/deadline | cmd/ingest/main.go and internal/revalidation/client.go: immediate PublishThenNotify after COMMIT, then opt-in FIFO receipt; scripts/revalidation/fifo-adapter.mjs brackets trusted204 | Existing event includes actual status, snapshot/attempt and monotonic interval, NOT manifest | Receipt-time acquisition must consume the original earliest-event+5s window; no extra POST, delay of notification or timer reset authorized |
+
+Product and dashboard timestamps may differ. Product uses Go time.Time JSON
+serialization, dashboard uses SQL to_char with milliseconds; no new date
+normalization was added. The existing observer requires exact UTC-ms strings.
+An actual public representation with omitted/sub-ms precision cannot be rounded
+into a witness: it remains INCONCLUSIVE pending separately reviewed handling.
+No execution against PostgreSQL, production HTTP, cached frontend or DB clock
+was used to fabricate source values. HMAC, SLA and the observer remain unchanged.
+
+### Minimal pure input/output boundary (local draft, not Backend2 agreement)
+
+New [c2-manifest.mjs](../../../scripts/revalidation/c2-manifest.mjs) exports only
+`buildManifest(input)`. No imports, network, SQL, process/env, clock, file I/O or
+autorun. Bounded input, fixed output paths; unknown keys fail closed. It returns
+`{status:'ready',manifest}` or `{status:'inconclusive',reason}` with fixed safe
+classes, never raw input/error payloads. Input v1 has exactly:
+
+- version=1, lowercase-hex32 attemptId, distinct beforeSnapshotId/afterSnapshotId;
+- before/after: snapshotId, matching attemptId, provenance, dashboardAt,
+  ordered topEight IDs (at most8), products (one id/slug/snapshotAt per top ID),
+  categoryPages (at most8 distinct slug/productIds lists, first24 only),
+  sitemap (unique categorySlugs, at most64; actual unique productIds subset,
+  at most5000, in generator traversal order);
+- provenance: kind fixture or sealed-repository-projection; evidenceId,
+  canonicalStateId, substantiated sourceSha/frontendSha, semantics go-next-c2-v1,
+  phase before-canonical-mutation or after-commit, snapshotStatus published,
+  consistentRead=true and exclusiveWindow=true. Different evidence/state IDs
+  are required; source/deployment identity must remain the same across states.
+
+These are **caller-supplied qualification claims**, not authentication. The pure
+builder cannot establish custody, a real prepublication seal, deployment identity,
+or absence of concurrent changes by reading JSON. Unknown sources/semantics,
+missing evidence/phase, changed deployment, duplicate/unknown candidates,
+conflicting IDs and malformed/nonexact dates are rejected. No prices, names,
+raw products, coordinates or personal data are collected. Source arrays are
+already ranked by the backend: no JS price calculator/collation surrogate.
+
+Selection intersects eligible IDs on both sides: same category, both top-eight
+sets, both first24 pages, both sitemap subsets; both Product and Dashboard markers
+must advance. Among eligible IDs use ASCII ID ascending (not localeCompare).
+Changing rank/tie order is acceptable ONLY if this same witness remains in both
+actual sets. Removal/migration or unchanged/reused capture marker is not invented
+into a delta. A different eligible witness may be selected deterministically;
+if none qualifies, return INCONCLUSIVE. Product marker cannot exceed dashboard's
+usable global maximum. No arbitrary fixed production ID is selected.
+
+Output is the existing snapshotId/attemptId/six-target shape, with independent
+productBefore/productAfter values and eight sitemap markers. It is detached
+from inputs and recursively frozen. **All output is additionally fixtureOnly=true
+in this local stage**, even for claimed sealed input: until an approved provider
+exists, passing JSON flags is never sufficient to arm default public transport.
+Existing FIFO adapter requires an explicit injected GET for fixture manifests.
+No CLI or production integration was added. The old fixture helper is untouched.
+
+### Acquisition handoff and explicit STOP at the unapproved source boundary
+
+Do not retroactively read old offers with the now-mutated canonical master.
+Minimum proposed Backend2 change, NOT implemented: an approved private composite
+read-only projection interface bound to one coherent snapshot/canonical view,
+reusing the exact repository usable/ranking/list semantics above. BEFORE must be
+sealed before Publish can mutate masters; AFTER must attest committed new state
+matching the received UUID. The current separate repository calls do not expose
+such a ready composite interface. Existing ingestion lock alone does not exclude
+all external writes/deploys or protect the observer period after CLI exit.
+
+Backend2 questions for prior review:
+
+1. Can an existing independent audit artifact establish the full BEFORE view
+   before mutation, with custody/evidence ID? Otherwise which minimal approved
+   read-only hook/provider can seal it, without a new SQL statement here?
+2. Can an existing read API provide a single coherent AFTER view for the exact
+   committed UUID, including current canonical category, rank, page membership
+   and sitemap traversal? If not, review a minimal shared read-transaction adapter
+   or snapshot-qualified projection separately; do not add public endpoints.
+3. Can AFTER resolve on FIFO receipt within the original earliest204+5s budget?
+   No live provider exists and **no acquisition latency upper bound is measured**.
+   If precomputation/sealing before notification would be needed, obtain review
+   first: no instrumentation in ingestion or delay of Notify is authorized now.
+4. Approve role, statement timeout, read count, private custody and data minimization
+   before any real provider/SQL. Nothing here authorizes DB access or credentials.
+5. Who excludes simultaneous publication/deployment, verifies actual source and
+   frontend SHAs, and rejects unchanging witnesses? Owner/Backend2 must coordinate.
+
+The optional async receiver provider is deliberately NOT implemented in this
+iteration: there is no approved acquisition/custody/timing implementation to wire
+behind it. Stop at the permitted pure-builder boundary rather than introducing
+an unqualified callback as a production source. A future reviewed injected resolver
+would run only after validated FIFO204/attempt/clock, receive snapshot/attempt,
+and time out against the ORIGINAL event window. Missing, thrown, mismatched,
+slow or expired resolution must yield INCONCLUSIVE/0 GET; default static manifest
+behavior must remain compatible. No handshake, extra network request or reset.
+This precise integration design is pending, not claimed tested or implemented.
+
+### Actual verification and exact changed-file inventory
+
+Node24.10.0, local pure inputs and existing mocks only. No secret context loaded.
+
+| Executed command/check | Actual result |
+| --- | --- |
+| `node --check scripts/revalidation/c2-manifest.mjs` and c2-manifest.test.mjs | exit0 |
+| `node --test scripts/revalidation/c2-manifest.test.mjs scripts/revalidation/production-observer.test.mjs scripts/revalidation/cache-observer.test.mjs scripts/revalidation/verify-part16.test.mjs` | exit0;79/79 PASS,0FAIL,0SKIP (44 new pure/boundary tests +35 existing) |
+| New cases | Correct6 targets/8 locs compatible with actual validatePlan/marker; independent timestamps/RU/KK; rank/tie reorder, drops/migration, sitemap5000 cap, unchanged/reused markers, source/attempt/snapshot/phase/deployment mismatch, malformed precision, duplicates/unknown/sparse lists; input preservation/output freeze; invalid or expired handoff yields0 mock GET |
+| `node scripts/revalidation/verify-part16.mjs` | exit0; existing static boundaries PASS |
+| `node scripts/ci/check-source.mjs` | exit0;614 source files, immutable migration bytes PASS; bounded security patterns only |
+| `git diff --check`; scope/Markdown links/bounded privacy scan/prefix preservation | PASS; exact3-file scope; prior report prefix byte-identical; other tracked files unchanged |
+| Go/FIFO PoC, full Go/frontend suites, Next cache-smoke, production provider tests | NOT RUN in this iteration: Go/FIFO/observer/frontend/SQL unchanged, no async provider added; historical results are not re-claimed |
+
+Exact review scope: scripts/revalidation/c2-manifest.mjs (new),
+scripts/revalidation/c2-manifest.test.mjs (new), and this existing report
+(append-only). No second report, dependency, runtime, API/DTO, schema/migration,
+HMAC, systemd/env/timer, Backend2 code or source-acquisition implementation.
+No production HTTP/SSH/SQL, secrets access, ingestion/sync/publish, deploy,
+commit/push/PR/merge. Existing5s/20s observer classification and21 GET/2 sitemap
+caps remain unchanged. **STOP — READY_FOR_EXTERNAL_REVIEW** for the local pure
+preparation candidate; production readiness **BLOCKED** on independently trusted
+BEFORE/AFTER acquisition, Backend2 agreement and separate Owner authorization.
+
+## Manifest validator P2 review correction — append-only, 2026-10-16
+
+**Local candidate: READY_FOR_EXTERNAL_REVIEW. Production readiness remains
+BLOCKED / C2 OPEN.** Same branch feat/part16-c2-manifest-provenance and HEAD
+3103c28372e3b44b7d7949b854704984aec7eb3c. Preserved all prior uncommitted work.
+This narrow correction does not introduce a production manifest provider.
+
+Confirmed the review finding locally before changing the validator: with the
+new regressions, the old implementation returned ready for hidden/Symbol fields
+and accepted some malformed arrays or invoked their accessors. Pre-fix focused
+test exit1:84 tests,56 PASS,28 FAIL. That failed run is diagnostic evidence,
+not replaced by the earlier79-test PASS or claimed successful.
+
+`keys()` now enumerates Reflect.ownKeys, accepts exactly the expected string
+keys, and checks each own descriptor for an enumerable data value. Extra hidden
+or Symbol properties, accessors and inherited/missing fields cannot qualify.
+`list()` permits only normal Array.prototype arrays with intrinsic length plus
+exactly their own enumerable data indices. Extra string/Symbol/hidden keys,
+custom prototypes, sparse/inherited slots and accessor indices fail closed;
+validation reads descriptor values without invoking getters or custom iterators.
+The same structural check now covers products and categoryPages arrays as well
+as the existing scalar membership lists; duplicate/product validation remains.
+
+Added40 regression/control tests: projection/provenance/product hidden and
+Symbol properties; own accessors (verified zero getter invocations); all six
+input array locations with hidden/Symbol properties, inherited elements,
+non-enumerable indices and getter indices; ordinary JSON roundtrip preserves
+exact output. Bad inputs return inconclusive without a manifest. Selection,
+six targets, fixtureOnly, output format, timestamp requirements and SLA unchanged.
+
+| Executed check | Actual result |
+| --- | --- |
+| `node --check scripts/revalidation/c2-manifest.mjs`; `node --check scripts/revalidation/c2-manifest.test.mjs` | exit0 each, Node24.10.0 |
+| `node --test scripts/revalidation/c2-manifest.test.mjs` after correction | exit0;84/84 PASS,0FAIL,0SKIP |
+| Build unchanged local relayprobe in owned temporary directory with `go build -o <owned-temp>/relayprobe ./internal/revalidation/testdata/relayprobe` | exit0; local test helper only, clean process environment |
+| `C2_LOCAL_PROBE=<owned-temp>/relayprobe node --test scripts/revalidation/*.test.mjs` | exit0;152/152 PASS,0FAIL,0SKIP, including existing real loopback Go/FIFO/Node tests |
+| Existing FIFO cases | PASS:200/204/401/timeout, no reader, invalid/corrupt/event correlation,21 mock GET maximum/2 sitemap; no production transport |
+| `node scripts/revalidation/verify-part16.mjs` | exit0; static boundaries PASS |
+| `node scripts/ci/check-source.mjs` | exit0;614 source files, source/security and immutable migration bytes PASS |
+| `git diff --check`; exact scope, Markdown links, bounded privacy scan, historical preservation | PASS; same3 reviewed paths only; previous report prefix byte-identical |
+
+Exact changed files remain scripts/revalidation/c2-manifest.mjs,
+scripts/revalidation/c2-manifest.test.mjs and this existing report (append-only).
+No changes to any Go source, SQL, frontend runtime, observer, FIFO adapter,
+HMAC, API, timestamps, SLA or dependencies. Full Go/frontend suites not rerun:
+their source is unchanged; the Go probe build is not a production image build.
+No production HTTP/SSH/SQL, secrets, sync/ingestion, deploy, commit/push/PR/merge.
+Independent trusted BEFORE/AFTER acquisition and separate authorization remain
+production blockers. **STOP — READY_FOR_EXTERNAL_REVIEW** for repeat Code Review.
