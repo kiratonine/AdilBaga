@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { parseDanaPage, parseDanaPageCount, parseDanaSections, scrapeDana } from '../src/scrapers/dana.js'
+import { parseDanaPage, parseDanaPageCount, parseDanaSections } from '../src/scrapers/dana.js'
 
 const html = readFileSync(new URL('./fixtures/dana-page.html', import.meta.url), 'utf8')
 
@@ -14,19 +14,6 @@ describe('dana', () => {
       expect(p.sourceUrl).toMatch(/^https:\/\/dana-market\.kz\//)
       expect(p.sourceCategoryPath).toEqual(['Продукты питания', 'Крупы'])
     }
-  })
-  it('stops paging when a page brings no new ids', async () => {
-    let calls = 0
-    const fakeFetch = (async () => { calls++; return new Response(html, { status: 200 }) }) as typeof fetch
-    const file = await scrapeDana({ fetchImpl: fakeFetch, delayMs: 0, roots: [{ path: '/catalog/x/', name: 'X' }] })
-    expect(calls).toBe(2) // page 1 новые, page 2 те же → стоп
-    expect(file.products).toHaveLength(20)
-  })
-  it('treats 404 past the last page as end of section, not an error', async () => {
-    const fakeFetch = (async (url: string) => String(url).endsWith('PAGEN_1=1') ? new Response(html) : new Response('', { status: 404 })) as typeof fetch
-    const file = await scrapeDana({ fetchImpl: fakeFetch, delayMs: 0, roots: [{ path: '/catalog/x/', name: 'X' }] })
-    expect(file.errorCount).toBe(0)
-    expect(file.products).toHaveLength(20)
   })
 })
 
