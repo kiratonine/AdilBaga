@@ -28,6 +28,7 @@ export default function config(phase: string): NextConfig {
         return [{ source: '/:path*', headers: securityHeaders(
           process.env.NEXT_PUBLIC_API_BASE_URL,
           process.env.NEXT_PUBLIC_API_MODE === 'mock' && process.env.NEXT_PUBLIC_ENABLE_TEST_MOCKS === '1',
+          { ga: process.env.NEXT_PUBLIC_GA_ID, metrika: process.env.NEXT_PUBLIC_YANDEX_METRIKA_ID },
         ) }];
       },
     };
