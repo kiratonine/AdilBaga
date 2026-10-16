@@ -134,7 +134,8 @@ describe('scrapeDana modes', () => {
     const fakeFetch = (async (url: string) => {
       const path = pathOf(String(url))
       if (path === ROOT_PATH) return new Response(pageOf(String(url)) === 1 ? html : withIds(html, pageOf(String(url)) * 100_000))
-      return new Response(withIds(html, 50_000_000 + path.length * 1_000_000 + pageOf(String(url)) * 100_000))
+      // Подразделам хватает одной страницы: тест проверяет аннотацию, а не объём обхода (на медленном CI 96 страниц не укладываются в 5 с)
+      return new Response(withIds(html, 50_000_000 + path.length * 1_000_000).replace(/PAGEN_1=\d+/g, 'PAGEN_1=1'))
     }) as typeof fetch
     const file = await scrapeDana({ fetchImpl: fakeFetch, delayMs: 0, roots: [FOOD], full: true })
     expect(file.sourceStats).toMatchObject({ mode: 'full', sections: 15 })
