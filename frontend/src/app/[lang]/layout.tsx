@@ -6,6 +6,7 @@ import { Providers } from '../../components/Providers'
 import { getI18n, isLanguage, LANGUAGES } from '../../i18n'
 import { SITE_URL } from '../../lib/site'
 import { SITE_NAME } from '../../lib/brand'
+import { Analytics } from '../../components/analytics/Analytics'
 import { golos, montserrat } from '../fonts'
 import '../globals.css'
 
@@ -46,6 +47,7 @@ export default async function RootLayout({ children, params }: LayoutProps<'/[la
           {children}
           <Footer />
         </Providers>
+        <Analytics />
       </body>
     </html>
   )
