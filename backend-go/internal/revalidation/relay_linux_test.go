@@ -21,7 +21,7 @@ func fixtureEvent(t *testing.T) RelayEvent {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Event("11111111-1111-4111-8111-111111111111", AttemptID(), Attempt{204, mono, mono, boot, "none"})
+	return Event("11111111-1111-4111-8111-111111111111", "0123456789abcdef0123456789abcdef", Attempt{204, mono, mono, boot, "none"})
 }
 func fifoFixture(t *testing.T) string {
 	t.Helper()
@@ -124,5 +124,66 @@ func TestRelayRejectsUnsafePaths(t *testing.T) {
 	}
 	if Relay(fifo, event) != "skipped" {
 		t.Fatal("nonprivate parent")
+	}
+}
+
+func TestRelayAncestorOwner(t *testing.T) {
+	fifo := fifoFixture(t)
+	for _, uid := range []uint32{0, uint32(os.Geteuid()), uint32(os.Geteuid()) + 12345} {
+		_, safe := privateParent(fifo, func(p string, st *unix.Stat_t) error {
+			if err := unix.Lstat(p, st); err != nil {
+				return err
+			}
+			if p == filepath.Dir(filepath.Dir(fifo)) {
+				st.Uid = uid
+				st.Mode = unix.S_IFDIR | 0755
+			}
+			return nil
+		})
+		if safe != (uid == 0 || uid == uint32(os.Geteuid())) {
+			t.Fatal("ancestor owner policy bypass")
+		}
+	}
+}
+
+func TestRelayParentRevalidatedAfterOpen(t *testing.T) {
+	for _, swap := range []bool{true, false} {
+		t.Run(map[bool]string{true: "inode_swap", false: "mode_change"}[swap], func(t *testing.T) {
+			fifo := fifoFixture(t)
+			parent := filepath.Dir(fifo)
+			writes := 0
+			reader := -1
+			defer func() {
+				if reader >= 0 {
+					_ = unix.Close(reader)
+				}
+			}()
+			class := relayOpen(fifo, fixtureEvent(t), func(_ int, b []byte) (int, error) { writes++; return len(b), nil }, func(p string, flags int, mode uint32) (int, error) {
+				if swap {
+					if err := os.Rename(parent, parent+"-moved"); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Mkdir(parent, 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := unix.Mkfifo(fifo, 0600); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					if err := os.Chmod(parent, 0755); err != nil {
+						t.Fatal(err)
+					}
+				}
+				var err error
+				reader, err = unix.Open(fifo, unix.O_RDWR|unix.O_NONBLOCK, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return unix.Open(p, flags, mode)
+			})
+			if class != "skipped" || writes != 0 {
+				t.Fatal("directory validation-to-open bypass")
+			}
+		})
 	}
 }

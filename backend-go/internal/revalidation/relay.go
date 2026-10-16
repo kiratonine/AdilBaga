@@ -1,8 +1,6 @@
 package revalidation
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"regexp"
 )
@@ -28,13 +26,8 @@ var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 var attemptPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var nsPattern = regexp.MustCompile(`^[1-9][0-9]{0,19}$`)
 
-func AttemptID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return ""
-	}
-	return hex.EncodeToString(b[:])
-}
+// Attempt IDs are provisioned by the operator before the observer is armed.
+func ValidAttemptID(id string) bool { return attemptPattern.MatchString(id) }
 
 func Event(snapshot, id string, a Attempt) RelayEvent {
 	return RelayEvent{1, snapshot, id, a.Status, a.StartMono, a.EndMono, a.BootID, a.ErrorClass}

@@ -871,3 +871,127 @@ Full frontend/build/cache-smoke and PostgreSQL integrations were NOT rerun: thei
 runtime sources/schema/observer are unchanged and no DB/profile was authorized.
 Source candidate ready for independent Code Review; **production readiness
 remains BLOCKED**, not inferred from fixture PASS. STOP.
+
+## PR #34 Backend2 review corrections — append-only
+
+2026-10-16. **Local candidate READY_FOR_EXTERNAL_REVIEW; production readiness
+BLOCKED / C2 OPEN.** Read Owner-supplied C2_BACKEND2_PR34_REVIEW.md in the main
+checkout's local TODO directory once available. Read-only GitHub inspection:
+[PR #34](https://github.com/kiratonine/AdilBaga/pull/34) OPEN, main base,
+feat/part16-c2-event-handoff head **00e66b858139c2758f86a90bf79091b7a45d2527**,
+matching this worktree's HEAD. Initial tree clean. GitHub review/comment API had
+no review text; the actual local Backend2 document was read, not reconstructed.
+Fetch exit0; origin/main remains1c3be58893e764f2e4cb029d9d4b46b31381f11b.
+No branch reset/rebase/merge, new PR, Draft/settings change or push was performed.
+Historical source facts and results above are retained, not current correlation
+requirements where superseded by this correction.
+
+### P0: usable attempt/snapshot correlation
+
+The operator/observer must provision one lowercase hex32 attempt ID **before**
+arming the receiver, and pass the same value as `C2_EVENT_ATTEMPT_ID` to the
+one-shot ingestion process. This is a local correlation value, not a credential.
+Go no longer generates an internal attempt ID. The existing FIFO opt-in remains:
+
+- C2_EVENT_FIFO absent: no trace/relay/logging, as before.
+- FIFO set but attempt absent/empty/invalid: no trace or FIFO write; after a
+  successful publication c2_trace outcome is skipped, without altering notifier
+  result, publish status, existing errors or exit code.
+- Both present and attempt valid: same one original notifier request, optional
+  receipt and one nonblocking post-notify relay. Validation rejects uppercase,
+  nonhex, wrong length, whitespace/newline; no normalization or fallback ID.
+
+`openReceiver` no longer accepts/requires a pre-known snapshotId. Expected
+attempt ID is still supplied in advance; snapshot UUID is learned only from the
+validated private-FIFO message with matching attempt/boot/clock checks. Before
+ANY GET, it must match the **independent manifest.snapshotId** and its attempt.
+Missing/mismatched manifest remains INCONCLUSIVE/0 GET. Learning the snapshot ID
+does not make event metadata or captures into an independent revision oracle.
+Receiver also enforces exact ID lengths, avoiding JavaScript `$` accepting a
+terminal newline unlike Go's end-of-text regex behavior.
+
+The local probe now takes the attempt from env, not an argv that sidesteps the
+actual proposed integration. It still uses an explicit synthetic snapshot for
+the no-DB fake publication. A real Go HTTP/FIFO test arms Node without any
+snapshotId option, receives a distinct snapshot from Go, and admits6 mock GET
+only against its separately prepared fixture manifest. No real Stage/production
+DB run or dynamic production manifest producer is claimed.
+
+No additional public latest-snapshot request, endpoint, SQL or IPC handshake was
+added. Backend2's optional suggestion of an extra snapshot GET is not implemented;
+the frozen API provides no new snapshot endpoint. Production env/drop-in setup
+and actual independent marker acquisition remain separately authorized gates.
+
+### P1: close ownership and parent validation-to-use gap
+
+Both Go and Node now reject any ancestor owned by a UID other than root/current
+euid, even a0755 ancestor not writable by group/others. Otherwise that ancestor's
+owner could substitute path components. Existing no-symlink, private0700 parent,
+FIFO0600/current-euid, root-sticky temp exception and nonblocking checks remain.
+
+Go saves the validated parent metadata; after opening the directory, fstat must
+confirm directory type, current-euid ownership,0700 permissions and matching
+device/inode/uid/gid/full mode before any FIFO lookup/write. This closes the
+specific lstat→open substitution window without a handshake, blocking reader
+wait or retry. Subsequent FIFO operations remain relative to that checked fd.
+
+Tests use a controlled lstat seam for foreign-UID ancestor metadata (no real
+chown/sudo); both root and current-euid controls pass. Node mocks the same0755
+foreign-owner case. Go's deterministic opener seam **really renames/replaces an
+owned test parent**, creates a readable replacement FIFO, and proves inode-swap
+and mode-change cases skip without invoking the writer. Existing valid atomic
+FIFO write still succeeds, while symlink/regular-file/full/no-reader/short-write
+cases continue to fail closed. The repository's single-agent rule was respected:
+source-to-sink/compatibility and post-patch bypass review were separate manual
+passes, guided by the fix-finding skill, not delegated scans.
+
+No surviving alternate changed-helper caller was found: production Relay always
+uses real unix.Lstat/unix.Open; only same-package tests inject metadata/opener.
+Root and same euid remain trusted; FIFO is not executable/PID authentication.
+No broader FIFO protocol, trace, clock-calibration, cache or publisher redesign.
+
+### Exact changed files relative to reviewed PR head
+
+- backend-go/cmd/ingest/main.go
+- backend-go/cmd/ingest/main_test.go
+- backend-go/internal/revalidation/relay.go
+- backend-go/internal/revalidation/relay_linux.go
+- backend-go/internal/revalidation/relay_linux_test.go
+- backend-go/internal/revalidation/testdata/relayprobe/main.go
+- scripts/revalidation/fifo-adapter.mjs
+- scripts/revalidation/fifo-adapter.test.mjs
+- this existing PART_16_C2_CACHE_CONVERGENCE_REPORT.md
+
+No new source files, dependency versions or go.mod/go.sum changes. In particular
+client.go/Notify/PublishThenNotify, HMAC,5s timeouts, public API/DTO, observer/cache
+contracts, SQL/schema/migrations, frontend runtime, systemd/timers/daily-sync,
+CI and production env remain unchanged. Private test binaries are temporary and
+outside Git. No production HTTP/SSH/SQL, ingestion, sync, deploy or provider call.
+
+### Actual checks for this correction
+
+Clean Go1.27.2/Node24 environments, local fixtures/httptest/FIFO only:
+
+| Command/check | Actual result |
+| --- | --- |
+| `go test -count=1 ./internal/revalidation ./cmd/ingest` | exit0; focused trigger/control regressions PASS |
+| `go test -count=1 ./...` | exit0; all normal packages PASS |
+| `go test -race -count=1 ./...` | exit0; all normal packages race PASS |
+| `go vet ./...` | exit0 |
+| `go tool staticcheck ./...`; `go tool staticcheck -tags=integration ./...` | both exit0; pinned tools |
+| `go tool govulncheck ./...` | exit0; No vulnerabilities found |
+| Build updated local testdata relayprobe; Windows revalidation stub test compilation | exit0; no image build/deploy, Windows runtime not executed |
+| `C2_LOCAL_PROBE=<temporary probe> node --test scripts/revalidation/fifo-adapter.test.mjs scripts/revalidation/production-observer.test.mjs scripts/revalidation/cache-observer.test.mjs scripts/revalidation/verify-part16.test.mjs` | exit0;68/68 PASS,0FAIL,0SKIP |
+| Node scenarios | absent/empty/uppercase/nonhex/short/long/newline env => skipped, published true/success, exactly1 loopback POST,0 GET; valid env204 =>6 fixture GET;200 remains success/0 GET,401/timeout degraded/0 GET |
+| Correlation/security cases | actual snapshot from Go with no receiver snapshot argument; wrong attempt/manifest, missing manifest, foreign-owner ancestor, parent inode/mode swap; existing missing FIFO/reader/crash/partial/duplicate/clock/frame regressions PASS |
+| Caps and clock | real-clock adapter cap21 GET/sitemap2 PASS;5-sample clock offset bound[-3549301,+462501]ns, width4011802ns; no zero-uncertainty assumption |
+| `gofmt -l` changed Go; `node --check` adapter/tests; Part16 verifier | exit0; gofmt empty; static boundaries PASS |
+| `node scripts/ci/check-source.mjs`; `git diff --check`; exact scope/link/privacy checks | exit0;612 source files PASS,9-file scope,7 links resolve, bounded secret scan PASS; historical HEAD report prefix byte-identical |
+
+Full frontend/build/cache-smoke and external PostgreSQL integrations not rerun:
+their runtime/observer/SQL is unchanged; their historical PASS is not claimed as
+a new execution. Original P0 integration dead-end is removed locally; source
+candidate awaits independent Code Review before commit/push. Production remains
+BLOCKED on independent marker manifests, actual-host operator/clock/permission
+verification and separate Owner rollout/observation authorization. Historical
+C2 reported FAIL is not closed. STOP.

@@ -1,4 +1,4 @@
-import { test, after } from 'node:test';
+import { test, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -23,7 +23,7 @@ function setup() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'c2-fifo-test-')); dirs.push(dir); fs.chmodSync(dir, 0o700);
   const fifo = path.join(dir, 'event'); execFileSync('mkfifo', ['-m', '600', fifo], { env });
   const attemptId = randomBytes(16).toString('hex');
-  return { dir, fifo, snapshotId, attemptId, calibration, manifest: fixtureManifest(snapshotId, attemptId) };
+  return { dir, fifo, attemptId, calibration, manifest: fixtureManifest(snapshotId, attemptId) };
 }
 after(() => { for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true }) });
 function getter(config, counts) {
@@ -41,7 +41,7 @@ function write(config, value) {
 for (const status of [200, 204, 401, 0]) test(`real Go HTTP → FIFO → Node status${status}`, async () => {
   const config = setup(), counts = { n: 0 }, receiver = openReceiver(config);
   const observing = receiver.observe({ get: getter(config, counts), waitMs: 8000 });
-  const child = await exec(probe, ['notify', String(status), config.fifo, snapshotId, config.attemptId], { env, timeout: 10000, maxBuffer: 2048 });
+  const child = await exec(probe, ['notify', String(status), config.fifo, snapshotId], { env: { ...env, C2_EVENT_ATTEMPT_ID: config.attemptId }, timeout: 10000, maxBuffer: 2048 });
   const summary = JSON.parse(child.stdout), result = await observing;
   assert.equal(summary.published, true); assert.equal(summary.requests, 1); assert.equal(summary.relay, 'sent');
   assert.equal(summary.outcome, status === 200 || status === 204 ? 'success' : 'degraded');
@@ -51,13 +51,13 @@ for (const status of [200, 204, 401, 0]) test(`real Go HTTP → FIFO → Node st
 });
 test('no reader / crashed receiver does not change publication/notification', async () => {
   const c = setup(); const receiver = openReceiver(c); receiver.close();
-  const child = await exec(probe, ['notify', '204', c.fifo, snapshotId, c.attemptId], { env, timeout: 2000, maxBuffer: 2048 });
+  const child = await exec(probe, ['notify', '204', c.fifo, snapshotId], { env: { ...env, C2_EVENT_ATTEMPT_ID: c.attemptId }, timeout: 2000, maxBuffer: 2048 });
   const summary = JSON.parse(child.stdout);
   assert.equal(summary.published, true); assert.equal(summary.outcome, 'success'); assert.equal(summary.requests, 1); assert.equal(summary.relay, 'skipped');
 });
 for (const [name, overrides, reason] of [
   ['bad bootId', { bootId: '22222222-2222-4222-8222-222222222222' }, 'boot_mismatch'],
-  ['wrong snapshot', { snapshotId: '22222222-2222-4222-8222-222222222222' }, 'unrelated_event'],
+  ['wrong snapshot for manifest', { snapshotId: '22222222-2222-4222-8222-222222222222' }, 'manifest_unverified'],
   ['wrong attempt', { attemptId: '0'.repeat(32) }, 'unrelated_event'],
   ['delayed relay', () => ({ startMono: (process.hrtime.bigint() - 7_000_000_000n).toString(), endMono: (process.hrtime.bigint() - 6_000_000_000n).toString() }), 'event_expired_or_unordered'],
   ['unordered', () => ({ startMono: (process.hrtime.bigint() + 1_000_000_000n).toString() }), 'event_expired_or_unordered'],
@@ -136,4 +136,53 @@ test('real-clock adapter observation preserves total cap21 and sitemap cap2', as
   assert.equal(r.acceptance, 'FAIL'); assert.equal(r.request_count, 21);
   assert.equal([...counts.values()].reduce((a, b) => a + b, 0), 21); assert.equal(counts.get('/sitemap.xml'), 2);
   assert.ok(r.events.every(e => e.end_elapsed_ms + e.elapsed_uncertainty_ms <= 20000));
+});
+
+for (const [name, value] of [
+  ['absent', undefined], ['empty', ''], ['uppercase', 'A'.repeat(32)], ['nonhex', 'g'.repeat(32)],
+  ['short', 'a'.repeat(31)], ['long', 'a'.repeat(33)], ['newline', 'a'.repeat(32) + '\n'],
+]) test(`Go env attempt ${name}: publication success, trace skipped, one POST only`, async () => {
+  const c = setup(), counts = { n: 0 }, receiver = openReceiver(c);
+  const childEnv = { ...env }; if (value !== undefined) childEnv.C2_EVENT_ATTEMPT_ID = value;
+  const child = await exec(probe, ['notify', '204', c.fifo, snapshotId], { env: childEnv, timeout: 2000, maxBuffer: 2048 });
+  const summary = JSON.parse(child.stdout);
+  assert.equal(summary.published, true); assert.equal(summary.outcome, 'success'); assert.equal(summary.requests, 1);
+  assert.equal(summary.relay, 'skipped'); assert.equal(summary.status, 0); // no trace attached
+  const r = await receiver.observe({ get: getter(c, counts), waitMs: 20 });
+  assert.equal(r.reason, 'event_missing'); assert.equal(counts.n, 0);
+});
+
+test('pre-armed receiver learns actual Go snapshot from event, correlated by env attempt', async () => {
+  const c = setup(), counts = { n: 0 };
+  const actualSnapshot = '33333333-3333-4333-8333-333333333333';
+  c.manifest = fixtureManifest(actualSnapshot, c.attemptId); // independent fixture reference
+  assert.equal(Object.hasOwn(c, 'snapshotId'), false);
+  const receiver = openReceiver(c), observing = receiver.observe({ get: getter(c, counts) });
+  const child = await exec(probe, ['notify', '204', c.fifo, actualSnapshot], { env: { ...env, C2_EVENT_ATTEMPT_ID: c.attemptId }, timeout: 2000, maxBuffer: 2048 });
+  const summary = JSON.parse(child.stdout), r = await observing;
+  assert.equal(summary.requests, 1); assert.equal(summary.relay, 'sent'); assert.equal(r.acceptance, 'PASS'); assert.equal(counts.n, 6);
+});
+
+test('snapshot learned from valid event without independent manifest never admits GET', async () => {
+  const c = setup(), counts = { n: 0 }; delete c.manifest;
+  const receiver = openReceiver(c), observing = receiver.observe({ get: getter(c, counts) }); write(c, event(c));
+  const r = await observing; assert.equal(r.reason, 'manifest_unverified'); assert.equal(counts.n, 0);
+});
+
+test('ancestor owned by another uid is rejected even when mode0755 is not group/world writable', () => {
+  const c = setup(), ancestor = path.dirname(c.dir), original = fs.lstatSync;
+  try {
+    mock.method(fs, 'lstatSync', (p, ...args) => {
+      const st = original(p, ...args);
+      if (p === ancestor) { st.uid = process.geteuid() + 12345; st.mode = 0o40755 }
+      return st;
+    });
+    assert.throws(() => openReceiver(c), /unsafe_fifo/);
+  } finally { mock.restoreAll() }
+});
+
+for (const id of ['a'.repeat(32) + '\n', 'A'.repeat(32)]) test('invalid receiver attempt encoding => INCONCLUSIVE/0 GET', async () => {
+  const c = setup(), counts = { n: 0 };
+  const r = await openReceiver({ ...c, attemptId: id }).observe({ get: getter(c, counts) });
+  assert.equal(r.reason, 'invalid_run'); assert.equal(counts.n, 0);
 });

@@ -28,41 +28,55 @@ func BootID() (string, error) {
 }
 
 // Parent is private; all ancestors reject symlinks and untrusted writable dirs.
-func privateParent(path string) bool {
+func privateParent(path string, lstat func(string, *unix.Stat_t) error) (unix.Stat_t, bool) {
+	var parentStat unix.Stat_t
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-		return false
+		return parentStat, false
 	}
 	parent := filepath.Dir(path)
 	for p := parent; ; p = filepath.Dir(p) {
 		var st unix.Stat_t
-		if unix.Lstat(p, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFDIR {
-			return false
+		if lstat(p, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFDIR || (st.Uid != 0 && st.Uid != uint32(os.Geteuid())) {
+			return parentStat, false
 		}
 		if p == parent && (st.Uid != uint32(os.Geteuid()) || st.Mode&0777 != 0700) {
-			return false
+			return parentStat, false
 		}
 		if st.Mode&0022 != 0 && !(st.Uid == 0 && st.Mode&unix.S_ISVTX != 0) {
-			return false
+			return parentStat, false
+		}
+		if p == parent {
+			parentStat = st
 		}
 		if p == "/" {
 			break
 		}
 	}
-	return true
+	return parentStat, true
 }
 
 // One nonblocking atomic-sized write, no retries, never opens a regular file.
 func Relay(path string, event RelayEvent) string { return relayWrite(path, event, unix.Write) }
 func relayWrite(path string, event RelayEvent, write func(int, []byte) (int, error)) string {
+	return relayOpen(path, event, write, unix.Open)
+}
+
+// The injected opener permits a deterministic parent-swap regression test.
+func relayOpen(path string, event RelayEvent, write func(int, []byte) (int, error), open func(string, int, uint32) (int, error)) string {
 	b := eventBytes(event)
-	if b == nil || !privateParent(path) {
+	parentStat, safe := privateParent(path, unix.Lstat)
+	if b == nil || !safe {
 		return "skipped"
 	}
-	dir, err := unix.Open(filepath.Dir(path), unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	dir, err := open(filepath.Dir(path), unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return "skipped"
 	}
 	defer unix.Close(dir)
+	var openedParent unix.Stat_t
+	if unix.Fstat(dir, &openedParent) != nil || openedParent.Mode&unix.S_IFMT != unix.S_IFDIR || openedParent.Uid != uint32(os.Geteuid()) || openedParent.Mode&07777 != 0700 || openedParent.Dev != parentStat.Dev || openedParent.Ino != parentStat.Ino || openedParent.Uid != parentStat.Uid || openedParent.Gid != parentStat.Gid || openedParent.Mode != parentStat.Mode {
+		return "skipped"
+	}
 	var before unix.Stat_t
 	if unix.Fstatat(dir, filepath.Base(path), &before, unix.AT_SYMLINK_NOFOLLOW) != nil || before.Mode&unix.S_IFMT != unix.S_IFIFO || before.Mode&0777 != 0600 || before.Uid != uint32(os.Geteuid()) {
 		return "skipped"

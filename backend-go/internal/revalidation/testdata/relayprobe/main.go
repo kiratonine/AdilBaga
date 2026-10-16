@@ -26,7 +26,7 @@ func main() {
 		_ = json.NewEncoder(os.Stdout).Encode(map[string]string{"bootId": boot, "monoNs": mono})
 		return
 	}
-	if len(os.Args) != 6 || os.Args[1] != "notify" {
+	if len(os.Args) != 5 || os.Args[1] != "notify" {
 		os.Exit(2)
 	}
 	status, err := strconv.Atoi(os.Args[2])
@@ -49,12 +49,18 @@ func main() {
 		os.Exit(1)
 	}
 	var receipt revalidation.Attempt
-	client.WithTrace(func(a revalidation.Attempt) { receipt = a })
+	attemptID := os.Getenv("C2_EVENT_ATTEMPT_ID")
+	if revalidation.ValidAttemptID(attemptID) {
+		client.WithTrace(func(a revalidation.Attempt) { receipt = a })
+	}
 	published := false
 	outcome, err := revalidation.PublishThenNotify(context.Background(), true, func(context.Context) error { published = true; return nil }, client.Notify)
 	if err != nil {
 		os.Exit(1)
 	}
-	relay := revalidation.Relay(os.Args[3], revalidation.Event(os.Args[4], os.Args[5], receipt))
+	relay := "skipped"
+	if revalidation.ValidAttemptID(attemptID) {
+		relay = revalidation.Relay(os.Args[3], revalidation.Event(os.Args[4], attemptID, receipt))
+	}
 	_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"outcome": outcome, "published": published, "requests": requests.Load(), "relay": relay, "status": receipt.Status, "errorClass": receipt.ErrorClass})
 }

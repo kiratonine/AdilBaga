@@ -38,7 +38,7 @@ function checkPath(file) {
   if (process.platform !== 'linux' || !path.isAbsolute(file) || path.normalize(file) !== file) fail('unsafe_fifo');
   for (let p = path.dirname(file); ; p = path.dirname(p)) {
     const st = fs.lstatSync(p);
-    if (!st.isDirectory() || st.isSymbolicLink()) fail('unsafe_fifo');
+    if (!st.isDirectory() || st.isSymbolicLink() || (st.uid !== 0 && st.uid !== process.geteuid())) fail('unsafe_fifo');
     if (p === path.dirname(file) && (st.uid !== process.geteuid() || (st.mode & 0o777) !== 0o700)) fail('unsafe_fifo');
     if ((st.mode & 0o022) !== 0 && !(st.uid === 0 && (st.mode & 0o1000) !== 0)) fail('unsafe_fifo');
     if (p === '/') break;
@@ -50,7 +50,7 @@ function checkPath(file) {
 
 // Authority comes from a private same-UID FIFO plus expected run identity,
 // not bootId. Same UID/root are trusted; FIFO cannot attest an executable/PID.
-export function openReceiver({ fifo, snapshotId, attemptId, calibration, manifest }) {
+export function openReceiver({ fifo, attemptId, calibration, manifest }) {
   let fd;
   try {
     const st = checkPath(fifo);
@@ -63,7 +63,7 @@ export function openReceiver({ fifo, snapshotId, attemptId, calibration, manifes
   return { close, async observe({ get, sleep, waitMs = 2000 } = {}) {
     try {
       if (!calibrations.has(calibration) || calibration.bootId !== boot() || process.hrtime.bigint() - calibration.measuredAt > 60_000_000_000n) return inconclusive('clock_unverified');
-      if (!uuid.test(snapshotId) || !attempt.test(attemptId) || !Number.isInteger(waitMs) || waitMs < 1 || waitMs > 10000) return inconclusive('invalid_run');
+      if (typeof attemptId !== 'string' || attemptId.length !== 32 || !attempt.test(attemptId) || !Number.isInteger(waitMs) || waitMs < 1 || waitMs > 10000) return inconclusive('invalid_run');
       const deadline = process.hrtime.bigint() + BigInt(waitMs) * 1_000_000n;
       let raw;
       while (process.hrtime.bigint() < deadline) {
@@ -82,7 +82,8 @@ export function openReceiver({ fifo, snapshotId, attemptId, calibration, manifes
       try { event = JSON.parse(raw) } catch { return inconclusive('invalid_message') }
       const keys = ['version', 'snapshotId', 'attemptId', 'status', 'startMono', 'endMono', 'bootId', 'errorClass'];
       if (!event || JSON.stringify(event) + '\n' !== raw || Object.keys(event).join() !== keys.join() || event.version !== 1 || !ns(event.startMono) || !ns(event.endMono)) return inconclusive('invalid_message');
-      if (event.snapshotId !== snapshotId || event.attemptId !== attemptId) return inconclusive('unrelated_event');
+      if (typeof event.snapshotId !== 'string' || event.snapshotId.length !== 36 || !uuid.test(event.snapshotId) || event.attemptId !== attemptId) return inconclusive('unrelated_event');
+      const snapshotId = event.snapshotId; // learned only from the trusted FIFO
       if (event.bootId !== calibration.bootId) return inconclusive('boot_mismatch');
       const identity = snapshotId + ':' + attemptId;
       if (consumed.has(identity) || consumed.size >= 256) return inconclusive('duplicate_or_capacity');
