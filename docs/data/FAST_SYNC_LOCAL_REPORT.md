@@ -182,3 +182,59 @@ exit=0
 
 - 14.10 первый `-apply` выполнен по пересказу разрешения, хотя письменного разрешения в последнем gate ещё не было; зафиксировано как процедурное отклонение и признано. Дальше любое production-действие выполнялось только в пределах письменного разрешения владельца.
 - Preflight перед C1 был за 8 мин 18 с до запуска, повторный не делался; зафиксировано.
+
+## 10. Dana: подразделы и пул (задача 4.1)
+
+Прогоны локальные, 2026-10-16, без БД и VPS. Сайт Dana отвечал `200`.
+
+### 10.1 До / после
+
+| Прогон | Время | Страниц | Товаров |
+|---|---|---|---|
+| До: `main`, обход корня последовательно | **282,6 с** | 178 | 3 552 |
+| Полный (`SCRAPE_ALL=1`, 5 корней + 15 подразделов, пул 3) | 208,5 с | 434 | 4 870 |
+| Ежедневный `sections`, прогон 1 | **70,4 с** | 156 | 2 933 |
+| Ежедневный `sections`, прогон 2 | **72,0 с** | 156 | 2 933 |
+| Ежедневный `sections`, прогон 3 | **73,7 с** | 156 | 2 933 |
+| Fallback `legacy root` (без scope-файла, пул 3) | 78,1 с | 178 | 3 552 |
+
+Ошибок 0 во всех прогонах, `HTTP 429/5xx` в логах нет (стоп-гейт 2 пройден). Ускорение ежедневного режима ≈ 3,9×. Оценка плана (~50–70 с) выполнена на верхней границе. Ожидание fallback в плане было ~95 с, фактически 78 с.
+
+### 10.2 `pnpm scope:dana`
+
+```
+[scope:dana] 13 sections, covered 1184/1184 scope products, unsectioned 0
+```
+
+13 подразделов, в сумме 156 страниц, 2 933 товара в файле (в публикуемый scope из них 1 184). Стоп-гейт 1 пройден: `unsectioned 0`. Помимо семи подразделов из замера анализа в набор вошли `konditerskie_izdeliya`, `konservirovannye_produkty`, `pripravy_spetsii_sousy_zapravki`, `ryby_i_moreprodukty`, `sukhari_chipsy_arakhisy_kukuruznye_palochki_semechki`, `zamorozhennye_produkty`: в них есть отдельные товары scope, найденные только полным обходом.
+
+### 10.3 `sync:compare` (A — `main`, B — новый код; Dina и Fix Price одинаковые файлы)
+
+```
+[sync:compare] A=3293 B=3293 onlyA=0 onlyB=0 priceChanged=0 mismatch=0.00% (max 1.00%)
+  DANA: A=1184 B=1184
+  DINA: A=2036 B=2036
+  FIX_PRICE: A=73 B=73
+```
+
+Код выхода 0. Расхождений нет, стоп-гейт 3 пройден.
+
+### 10.4 Проверки отказов
+
+- **Fallback:** без `data/mapping/dana-scope-sections.json` в журнале `[DANA] mode: legacy root`, 178 страниц, 78 с, 3 552 товара.
+- **Сломанный подраздел:** в scope-файл добавлен `/catalog/produkty_pitaniya_/zzz_missing/`. Журнал: `section missing from menu`, затем `scoped scrape finished with 1 error(s) ... refusing to write, keeping previous file`, код 1, `capturedAt` файла не изменился. Запрос к несуществующему подразделу не делался. Файл возвращён.
+
+### 10.5 Crawl-delay и параллельность
+
+`robots.txt` Dana содержит `Crawl-delay: 3`. По решению владельца (2026-10-16) он осознанно игнорируется, как и в прежнем коде (пауза 0,3 с на запрос). Нагрузку ограничивают параллельность не больше 4 (по умолчанию 3) и ретраи `politeFetch` без изменений. При `429/5xx` от Dana снизить `DANA_CONCURRENCY` до 1.
+
+### 10.6 Что осталось и оговорки
+
+- **Приёмка на VPS не выполнена:** три плановых прогона с `took ≤ 120 с` ещё впереди (Task 8, только после сообщения владельца «Заливай на прод»).
+- **Шаг 8 плана выполнен** (локальная Docker-БД `postgres:17-alpine` из `local-ingest-db.sh`, дамп 2026-10-05, прод-env не использовался). Как и в §5.1, дамп старше словаря SCRUM-7, поэтому один раз выполнен `-recluster -apply` по bundle этого же прогона (merged 4, split 8, snapshot `e84c1f3f…`). Затем полный `daily-sync.sh` в строгом режиме: `[sync] fixprice exit=0 took=25s`, `dina exit=0 took=25s`, `dana exit=0 took=71s` (`[DANA] mode: sections`, 156 страниц, 2 933 товара), `[sync] done in 73s`, **код 0** (в §5.2 было 225 с). Dry-run: `newCanonical 0, reused 3 052, merged 0, split 0`; `-apply` `applied:true`, snapshot `a1873d83…` `published`, `rawCount 3 293` (DANA 1 184, DINA 2 036, FIX_PRICE 73). `frontend_revalidation outcome_class=degraded` (loopback-адрес недоступен, ожидаемо). Локальная БД удалена после прогона.
+- Fix Price для A/B скрапился с публичными значениями `FIXPRICE_CITY_ID=1594`, `FIXPRICE_COUNTRY_ID=3` из `docs/data/FIXPRICE_SOURCE.md`, одинаково для A и B.
+- Проверка `unsectioned 0` посчитана для словаря на 2026-10-16; еженедельный `scope:dana` выполняет её заново.
+
+### 10.7 Еженедельный скрипт: упавший scope-шаг не пропускает `sync`
+
+`weekly-full-scrape.sh` теперь не обрывается на `scope:dina`/`scope:dana` (код 1 при `unsectioned > 0`): `sync` выполняется всегда, `unmapped.json` обновляется, а в конце скрипт пишет `[full] failed scope steps: <список> (see candidate files)` и выходит с кодом 1. Падение скрапера по-прежнему даёт код 1 до scope и `sync`. Тест `pipeline/test/weekly-full-scrape.test.ts` (фальшивый `pnpm` в PATH, `bash`; на Linux CI и в Git Bash): a) всё 0 → код 0, вызваны три скрапера, оба scope, sync; b) `scope:dana`=1 → sync вызван, код 1, `failed scope steps: scope:dana`; c) оба scope=1 → sync вызван, код 1, оба шага в выводе; d) `sync`=1 → код ≠ 0, строки `done` нет; e) скрапер dana=1 → код 1, scope и sync не вызваны. На прежнем скрипте b и c падают, на новом все 5 проходят (`pnpm test` 191 PASS).

@@ -4,18 +4,20 @@ import type { SourceFile } from './types.js'
 /**
  * Узкий ежедневный скрап, где одна ошибка теряет крупный кусок scope:
  * Dina батчами (упавший алиас — вся категория, упавший HTTP-батч — до 20 страниц)
- * и Fix Price по единственному алиасу (ошибка на странице N — весь остаток каталога).
+ * Dana по подразделам и Fix Price по единственному алиасу (ошибка на странице N — весь остаток каталога).
  */
 function isFragileScrape(file: SourceFile): boolean {
   if (file.storeCode === 'DINA') return file.sourceStats.mode === 'batch'
   if (file.storeCode === 'FIX_PRICE') return file.sourceStats.scoped === true
+  // Dana по подразделам: упавший или исчезнувший подраздел — потеря целого куска scope
+  if (file.storeCode === 'DANA') return file.sourceStats.mode === 'sections'
   return false
 }
 
 /**
  * Частично упавший узкий скрап не записываем: прежний файл остаётся, daily-sync.sh уходит
  * в fallback (exit 3, stale stores), а не публикует урезанный набор и не ловит store_count_drop.
- * Dana, SCRAPE_ALL=1 и прежний обход Dina по корням сохраняют терпимость к ошибкам.
+ * SCRAPE_ALL=1, прежний обход Dina по корням и обход корня Dana (roots) сохраняют терпимость к ошибкам.
  */
 export function assertCompleteScrape(file: SourceFile, opts: { all: boolean }): void {
   if (opts.all || file.errorCount === 0 || !isFragileScrape(file)) return
@@ -36,6 +38,26 @@ export function resolveDinaBatchPages(env: string | undefined = process.env.DINA
   if (n > DINA_BATCH_PAGES) {
     console.warn(`[DINA] DINA_BATCH_PAGES=${raw} exceeds the maximum ${DINA_BATCH_PAGES}, using ${DINA_BATCH_PAGES}`)
     return DINA_BATCH_PAGES
+  }
+  return n
+}
+
+/** Параллельность скрапа Dana по умолчанию и максимум (Crawl-delay сайта осознанно игнорируется, но не злоупотребляем) */
+export const DANA_CONCURRENCY = 3
+export const DANA_MAX_CONCURRENCY = 4
+
+/** DANA_CONCURRENCY из env: пусто → 3; мусор, ≤0, дробное → 3; больше 4 → 4 */
+export function resolveDanaConcurrency(env: string | undefined = process.env.DANA_CONCURRENCY): number {
+  const raw = env?.trim()
+  if (!raw) return DANA_CONCURRENCY
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 1) {
+    console.warn(`[DANA] DANA_CONCURRENCY=${raw} is not a positive integer, using ${DANA_CONCURRENCY}`)
+    return DANA_CONCURRENCY
+  }
+  if (n > DANA_MAX_CONCURRENCY) {
+    console.warn(`[DANA] DANA_CONCURRENCY=${raw} exceeds the maximum ${DANA_MAX_CONCURRENCY}, using ${DANA_MAX_CONCURRENCY}`)
+    return DANA_MAX_CONCURRENCY
   }
   return n
 }

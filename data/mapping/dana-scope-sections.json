@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-16T10:19:50.463Z",
+  "scope": [
+    "bread",
+    "dairy",
+    "eggs",
+    "groats",
+    "meat",
+    "milk",
+    "oil",
+    "sugar",
+    "vegetables"
+  ],
+  "root": "/catalog/produkty_pitaniya_/",
+  "sections": [
+    "/catalog/produkty_pitaniya_/bakaleya/",
+    "/catalog/produkty_pitaniya_/khlebobulochnye_izdeliya/",
+    "/catalog/produkty_pitaniya_/kolbasy_i_syry/",
+    "/catalog/produkty_pitaniya_/konditerskie_izdeliya/",
+    "/catalog/produkty_pitaniya_/konservirovannye_produkty/",
+    "/catalog/produkty_pitaniya_/kulinarnye_izdeliya/",
+    "/catalog/produkty_pitaniya_/molochnye_produkty/",
+    "/catalog/produkty_pitaniya_/myaso_i_ptitsa/",
+    "/catalog/produkty_pitaniya_/ovoshchi_frukty_i_yagody/",
+    "/catalog/produkty_pitaniya_/pripravy_spetsii_sousy_zapravki/",
+    "/catalog/produkty_pitaniya_/ryby_i_moreprodukty/",
+    "/catalog/produkty_pitaniya_/sukhari_chipsy_arakhisy_kukuruznye_palochki_semechki/",
+    "/catalog/produkty_pitaniya_/zamorozhennye_produkty/"
+  ],
+  "coveredProducts": 1184,
+  "scopeProducts": 1184,
+  "unsectionedProducts": 0
+}
