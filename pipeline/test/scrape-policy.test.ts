@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { assertCompleteScrape, resolveDinaBatchPages } from '../src/scrape-policy.js'
+import { assertCompleteScrape, resolveDanaConcurrency, resolveDinaBatchPages } from '../src/scrape-policy.js'
 import type { SourceFile, StoreCode } from '../src/types.js'
 
 const file = (storeCode: StoreCode, errorCount: number, sourceStats: SourceFile['sourceStats']): SourceFile => ({
@@ -62,5 +62,31 @@ describe('resolveDinaBatchPages', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     for (const v of ['abc', '0', '-3', '2.5', 'NaN']) expect(resolveDinaBatchPages(v)).toBe(20)
     expect(warn).toHaveBeenCalledTimes(5)
+  })
+})
+
+describe('resolveDanaConcurrency', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('defaults to 3 for unset or blank', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(resolveDanaConcurrency(undefined)).toBe(3)
+    expect(resolveDanaConcurrency('')).toBe(3)
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('accepts 1..4 and clamps larger values to 4', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(resolveDanaConcurrency('2')).toBe(2)
+    expect(resolveDanaConcurrency('4')).toBe(4)
+    expect(warn).not.toHaveBeenCalled()
+    expect(resolveDanaConcurrency('9')).toBe(4)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[DANA]'))
+  })
+
+  it.each(['0', '-1', '1.5', 'abc'])('falls back to 3 with a warning for %s', raw => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(resolveDanaConcurrency(raw)).toBe(3)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[DANA]'))
   })
 })

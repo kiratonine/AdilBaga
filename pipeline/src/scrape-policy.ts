@@ -39,3 +39,23 @@ export function resolveDinaBatchPages(env: string | undefined = process.env.DINA
   }
   return n
 }
+
+/** Параллельность скрапа Dana по умолчанию и максимум (Crawl-delay сайта осознанно игнорируется, но не злоупотребляем) */
+export const DANA_CONCURRENCY = 3
+export const DANA_MAX_CONCURRENCY = 4
+
+/** DANA_CONCURRENCY из env: пусто → 3; мусор, ≤0, дробное → 3; больше 4 → 4 */
+export function resolveDanaConcurrency(env: string | undefined = process.env.DANA_CONCURRENCY): number {
+  const raw = env?.trim()
+  if (!raw) return DANA_CONCURRENCY
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 1) {
+    console.warn(`[DANA] DANA_CONCURRENCY=${raw} is not a positive integer, using ${DANA_CONCURRENCY}`)
+    return DANA_CONCURRENCY
+  }
+  if (n > DANA_MAX_CONCURRENCY) {
+    console.warn(`[DANA] DANA_CONCURRENCY=${raw} exceeds the maximum ${DANA_MAX_CONCURRENCY}, using ${DANA_MAX_CONCURRENCY}`)
+    return DANA_MAX_CONCURRENCY
+  }
+  return n
+}
