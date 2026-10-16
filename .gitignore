@@ -42,3 +42,7 @@ pipeline/.env
 pipeline/node_modules/
 data/sync/
 data/sync-full/
+
+# A/B прогоны задачи 4.1 (Dana fast scrape)
+data/sources-ab/
+data/sync-ab/
