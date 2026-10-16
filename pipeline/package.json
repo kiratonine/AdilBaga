@@ -15,6 +15,7 @@
     "dict:apply": "tsx src/cli/dict-apply.ts",
     "taxonomy:sql": "tsx src/cli/taxonomy-sql.ts",
     "scope:dina": "tsx src/cli/dina-scope.ts",
+    "scope:dana": "tsx src/cli/dana-scope.ts",
     "sync:compare": "tsx src/cli/compare.ts"
   },
   "dependencies": { "cheerio": "^1.0.0", "dotenv": "^16.4.7", "zod": "^3.24.1" },
