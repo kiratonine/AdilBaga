@@ -23,12 +23,20 @@ describe('assertCompleteScrape', () => {
     expect(() => assertCompleteScrape(fixScoped(0), { all: false })).not.toThrow()
   })
 
+  it('refuses a Dana sections scrape with errors', () => {
+    expect(() => assertCompleteScrape(file('DANA', 1, { mode: 'sections', pages: 100, sections: 7 }), { all: false })).toThrow(/DANA.*1 error.*keeping previous file/)
+  })
+
+  it('never throws for a Dana sections scrape under SCRAPE_ALL', () => {
+    expect(() => assertCompleteScrape(file('DANA', 1, { mode: 'sections', pages: 100, sections: 7 }), { all: true })).not.toThrow()
+  })
+
   it('keeps error tolerance for SCRAPE_ALL, legacy Dina roots, Dana and full Fix Price', () => {
     expect(() => assertCompleteScrape(dinaBatch(3), { all: true })).not.toThrow()
     expect(() => assertCompleteScrape(fixScoped(3), { all: true })).not.toThrow()
     expect(() => assertCompleteScrape(file('DINA', 3, { pages: 50, categories: 15, scoped: true }), { all: false })).not.toThrow()
     expect(() => assertCompleteScrape(file('DINA', 3, { pages: 500, categories: 40, scoped: false }), { all: false })).not.toThrow()
-    expect(() => assertCompleteScrape(file('DANA', 3, { pages: 10, roots: 5 }), { all: false })).not.toThrow()
+    expect(() => assertCompleteScrape(file('DANA', 3, { mode: 'roots', pages: 10, roots: 5 }), { all: false })).not.toThrow()
     expect(() => assertCompleteScrape(file('FIX_PRICE', 3, { mode: 'api', categories: 30, scoped: false }), { all: false })).not.toThrow()
     expect(() => assertCompleteScrape(file('FIX_PRICE', 0, { mode: 'har', responses: 4 }), { all: false })).not.toThrow()
   })

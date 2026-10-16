@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Еженедельный полный скрап (SCRAPE_ALL=1) без публикации: обновляет полные source-файлы,
-# пересчитывает кандидат набора категорий Dina и unmapped.json для разбора новых товаров. Ingest НЕ запускается.
+# пересчитывает кандидаты наборов Dina (категории) и Dana (подразделы) и unmapped.json для разбора новых товаров. Ingest НЕ запускается.
 # Пишет в data/sources-full/ и data/sync-full/, чтобы не затереть узкие ежедневные файлы.
-# Env для БД не нужны. Результат: data/sources-full/dina-scope-categories.candidate.json
-# (сравнить с data/mapping/dina-scope-categories.json и закоммитить вручную) и data/sync-full/unmapped.json.
+# Env для БД не нужны. Результат: data/sources-full/dina-scope-categories.candidate.json и dana-scope-sections.candidate.json
+# (сравнить с data/mapping/dina-scope-categories.json и dana-scope-sections.json, закоммитить вручную) и data/sync-full/unmapped.json.
 # Коды выхода: 0 — всё удачно; ненулевой — упал скрапер, scope:dina или sync.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -39,7 +39,8 @@ if [ "${#failed[@]}" -gt 0 ]; then
 fi
 
 pnpm scope:dina --in ../data/sources-full/dina.json --out ../data/sources-full/dina-scope-categories.candidate.json
+pnpm scope:dana --in ../data/sources-full/dana.json --out ../data/sources-full/dana-scope-sections.candidate.json
 SYNC_MAX_SOURCE_AGE_HOURS=36 pnpm sync
 
 echo "[full] done in $((SECONDS - started))s"
-echo "[full] candidate written; compare with data/mapping/dina-scope-categories.json and commit manually"
+echo "[full] candidates written; compare with data/mapping/dina-scope-categories.json and dana-scope-sections.json, commit manually"
