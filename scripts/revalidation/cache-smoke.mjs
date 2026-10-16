@@ -5,6 +5,8 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join, resolve } from 'node:path';
+import { observeConvergence } from './cache-observer.mjs';
+import { marker, createEventSource } from './production-observer.mjs';
 const root = resolve(import.meta.dirname, '../..');
 const frontend = join(root, 'frontend');
 const fixture = name => JSON.parse(readFileSync(join(frontend, `src/mocks/${name}.json`)));
@@ -43,46 +45,31 @@ const env = Object.fromEntries(['PATH','HOME','TMPDIR'].filter(k => process.env[
 Object.assign(env, { NODE_ENV: 'production', NEXT_PUBLIC_API_MODE: 'http', NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:18090', API_BASE_URL: 'http://127.0.0.1:18090' + namespace, NEXT_PUBLIC_SITE_URL: 'http://localhost:3100', REVALIDATE_HMAC_SECRET: secret });
 const next = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', '3150'], { cwd: frontend, env, stdio: 'ignore' });
 async function get(path, timeoutMs = 10000) {
-  const response = await fetch('http://127.0.0.1:3150' + path, { signal: AbortSignal.timeout(timeoutMs) }); assert.equal(response.status, 200);
+  const response = await fetch('http://127.0.0.1:3150' + path, { redirect: 'error', signal: AbortSignal.timeout(timeoutMs) }); assert.equal(response.status, 200);
   const text = await response.text();
-  return { text, cacheStatus: response.headers.get('x-nextjs-cache') };
+  const headers = Object.fromEntries(['cache-control','etag','age','vary','x-nextjs-cache','x-vercel-cache','cf-cache-status']
+    .map(name => [name,response.headers.get(name)]));
+  return { text, cacheStatus: response.headers.get('x-nextjs-cache'), headers };
 }
 async function notify() {
+  const eventSource = createEventSource();
   const body = '{"event":"snapshot_published"}';
   const timestamp = String(Math.floor(Date.now() / 1000));
   const signature = 'v1=' + createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');
-  assert.equal((await fetch('http://127.0.0.1:3150/internal/revalidate', { method: 'POST', body,
-    headers: { 'X-Adilbaga-Timestamp': timestamp, 'X-Adilbaga-Signature': signature }, signal: AbortSignal.timeout(5000) })).status, 204);
+  eventSource.begin(namespace.slice(1));
+  const response = await fetch('http://127.0.0.1:3150/internal/revalidate', { method: 'POST', body, redirect: 'error',
+    headers: { 'X-Adilbaga-Timestamp': timestamp, 'X-Adilbaga-Signature': signature }, signal: AbortSignal.timeout(5000) });
+  const acceptedAt = performance.now();
+  assert.equal(response.status,204); assert.equal(response.headers.get('cache-control'),'no-store');
+  assert.equal(await response.text(),'');
+  eventSource.accept204(response.status);
+  return { acceptedAt, eventSource };
 }
 // One shared deadline starts at signed204, not a fresh budget per path or poll.
-const convergenceBudgetMs = 5000;
 async function converge(target, acceptedAt) {
-  let first = true, staleResponses = 0, firstCacheStatus = null, firstFresh = false;
-  let fresh = false, failureClass = null, elapsedMs;
-  while (performance.now() - acceptedAt < convergenceBudgetMs) {
-    try {
-      const remaining = Math.max(1, Math.floor(convergenceBudgetMs - (performance.now() - acceptedAt)));
-      const response = await get(target.path, remaining);
-      fresh = target.isFresh(response.text);
-      elapsedMs = Math.ceil(performance.now() - acceptedAt);
-      if (first) { firstCacheStatus = response.cacheStatus; firstFresh = fresh; first = false }
-      if (fresh) break;
-      staleResponses++;
-      // Conditional bounded polling only after a stale response; no unconditional delay.
-      const pause = Math.min(100, convergenceBudgetMs - (performance.now() - acceptedAt));
-      if (pause > 0) await new Promise(resolve => setTimeout(resolve, pause));
-    } catch {
-      failureClass = 'local_http_operation_failed';
-      break;
-    }
-  }
-  const passed = fresh && elapsedMs <= convergenceBudgetMs && !failureClass;
-  const observation = { target: target.name, first_response_cache_status: firstCacheStatus,
-    first_response_fresh: firstFresh, eventual_freshness: passed ? 'PASS' : 'FAIL',
-    elapsed_ms: elapsedMs ?? Math.ceil(performance.now() - acceptedAt), stale_response_count: staleResponses,
-    detail_api_fetch_count: detailCalls, failure_class: failureClass };
+  const observation = await observeConvergence({ target, acceptedAt, get, detailCalls: () => detailCalls });
   console.log(JSON.stringify(observation));
-  return passed;
+  return observation.eventual_freshness === 'PASS';
 }
 try {
   const deadline = Date.now() + 30000;
@@ -103,9 +90,23 @@ try {
     { name: 'dashboard', path: '/ru/dashboard', isFresh: snapshotFresh },
     { name: 'category', path: '/ru/collections/milk', isFresh: productFresh },
   ];
+  // Validate the production observer's structural oracle on actual Next output,
+  // not just synthetic hand-written Flight records. The sitemap's local site URL
+  // differs deliberately from the fixed production origin.
+  const beforeMarkers = new Map();
+  for (const target of targets) {
+    const localPredicate = target.isFresh;
+    target.isFresh = text => {
+      const representation = target.name === 'sitemap' ? text.replaceAll('http://localhost:3100', 'https://aktau.market') : text;
+      const revision = marker(representation, { ...target, productId: products[0].id, slug: 'milk' });
+      return localPredicate(text) && revision.every(value => value === stamp);
+    };
+  }
   for (const target of targets) {
     const baseline = await get(target.path);
     assert.ok(!target.isFresh(baseline.text), 'baseline must lack revised data');
+    const representation = target.name === 'sitemap' ? baseline.text.replaceAll('http://localhost:3100', 'https://aktau.market') : baseline.text;
+    beforeMarkers.set(target.name, marker(representation, { ...target, productId: products[0].id, slug: 'milk' }));
   }
   revision = 1;
   for (const target of targets) {
@@ -115,12 +116,29 @@ try {
       cache_status: warm.cacheStatus, fresh: false, detail_api_fetch_count: detailCalls }));
   }
   const endpoint = 'http://127.0.0.1:3150/internal/revalidate';
-  assert.equal((await fetch(endpoint, { signal: AbortSignal.timeout(5000) })).status, 405);
-  assert.equal((await fetch(endpoint, { method: 'POST', body: '{}', signal: AbortSignal.timeout(5000) })).status, 401);
-  await notify();
-  const acceptedAt = performance.now();
+  const unsupported = await fetch(endpoint, { redirect: 'error', signal: AbortSignal.timeout(5000) });
+  assert.equal(unsupported.status,405); assert.equal(await unsupported.text(),'');
+  // Automatic GET405 is explicitly exempt from the POST no-store requirement.
+  const denied = await fetch(endpoint, { method: 'POST', body: '{}', redirect: 'error', signal: AbortSignal.timeout(5000) });
+  assert.equal(denied.status,401); assert.equal(denied.headers.get('cache-control'),'no-store'); assert.equal(await denied.text(),'');
+  const { acceptedAt, eventSource } = await notify();
   const outcomes = await Promise.all(targets.map(target => converge(target, acceptedAt)));
   assert.ok(outcomes.every(Boolean), 'all required paths must converge within shared5000ms deadline');
+  const manifest = { publicationId: namespace.slice(1), targets: targets.map(t => ({ name: t.name, path: t.path,
+    productId: products[0].id, slug: 'milk', before: beforeMarkers.get(t.name)[0], after: stamp,
+    productBefore: beforeMarkers.get(t.name).at(-1), productAfter: stamp })) };
+  const operator = await eventSource.observe(manifest, { get: async (path, timeout) => {
+    const response = await get(path, timeout);
+    return { ...response, status: 200, text: path === '/sitemap.xml' ? response.text.replaceAll('http://localhost:3100', 'https://aktau.market') : response.text };
+  } });
+  assert.equal(operator.acceptance, 'PASS', 'same-event operator hook must pass all six real representations');
+  console.log(JSON.stringify({ phase: 'local_operator_integration', acceptance: operator.acceptance, request_count: operator.request_count,
+    event_interval_ms: operator.clock_uncertainty_ms, paths: operator.results.map(r => ({ target: r.target, acceptance: r.acceptance, elapsed_ms: r.first_fresh_ms })) }));
+  // HEAD is an observational probe AFTER GET convergence, never a freshness oracle.
+  const head = await fetch('http://127.0.0.1:3150' + targets[0].path, { method: 'HEAD', redirect: 'error', signal: AbortSignal.timeout(5000) });
+  assert.equal(head.status,200); assert.equal(await head.text(),'');
+  console.log(JSON.stringify({ target:'product_ru', phase:'post_get_head_observation', etag:head.headers.get('etag'),
+    cache_status:head.headers.get('x-nextjs-cache'), cache_control:head.headers.get('cache-control'), body_freshness:'NOT_PROVABLE_FROM_HEAD' }));
   console.log('Part16 LOCAL HTTP cache smoke PASS: GET405/auth401/signed204/productRU+KK/sitemap/catalog/dashboard/category within5000ms; synthetic only, not first-response guarantee');
 } finally {
   next.kill('SIGTERM');
