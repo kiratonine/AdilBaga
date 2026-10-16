@@ -228,9 +228,9 @@ exit=0
 
 `robots.txt` Dana содержит `Crawl-delay: 3`. По решению владельца (2026-10-16) он осознанно игнорируется, как и в прежнем коде (пауза 0,3 с на запрос). Нагрузку ограничивают параллельность не больше 4 (по умолчанию 3) и ретраи `politeFetch` без изменений. При `429/5xx` от Dana снизить `DANA_CONCURRENCY` до 1.
 
-### 10.6 Что не сделано
+### 10.6 Что осталось и оговорки
 
 - **Приёмка на VPS не выполнена:** три плановых прогона с `took ≤ 120 с` ещё впереди (Task 8, только после сообщения владельца «Заливай на прод»).
-- **Шаг 8 плана (полный `daily-sync.sh` в локальной Docker-БД) пропущен:** Docker запущен, но контейнера локальной БД и дампа каталога нет. Строгий ingest с новым Dana-файлом не проверен; `pnpm sync` и `sync:compare` проверены.
+- **Шаг 8 плана выполнен** (локальная Docker-БД `postgres:17-alpine` из `local-ingest-db.sh`, дамп 2026-10-05, прод-env не использовался). Как и в §5.1, дамп старше словаря SCRUM-7, поэтому один раз выполнен `-recluster -apply` по bundle этого же прогона (merged 4, split 8, snapshot `e84c1f3f…`). Затем полный `daily-sync.sh` в строгом режиме: `[sync] fixprice exit=0 took=25s`, `dina exit=0 took=25s`, `dana exit=0 took=71s` (`[DANA] mode: sections`, 156 страниц, 2 933 товара), `[sync] done in 73s`, **код 0** (в §5.2 было 225 с). Dry-run: `newCanonical 0, reused 3 052, merged 0, split 0`; `-apply` `applied:true`, snapshot `a1873d83…` `published`, `rawCount 3 293` (DANA 1 184, DINA 2 036, FIX_PRICE 73). `frontend_revalidation outcome_class=degraded` (loopback-адрес недоступен, ожидаемо). Локальная БД удалена после прогона.
 - Fix Price для A/B скрапился с публичными значениями `FIXPRICE_CITY_ID=1594`, `FIXPRICE_COUNTRY_ID=3` из `docs/data/FIXPRICE_SOURCE.md`, одинаково для A и B.
 - Проверка `unsectioned 0` посчитана для словаря на 2026-10-16; еженедельный `scope:dana` выполняет её заново.
