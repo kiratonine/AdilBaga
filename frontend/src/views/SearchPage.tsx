@@ -11,6 +11,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { readSort, withSort } from '../lib/filterParams'
 import { replaceQuery } from '../lib/urlState'
 import { useHref } from '../lib/useLang'
+import { trackProductEvent, useSearchResult } from '../lib/pilot-analytics'
 
 /** /search?q= — поиск по всем категориям, целиком на клиенте (страница в индекс не идёт). Запрос в URL пишет SearchBox в шапке */
 export function SearchPage() {
@@ -22,6 +23,7 @@ export function SearchPage() {
   const sort = readSort(params)
   const products = useProductPages({ search: q, sort }, { enabled: q !== '' })
   const items = products.data?.pages.flat() ?? []
+  useSearchResult(q, items.length, products.isSuccess && !products.isFetching && !products.isPlaceholderData)
   const title = q ? t('search.titleFor', { query: q }) : t('search.title')
 
   return (
@@ -44,7 +46,10 @@ export function SearchPage() {
           </h2>
           {items.length > 0 && (
             <div className="mb-4 flex justify-end">
-              <SortSelect value={sort} onChange={(next) => replaceQuery(pathname, withSort(params, next))} />
+              <SortSelect value={sort} onChange={(next) => {
+                if (next !== sort) trackProductEvent({ name: 'sort_change', sort: next })
+                replaceQuery(pathname, withSort(params, next))
+              }} />
             </div>
           )}
 

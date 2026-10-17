@@ -4,10 +4,10 @@ import Script from 'next/script'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { navigation } from '../../test/navigation'
+import { nextScriptMock } from '../../test/next-script-mock'
 import { Analytics } from './Analytics'
 
 // Never load a third-party library or send a hit. Test only the command queues.
-vi.mock('next/script', () => ({ default: vi.fn(() => null) }))
 const ga = () => (window.dataLayer ?? []).map(args => Array.from(args))
 const ym = () => (window.ym?.a ?? []).map(args => Array.from(args))
 const views = () => ga().filter(args => args[0] === 'event')
@@ -25,6 +25,16 @@ describe('analytics initial/SPA pageviews without network', () => {
   })
   afterEach(() => vi.unstubAllEnvs())
 
+  it('uses the shared Script spy even when earlier suites cached Analytics', () => {
+    expect(vi.isMockFunction(Script)).toBe(true)
+    expect(Script).toBe(nextScriptMock)
+    render(<Analytics />)
+    expect(nextScriptMock.mock.calls.map(([props]) => props.src)).toEqual([
+      'https://www.googletagmanager.com/gtag/js?id=G-TEST123456',
+      'https://mc.yandex.ru/metrika/tag.js',
+    ])
+  })
+
   it('queues one init and initial view per provider before loading, including StrictMode', () => {
     render(<StrictMode><Analytics /></StrictMode>)
     expect(views()).toHaveLength(1); expect(hits()).toHaveLength(1)
@@ -32,8 +42,8 @@ describe('analytics initial/SPA pageviews without network', () => {
     expect(ga().find(args => args[0] === 'config')?.[2]).toMatchObject({ send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false })
     expect(ym().filter(args => args[1] === 'init')).toHaveLength(1)
     expect(ym()[0][2]).toEqual({ defer: true, webvisor: false, clickmap: false, trackLinks: false, trackHash: false, accurateTrackBounce: false, ecommerce: false, sendTitle: false })
-    expect(views()[0][2]).toMatchObject({ page_location: 'https://aktau.market/ru/catalog', page_path: '/ru/catalog', page_title: 'Aktau Market', page_referrer: 'https://aktau.market/' })
-    expect(hits()[0].slice(2)).toEqual(['https://aktau.market/ru/catalog', { referer: 'https://aktau.market/', title: 'Aktau Market' }])
+    expect(views()[0][2]).toMatchObject({ page_location: 'https://aktau.market/ru/catalog', page_path: '/ru/catalog', page_title: 'Aktau Market', page_referrer: '' })
+    expect(hits()[0].slice(2)).toEqual(['https://aktau.market/ru/catalog', { referer: '', title: 'Aktau Market' }])
     expect(loaders().every(p => p.strategy === 'afterInteractive')).toBe(true)
     expect(new Set(loaders().map(p => p.src))).toEqual(new Set(['https://www.googletagmanager.com/gtag/js?id=G-TEST123456', 'https://mc.yandex.ru/metrika/tag.js']))
     expect(JSON.stringify([...ga(), ...ym()])).not.toContain('private')

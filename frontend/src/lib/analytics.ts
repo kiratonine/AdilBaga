@@ -17,3 +17,27 @@ export function analyticsPage(site: string, origin: string, pathname: string): s
     return canonical.origin + pathname
   } catch { return undefined }
 }
+/** Conservative public campaign vocabulary, never arbitrary query values. */
+const CAMPAIGNS = {
+  utm_source: ['google', 'yandex', 'instagram', 'telegram', 'facebook', 'whatsapp', 'qr', 'siri'],
+  utm_medium: ['organic', 'cpc', 'social', 'referral', 'email', 'qr', 'offline'],
+  utm_campaign: ['pilot', 'pilot_2026', 'launch', 'aktau_market'],
+} as const
+
+export function entryAttribution(url: string, referrer: string) {
+  const entry = new URL(url)
+  const campaign = new URLSearchParams()
+  for (const [key, allowed] of Object.entries(CAMPAIGNS)) {
+    const values = entry.searchParams.getAll(key)
+    if (values.length === 1 && (allowed as readonly string[]).includes(values[0])) campaign.set(key, values[0])
+  }
+  let externalReferrer = ''
+  try {
+    const ref = new URL(referrer)
+    // Strict public search/social origins; don't export arbitrary/private host names.
+    if (ref.protocol === 'https:' && !ref.username && !ref.password && !ref.port &&
+      ['www.google.com', 'www.google.kz', 'yandex.ru', 'yandex.kz', 'www.instagram.com', 't.me', 'www.facebook.com'].includes(ref.hostname) &&
+      ref.origin !== entry.origin) externalReferrer = ref.origin + '/'
+  } catch { /* Missing/untrusted referrer is not attributed. */ }
+  return { campaign: campaign.toString(), referrer: externalReferrer }
+}

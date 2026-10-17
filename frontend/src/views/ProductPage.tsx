@@ -20,6 +20,7 @@ import { storeColor } from '../lib/stores'
 import { useHref } from '../lib/useLang'
 import { NotFoundPage } from './NotFoundPage'
 import { usePriceStale } from '../lib/freshness'
+import { trackProductEvent, useProductView } from '../lib/pilot-analytics'
 
 /** Сколько сетей видно сразу; остальные — по «Показать все N» */
 const OFFERS_VISIBLE = 5
@@ -40,6 +41,7 @@ export function ProductPage({ id }: { id: string }) {
 }
 
 function ProductDetails({ product }: { product: ProductCardDto }) {
+  useProductView(product.id, product.category.slug)
   const { t } = useTranslation()
   const href = useHref()
   const offers = sortOffers(product.offers)
@@ -168,7 +170,10 @@ function Offers({ product, offers, compared }: { product: ProductCardDto; offers
         })}
       </ul>
       {!expanded && offers.length > OFFERS_VISIBLE && (
-        <Button variant="ghost" testId="show-all-offers" className="mt-1 w-full" onClick={() => setExpanded(true)}>
+        <Button variant="ghost" testId="show-all-offers" className="mt-1 w-full" onClick={() => {
+          trackProductEvent({ name: 'offers_expand', productId: product.id, category: product.category.slug }, `offers:${product.id}`)
+          setExpanded(true)
+        }}>
           {t('product.showAll', { count: offers.length })}
         </Button>
       )}

@@ -20,6 +20,7 @@ import { countActive, readFilters, readSort, withFilter, withoutFilters, withSor
 import { replaceQuery } from '../lib/urlState'
 import { useHref } from '../lib/useLang'
 import { NotFoundPage } from './NotFoundPage'
+import { trackProductEvent, useCategoryView } from '../lib/pilot-analytics'
 
 /** Schema, категории и первая страница товаров (с фильтрами из URL) приходят с сервера */
 export function CategoryPage({ slug }: { slug: string }) {
@@ -40,10 +41,18 @@ export function CategoryPage({ slug }: { slug: string }) {
   const products = useProductPages({ category: slug, filters: values, sort }, { enabled: schema.isSuccess })
 
   const update = (next: URLSearchParams) => replaceQuery(pathname, next)
-  const resetFilters = () => update(withoutFilters(params, filters))
-  const changeFilter = (key: string, next: string[]) => update(withFilter(params, key, next))
+  const resetFilters = () => {
+    if (activeCount > 0) trackProductEvent({ name: 'filter_reset', category: slug })
+    update(withoutFilters(params, filters))
+  }
+  const changeFilter = (key: string, next: string[]) => {
+    if (filters.some(filter => filter.key === key) && JSON.stringify(values[key] ?? []) !== JSON.stringify(next))
+      trackProductEvent({ name: 'filter_apply', category: slug, filterKey: key })
+    update(withFilter(params, key, next))
+  }
 
   const category = categories.data?.find((c) => c.slug === slug)
+  useCategoryView(slug, !!category && schema.isSuccess && products.isSuccess && !products.isPlaceholderData)
   if (schema.error instanceof ApiError && schema.error.status === 404) return <NotFoundPage />
   if (schema.isPending)
     return (
@@ -102,7 +111,10 @@ export function CategoryPage({ slug }: { slug: string }) {
                   {activeCount > 0 && <span className="tabular">· {activeCount}</span>}
                 </Chip>
               )}
-              <SortSelect value={sort} onChange={(next) => update(withSort(params, next))} className="md:ml-auto" />
+              <SortSelect value={sort} onChange={(next) => {
+                if (next !== sort) trackProductEvent({ name: 'sort_change', category: slug, sort: next })
+                update(withSort(params, next))
+              }} className="md:ml-auto" />
             </div>
 
             {/* Скрытый h2: у карточек h3, без него после h1 уровень заголовков перескакивает */}
