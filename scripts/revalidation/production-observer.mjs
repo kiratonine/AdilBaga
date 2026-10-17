@@ -1,5 +1,8 @@
 // Preparation only: importing this module performs no I/O. No POST/HEAD capability.
 import https from 'node:https';
+import { createHash } from 'node:crypto';
+import { prepareBeforeV2, buildManifest } from './c2-manifest.mjs';
+import { sameProviderCustody } from './projection-provider.mjs';
 
 export const LIMITS = Object.freeze({ acceptanceMs: 5000, endMs: 20000,
   timeoutMs: 4000, maxRequests: 21, bodyBytes: 2 * 1024 * 1024,
@@ -9,6 +12,12 @@ const safeHeaders = ['date', 'cache-control', 'etag', 'age', 'vary', 'x-nextjs-c
 const iso = value => typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value));
 const fail = code => { throw new Error(code) };
 const capturedEvents = new WeakSet();
+const captures = new WeakMap();
+const captureStarted = new WeakSet();
+export const deepFreeze = value => {
+  if (value && typeof value === 'object') { for (const v of Object.values(value)) deepFreeze(v); Object.freeze(value) }
+  return value;
+};
 
 // Hook for an EXISTING authorized notifier invocation, not another sender.
 // begin immediately before its request; accept only after its verified 204.
@@ -22,15 +31,19 @@ export function createEventSource({ now = () => performance.now(), utc = () => D
       if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(id)) fail('unverified_publication');
       publicationId = id; started = now();
     },
-    accept204(status) {
+    accept204(status, receipt = null) {
       if (started === null || event || status !== 204) fail('unverified_event');
       const end = now(); if (end < started) fail('clock_uncertainty');
-      event = Object.freeze({ start: started, end, receivedUTC: utc(), now, publicationId });
+      event = Object.freeze({ start: started, end, receivedUTC: utc(), now, publicationId,
+        receipt: receipt === null ? null : deepFreeze(structuredClone(receipt)) });
       capturedEvents.add(event);
       return event;
     },
     observe(manifest, dependencies = {}) {
       return observeProduction({ event, targets: manifest?.targets, publicationId: manifest?.publicationId }, { ...dependencies, now });
+    },
+    capture(before, dependencies = {}) {
+      return captureBefore({ event, before, publicationId }, { ...dependencies, now });
     },
   };
 }
@@ -92,12 +105,12 @@ function sitemapPaths(target) {
   return ['catalog', 'dashboard', `collections/${target.slug}`, `products/${target.productId}`]
     .flatMap(p => [`/ru/${p}`, `/kk/${p}`]);
 }
-function expected(target, phase) {
+export function expected(target, phase) {
   const stamp = target[phase], product = target[`product${phase === 'before' ? 'Before' : 'After'}`];
   return target.name === 'catalog' ? [stamp, product] : target.name === 'sitemap' ? [stamp, stamp, stamp, stamp, stamp, stamp, product, product] : [stamp];
 }
 
-export function validatePlan(plan) {
+export function validatePlan(plan, capture = false) {
   const local = plan?.event && capturedEvents.has(plan.event);
   if (local && plan.publicationId !== plan.event.publicationId) fail('unverified_publication');
   // A typed UTC string / claimed uncertainty is not an independently verified
@@ -105,14 +118,14 @@ export function validatePlan(plan) {
   if (!local) fail('unverified_event_clock');
   if (!Array.isArray(plan.targets) || plan.targets.length !== 6 || names.some(n => plan.targets.filter(t => t.name === n).length !== 1)) fail('invalid_matrix');
   for (const t of plan.targets) {
-    if (!iso(t.before) || !iso(t.after) || t.before === t.after) fail('invalid_revision_manifest');
+    if (!iso(t.before) || (!capture && (!iso(t.after) || t.before === t.after))) fail('invalid_revision_manifest');
     const id = t.productId;
     const idOK = typeof id === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(id);
     const expected = t.name === 'product_ru' ? idOK && `/ru/products/${id}` : t.name === 'product_kk' ? idOK && `/kk/products/${id}`
       : t.name === 'sitemap' ? '/sitemap.xml' : t.name === 'catalog' ? '/ru/catalog' : t.name === 'dashboard' ? '/ru/dashboard'
       : idOK && typeof t.slug === 'string' && /^[a-z0-9-]{1,64}$/.test(t.slug) && `/ru/collections/${t.slug}`;
     if (!expected || t.path !== expected) fail('invalid_path');
-    if (['catalog', 'sitemap'].includes(t.name) && (!idOK || !iso(t.productBefore) || !iso(t.productAfter) || t.productBefore === t.productAfter)) fail('invalid_revision_manifest');
+    if (['catalog', 'sitemap'].includes(t.name) && (!idOK || !iso(t.productBefore) || (!capture && (!iso(t.productAfter) || t.productBefore === t.productAfter)))) fail('invalid_revision_manifest');
     if (t.name === 'sitemap' && (typeof t.slug !== 'string' || !/^[a-z0-9-]{1,64}$/.test(t.slug))) fail('invalid_revision_manifest');
   }
 }
@@ -140,9 +153,11 @@ export function publicGet(path, timeoutMs, maxBytes, request = https.request) {
 
 // No CLI/autorun. Operator must supply an approved event + verified before/after
 // manifest from the six ACTUAL representations before explicitly invoking this.
-export async function observeProduction(plan, { get = publicGet, now = () => performance.now(), sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
+export function observeProduction(plan, dependencies = {}) { return observe(plan, dependencies, false) }
+async function observe(plan, { get = publicGet, now = () => performance.now(), sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}, capture = false) {
   const inconclusive = reason => ({ acceptance: 'INCONCLUSIVE', reason, request_count: 0, results: [], events: [] });
-  try { validatePlan(plan) } catch (e) { return inconclusive(e.message) }
+  try { validatePlan(plan, capture) } catch (e) { return inconclusive(e.message) }
+  if (capture && get === publicGet) return inconclusive('fixture_transport_required');
   const startMono = now();
   if (plan.event.now !== now) return inconclusive('unverified_event_clock');
   const startUTC = plan.event.receivedUTC + startMono - plan.event.end;
@@ -166,7 +181,7 @@ export async function observeProduction(plan, { get = publicGet, now = () => per
       // Requests inside acceptance cannot use diagnostic time to claim timely PASS.
       const boundary = begin + uncertainty < LIMITS.acceptanceMs ? LIMITS.acceptanceMs - uncertainty : LIMITS.endMs - uncertainty;
       const timeout = Math.max(1, Math.min(LIMITS.timeoutMs, Math.floor(boundary - begin)));
-      let status = null, headers = {}, fresh = false, error = null;
+      let status = null, headers = {}, fresh = false, error = null, markers = [], bodySha256 = null;
       try {
         const response = await get(target.path, timeout, target.name === 'sitemap' ? LIMITS.sitemapBytes : LIMITS.bodyBytes);
         status = response.status;
@@ -174,9 +189,11 @@ export async function observeProduction(plan, { get = publicGet, now = () => per
         if (status !== 200) fail(status >= 300 && status < 400 ? 'redirect' : 'non200');
         if (Buffer.byteLength(response.text) > (target.name === 'sitemap' ? LIMITS.sitemapBytes : LIMITS.bodyBytes)) fail('oversized_body');
         const revision = marker(response.text, target);
-        const known = revision.every((v, i) => v === expected(target, 'before')[i] || v === expected(target, 'after')[i]);
+        markers = [...revision]; bodySha256 = createHash('sha256').update(response.text).digest('hex');
+        const known = capture || revision.every((v, i) => v === expected(target, 'before')[i] || v === expected(target, 'after')[i]);
         if (!known) fail('unexpected_revision');
-        fresh = revision.every((v, i) => v === expected(target, 'after')[i]);
+        fresh = capture ? !revision.every((v, i) => v === expected(target, 'before')[i])
+          : revision.every((v, i) => v === expected(target, 'after')[i]);
         if (!fresh) stale++;
       } catch (e) {
         const allowed = ['timeout', 'redirect', 'non200', 'oversized_body', 'missing_marker', 'unexpected_revision', 'encoded_body'];
@@ -184,7 +201,8 @@ export async function observeProduction(plan, { get = publicGet, now = () => per
       }
       const end = elapsed();
       if (fresh) firstFresh = end;
-      events.push({ target: target.name, request_start_utc: requestStart, request_end_utc: new Date(startUTC + now() - startMono).toISOString(), start_elapsed_ms: begin, end_elapsed_ms: end, elapsed_uncertainty_ms: uncertainty, duration_ms: end - begin, status, headers, fresh, error });
+      events.push({ target: target.name, path: target.path, request_start_utc: requestStart, request_end_utc: new Date(startUTC + now() - startMono).toISOString(), start_elapsed_ms: begin, end_elapsed_ms: end, elapsed_uncertainty_ms: uncertainty, duration_ms: end - begin, status, headers, error,
+        ...(capture ? { markers, bodySha256, class: error ? 'error' : fresh ? 'changed' : 'stale' } : { fresh }) });
       if (fresh || failure) break;
     }
     // Elapsed is measured from the latest possible accepted204 (event.end).
@@ -194,5 +212,58 @@ export async function observeProduction(plan, { get = publicGet, now = () => per
     return { target: target.name, first_response: events.find(e => e.target === target.name) ?? null, first_fresh_ms: firstFresh, stale_count: stale, failure,
       acceptance: provedLate ? 'FAIL' : firstFresh !== null && firstFresh + uncertainty <= LIMITS.acceptanceMs && !failure ? 'PASS' : 'INCONCLUSIVE' };
   }));
-  return { acceptance: results.some(r => r.acceptance === 'FAIL') ? 'FAIL' : results.every(r => r.acceptance === 'PASS') && !stopped ? 'PASS' : 'INCONCLUSIVE', request_count: count, clock_uncertainty_ms: uncertainty, results, events };
+  return { acceptance: capture ? (stopped ? 'capture_failed' : 'capture_complete') : results.some(r => r.acceptance === 'FAIL') ? 'FAIL' : results.every(r => r.acceptance === 'PASS') && !stopped ? 'PASS' : 'INCONCLUSIVE', request_count: count, clock_uncertainty_ms: uncertainty, results: capture ? [] : results, events };
+}
+
+// In-process evidence only. Cloned independently of caller inputs/HTTP objects;
+// serializing and reading it back cannot mint another trusted capture.
+export async function captureBefore(plan, dependencies = {}) {
+  const prepared = prepareBeforeV2(plan?.before);
+  if (prepared.status !== 'ready') return { acceptance: 'INCONCLUSIVE', reason: 'unqualified_before', request_count: 0 };
+  if (plan?.event && capturedEvents.has(plan.event)) {
+    if (captureStarted.has(plan.event)) return { acceptance: 'INCONCLUSIVE', reason: 'capture_already_started', request_count: 0 };
+    captureStarted.add(plan.event);
+  }
+  const before = structuredClone(plan.before);
+  const result = await observe({ ...plan, targets: prepared.targets }, dependencies, true);
+  if (!result.acceptance.startsWith('capture_')) return result;
+  const token = deepFreeze(structuredClone({ ...result, before, event: {
+    start: plan.event.start, end: plan.event.end, receivedUTC: plan.event.receivedUTC, receipt: plan.event.receipt,
+  } }));
+  captures.set(token, { before: token.before, event: plan.event, completedAt: plan.event.now() });
+  return token;
+}
+
+export function captureTiming(capture) {
+  const s = captures.get(capture);
+  return s ? Object.freeze({ ageMs: s.event.now() - s.event.end, completedAt: s.completedAt,
+    eventEnd: s.event.end, now: s.event.now(), receipt: capture.event.receipt }) : null;
+}
+
+// Pure retrospective classification of already recorded samples; never GET.
+// Caller must additionally establish provider custody (projection-provider).
+export function verdictCapture(capture, before, after) {
+  const inconclusive = reason => ({ acceptance: 'INCONCLUSIVE', reason, request_count: capture?.request_count ?? 0, results: [], events: [] });
+  const stored = captures.get(capture);
+  if (!stored || JSON.stringify(before) !== JSON.stringify(stored.before)) return inconclusive('untrusted_capture');
+  if (!sameProviderCustody(before, after)) return inconclusive('untrusted_projection');
+  if (capture.acceptance !== 'capture_complete') return inconclusive('capture_failed');
+  const event = stored.event, receipt = event.receipt;
+  if (!receipt || receipt.status !== 204 || receipt.attemptId !== before.attemptId || receipt.snapshotId !== after?.snapshotId
+    || receipt.attemptId !== after?.attemptId) return inconclusive('event_mismatch');
+  const built = buildManifest({ version: 2, attemptId: before.attemptId, before, after });
+  if (built.status !== 'ready') return inconclusive(built.reason);
+  const results = built.manifest.targets.map(t => {
+    const samples = capture.events.filter(e => e.target === t.name);
+    const fresh = samples.find(e => !e.error && JSON.stringify(e.markers) === JSON.stringify(expected(t, 'after')));
+    const unexpected = samples.some(e => e.class === 'changed' && JSON.stringify(e.markers) !== JSON.stringify(expected(t, 'after')));
+    const error = samples.some(e => e.error) || !samples.length || unexpected;
+    const late = samples.some(e => !e.error && e.class === 'stale' && e.start_elapsed_ms > LIMITS.acceptanceMs);
+    return { target: t.name, first_response: samples[0] ?? null, first_fresh_ms: fresh?.end_elapsed_ms ?? null,
+      stale_count: samples.filter(e => e.class === 'stale').length,
+      acceptance: error ? 'INCONCLUSIVE' : late ? 'FAIL' : fresh && fresh.end_elapsed_ms + fresh.elapsed_uncertainty_ms <= LIMITS.acceptanceMs ? 'PASS' : 'INCONCLUSIVE' };
+  });
+  return deepFreeze({ acceptance: results.every(r => r.acceptance === 'PASS') ? 'PASS' : results.some(r => r.acceptance === 'FAIL') ? 'FAIL' : 'INCONCLUSIVE',
+    request_count: capture.request_count, results, events: capture.events, event: capture.event,
+    clock_uncertainty_ms: capture.clock_uncertainty_ms, before: before.provenance, after: after.provenance });
 }
