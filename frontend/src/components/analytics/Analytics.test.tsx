@@ -4,10 +4,10 @@ import Script from 'next/script'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { navigation } from '../../test/navigation'
+import { nextScriptMock } from '../../test/next-script-mock'
 import { Analytics } from './Analytics'
 
 // Never load a third-party library or send a hit. Test only the command queues.
-vi.mock('next/script', () => ({ default: vi.fn(() => null) }))
 const ga = () => (window.dataLayer ?? []).map(args => Array.from(args))
 const ym = () => (window.ym?.a ?? []).map(args => Array.from(args))
 const views = () => ga().filter(args => args[0] === 'event')
@@ -24,6 +24,16 @@ describe('analytics initial/SPA pageviews without network', () => {
     navigation.setUrl('/ru/catalog?sessionId=private#private')
   })
   afterEach(() => vi.unstubAllEnvs())
+
+  it('uses the shared Script spy even when earlier suites cached Analytics', () => {
+    expect(vi.isMockFunction(Script)).toBe(true)
+    expect(Script).toBe(nextScriptMock)
+    render(<Analytics />)
+    expect(nextScriptMock.mock.calls.map(([props]) => props.src)).toEqual([
+      'https://www.googletagmanager.com/gtag/js?id=G-TEST123456',
+      'https://mc.yandex.ru/metrika/tag.js',
+    ])
+  })
 
   it('queues one init and initial view per provider before loading, including StrictMode', () => {
     render(<StrictMode><Analytics /></StrictMode>)

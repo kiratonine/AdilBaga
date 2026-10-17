@@ -7,7 +7,6 @@ import { navigation } from '../test/navigation'
 import { entryAttribution } from './analytics'
 import { eventFields, searchEdited, trackProductEvent, useCategoryView, useProductView, useSearchResult } from './pilot-analytics'
 
-vi.mock('next/script', () => ({ default: () => null }))
 const ga = () => (window.dataLayer ?? []).map(a => Array.from(a))
 const ym = () => (window.ym?.a ?? []).map(a => Array.from(a))
 const events = (name: string) => ga().filter(a => a[0] === 'event' && a[1] === name)

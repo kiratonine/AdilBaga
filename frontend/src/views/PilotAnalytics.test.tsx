@@ -10,7 +10,6 @@ import { CategoryPage } from './CategoryPage'
 import { ProductPage } from './ProductPage'
 import { SearchPage } from './SearchPage'
 
-vi.mock('next/script', () => ({ default: () => null }))
 const productId = 'p0a1f000-0000-4000-8000-000000000001'
 const events = (name: string) => (window.dataLayer ?? []).map(a => Array.from(a)).filter(a => a[0] === 'event' && a[1] === name)
 

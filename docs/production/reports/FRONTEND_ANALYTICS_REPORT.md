@@ -646,3 +646,117 @@ private keys/backups and temporary test output are excluded.
 Part A/security and Owner dashboard/post-deploy gates listed above remain open.
 No commit, push, PR, merge, deployment or production modification.
 **STOP for independent repeat Code Review.**
+
+## 2026-10-17 — PR #37 Frontend CI mock-identity correction
+
+**Status: READY_FOR_EXTERNAL_REVIEW (test-only correction).**
+Part A remains BLOCKED at its separate Webvisor security gate. No production
+analytics implementation or production configuration was changed in this fix.
+
+### Exact baseline and reproduced failure
+
+Existing worktree/branch feat/frontend-pilot-analytics was clean before changes.
+Fetch exit0; local HEAD and origin/feat/frontend-pilot-analytics both equal
+`99c211c3820846ab24b7ae4ad5551f26cfe36914`. No new worktree, merge or rebase.
+Only root AGENTS instructions were consulted, not nested AGENTS files.
+The complete prior43,589-byte report prefix is preserved byte-identically.
+
+Read-only GitHub inspection independently confirmed the failed
+[run38984958994](https://github.com/kiratonine/AdilBaga/actions/runs/38984958994)
+targets that exact SHA. Its
+[Frontend job117254154385](https://github.com/kiratonine/AdilBaga/actions/runs/38984958994/job/117254154385)
+failed on5 loader-spy assertions in Analytics.test.tsx, not provider commands.
+
+Before editing any file, reproduced the exact failing command locally:
+`pnpm test --pool=forks --maxWorkers=1 --no-isolate`.
+Actual exit1:257/262 PASS,5 FAIL,42/43 files PASS. The initial loader-origin Set
+was empty; four enabled-provider cases observed0 loader calls instead of1.
+Control run of Analytics.test.tsx alone under the same flags passed10/10, exit0.
+This distinguishes cross-file cache/mock interaction from a failing standalone
+Analytics implementation. No baseline failure was relabeled as PASS.
+
+### Confirmed root cause
+
+Vitest5.0.3 configuration uses src/test/setup.ts as setupFiles. Previously that
+setup mocked navigation only, while three suites independently mocked next/script:
+two returned a plain null-rendering function and Analytics.test.tsx returned a
+new vi.fn and inspected its calls.
+
+Inspected the installed Vitest implementation, not just the failing assertion:
+dist/chunks/base.DhkQeZwd.js resets the evaluated module graph and mocker only
+when config.isolate is true. The mocker in index.k8L_ZRzq.js maintains per-suite
+registries, and mockPath invalidates a mocked dependency when registering it.
+Under --no-isolate, a previously evaluated Analytics retains its earlier Script
+reference; a later suite imports a freshly registered Script mock/spy. Rendering
+the cached component therefore calls the earlier function, while assertions
+inspect the later spy. Merely making all factories return different vi.fn
+instances would not guarantee identical references.
+
+### Exact test-only diff and regression guard
+
+- **NEW frontend/src/test/next-script-mock.ts:** one typed null-rendering vi.fn,
+  exported as nextScriptMock from a normally cached test helper module. It never
+  inserts a script or emits network traffic.
+- **frontend/src/test/setup.ts:** one shared next/script registration imports
+  that stable helper instance. Repeated setup evaluation reuses the same spy in
+  --no-isolate; isolated workers get their own module lifetime as usual.
+- **frontend/src/components/analytics/Analytics.test.tsx:** removed its local
+  mock factory; imported the shared spy; added one regression asserting both
+  mock identity and actual rendered GA/Yandex loader src calls through it.
+- **frontend/src/lib/pilot-analytics.test.tsx:** removed only its local mock factory.
+- **frontend/src/views/PilotAnalytics.test.tsx:** removed only its local mock factory.
+- **docs/production/reports/FRONTEND_ANALYTICS_REPORT.md:** this append-only section.
+
+All original loader, enabled/disabled-ID, privacy, pageview/dedup and blocked
+provider assertions remain intact. Existing clearAllMocks in Analytics beforeEach
+clears calls on the shared instance without replacing it. No module-cache reset
+workaround, retries, timeout changes, test skips or CI/config edits were added.
+There is exactly one next/script mock registration in src, in test/setup.ts.
+
+### Actual verification after correction
+
+Node24.10.0/pnpm10.32.1, native WSL, existing Chrome via PW_CHANNEL=chrome.
+Subprocesses used clean env. Direct typecheck/build used explicit HTTP mode,
+both API base settings at unused loopback3999, canonical public site and dummy
+analytics IDs only. Root frontend wrapper used its unchanged httpEnv and explicit
+mock E2E profile. No real GA/Yandex SDK or collector was contacted by tests.
+
+| Executed command/check | Actual result |
+| --- | --- |
+| pnpm test --pool=forks --maxWorkers=1 --no-isolate | exit0,43 files,263/263 PASS; includes the original262 tests plus1 new identity/render regression |
+| pnpm test | exit0,43 files,263/263 PASS in normal isolated mode |
+| pnpm typecheck with documented HTTP env | exit0 |
+| pnpm lint | exit0,0 errors; same2 existing set-state-in-effect warnings, no new warning/suppression |
+| pnpm build with documented HTTP env | exit0, production-mode build, no deployment |
+| node scripts/ci/run-checks.mjs frontend with PW_CHANNEL=chrome | exit0; frozen install, typecheck, lint, CI-flags263/263 tests, audit, HTTP build and full configured E2E all completed |
+| node scripts/ci/run-checks.mjs security | exit0; source/workflow policy and synthetic backup guards PASS |
+| node scripts/revalidation/verify-part16.mjs | exit0, static boundaries PASS, not production evidence |
+| pnpm exec playwright test e2e/analytics.spec.ts --workers=1 with dummy IDs/canonical env | exit0,8/8 PASS,0 skipped; desktop+iPhone, providers intercepted |
+| git diff --check; new-file whitespace; scope/links/bounded privacy checks | PASS |
+
+The root frontend wrapper does not forward analytics IDs into its E2E environment;
+the8 dummy-ID-gated analytics cases are not claimed as executed there. They were
+run separately with the explicit intercepted profile above. Platform-specific
+E2E skips are not counted as PASS. The wrapper retains only the tail of E2E output,
+so no invented full-suite passed/skipped total is supplied here. Its existing
+browser-installer SKIP selected installed Chrome; it did not skip E2E execution.
+The previously documented Next destination-stream-closed messages remain in the
+local server output; no runtime change was made to silence them.
+
+### Review artifact and release boundary
+
+Generated a fresh full-stack archive with unchanged
+`node scripts/create-clean-archive.mjs full-stack`, then copied its verified
+bytes to the exact requested name:
+`artifacts/adilbaga-pr37-frontend-ci-fix-20261017.tar.gz`.
+The named copy is independently checked for safe regular/unique members, all
+changed/new paths, exact current source/report bytes and bounded secret patterns.
+Git, TODO, env credentials, dependency/build/test output and temporary artifacts
+are excluded; .env.example remains allowed. No old archive was reused.
+
+All runtime files, WeakMap privacy fix, events, UTM/referrer policy, CSP,
+Webvisor=false, Next routing, API/DTO, Part16, dependencies/lockfiles, CI workflows,
+archive script and production are unchanged. No commit/push/PR/merge/deploy and
+no alteration or replacement of PR #37. The original hosted run remains failed;
+hosted validation of this uncommitted correction requires later approved
+publication. **STOP for independent Code Review.**
