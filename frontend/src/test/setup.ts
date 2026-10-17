@@ -6,6 +6,9 @@ import { getI18n } from '../i18n'
 import { installHistory, navigation } from './navigation'
 
 vi.mock('next/navigation', async () => (await import('./navigation')).mockNextNavigation())
+// Register in one place; a cached Analytics module and later test imports must
+// receive the same spy, not independent per-file next/script factories.
+vi.mock('next/script', async () => ({ default: (await import('./next-script-mock')).nextScriptMock }))
 
 installHistory()
 

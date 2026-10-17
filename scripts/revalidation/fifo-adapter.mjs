@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createEventSource } from './production-observer.mjs';
-import { ownsSyntheticBefore } from './projection-provider.mjs';
+import { ownsProviderBefore } from './projection-provider.mjs';
 import { prepareBeforeV2 } from './c2-manifest.mjs';
 
 const calibrations = new WeakSet(), consumed = new Set();
@@ -95,7 +95,7 @@ export function openReceiver({ fifo, attemptId, calibration, manifest, before, p
       if (nowNS - calibration.measuredAt > 60_000_000_000n) return inconclusive('clock_unverified');
       if (start > end || end + calibration.lower > nowNS || nowNS - (end + calibration.lower) > 5_000_000_000n) return inconclusive('event_expired_or_unordered');
       if (before !== undefined) {
-        if (!ownsSyntheticBefore(provider, before) || before.attemptId !== attemptId || prepareBeforeV2(before).status !== 'ready'
+        if (!ownsProviderBefore(provider, before) || before.attemptId !== attemptId || prepareBeforeV2(before).status !== 'ready'
           || provider?.fixtureOnly !== true || typeof provider.after !== 'function') return inconclusive('manifest_unverified');
         if (!get) return inconclusive('fixture_transport_required');
       } else {

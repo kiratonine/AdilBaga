@@ -25,6 +25,32 @@ pnpm dev --port 3100         # Backend отдельно на :3000
 `NEXT_PUBLIC_*` подставляются при сборке — после смены нужен `pnpm build`.
 Весь доступ к данным — через `catalogApi` (`src/api/catalogApi.ts`), контракт — `src/api/types.ts`. Фикстуры генерируются: `pnpm mocks`.
 
+## Базовая аналитика (source candidate)
+
+Только два необязательных публичных build-time ID: `NEXT_PUBLIC_GA_ID` (GA4,
+формат `G-...`) и `NEXT_PUBLIC_YANDEX_METRIKA_ID` (положительный числовой ID).
+Валидный ID автоматически включает соответствующий счётчик; отсутствие или
+невалидность одного не мешает другому. Других env/enable flags нет.
+Значения уже подготовлены Owner в Vercel; не переносить их в Git. Scope должен
+быть Production/build. Изменение ID требует нового build/deploy.
+
+Скрипты загружаются после hydration только когда browser origin совпадает с
+каноническим HTTPS `NEXT_PUBLIC_SITE_URL`; localhost и preview не отслеживаются.
+Один ручной pageview на initial load и смену RU/KK pathname; query/hash не
+создают просмотров. Не передаются search text, query/hash, внешний referrer,
+динамический document.title, session payloads или custom events. Title фиксирован
+как Aktau Market. Метрика: defer, без Webvisor/clickmap/trackLinks/ecommerce.
+
+Owner: в GA4 Web stream → Enhanced Measurement отключить history-based page
+changes (иначе дублируются ручные pageviews), а также остальные автоматические
+enhanced events/form interactions для режима «только базовые pageviews».
+Не включать автоматический сбор user-provided data, goals/Webvisor в Метрике.
+После отдельно разрешённого deploy проверить Network/Console без adblock,
+один initial и SPA/Back/Forward hit в GA4 Realtime и Метрике. Наличие script
+само по себе не доказывает доставку. В тестах только dummy IDs и mocks;
+реальные analytics hits не разрешены. Отдельная задача Owner — Search Console /
+Яндекс.Вебмастер; DNS и verification tokens этим изменением не затрагиваются.
+
 ## SEO
 
 | Что | Где |

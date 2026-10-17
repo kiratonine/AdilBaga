@@ -40,7 +40,7 @@ export async function postgres(task) {
     docker('reader bootstrap', ['exec', '-i', name, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-q'],
       { input: readFileSync(join(root, 'backend/prisma/security/aktau_api_reader_role.sql')) });
     run('Nest frozen install', 'pnpm', ['install', '--frozen-lockfile'], { cwd: join(root, 'backend') });
-    const databases = ['part04_fixture', 'part04_security', 'part08', 'part10_security', 'part11_recovery'];
+    const databases = ['part04_fixture', 'part04_security', 'part08', 'part10_security', 'part11_recovery', 'part16_c2'];
     for (const db of databases) {
       docker(`create ${db}`, ['exec', name, 'createdb', '-U', 'postgres', db]);
       const target = url(db); localURL(target);

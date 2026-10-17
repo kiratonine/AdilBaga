@@ -2,7 +2,7 @@
 import https from 'node:https';
 import { createHash } from 'node:crypto';
 import { prepareBeforeV2, buildManifest } from './c2-manifest.mjs';
-import { sameSyntheticCustody } from './projection-provider.mjs';
+import { sameProviderCustody } from './projection-provider.mjs';
 
 export const LIMITS = Object.freeze({ acceptanceMs: 5000, endMs: 20000,
   timeoutMs: 4000, maxRequests: 21, bodyBytes: 2 * 1024 * 1024,
@@ -246,7 +246,7 @@ export function verdictCapture(capture, before, after) {
   const inconclusive = reason => ({ acceptance: 'INCONCLUSIVE', reason, request_count: capture?.request_count ?? 0, results: [], events: [] });
   const stored = captures.get(capture);
   if (!stored || JSON.stringify(before) !== JSON.stringify(stored.before)) return inconclusive('untrusted_capture');
-  if (!sameSyntheticCustody(before, after)) return inconclusive('untrusted_projection');
+  if (!sameProviderCustody(before, after)) return inconclusive('untrusted_projection');
   if (capture.acceptance !== 'capture_complete') return inconclusive('capture_failed');
   const event = stored.event, receipt = event.receipt;
   if (!receipt || receipt.status !== 204 || receipt.attemptId !== before.attemptId || receipt.snapshotId !== after?.snapshotId
