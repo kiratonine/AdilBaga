@@ -33,7 +33,7 @@ export function localURL(value) {
   let u;
   try { u = new URL(value); } catch { throw new Error('invalid local CI target'); }
   if (u.protocol !== 'postgres:' || !['127.0.0.1', '[::1]'].includes(u.hostname)
-      || !u.port || !/^\/part(?:04_fixture|04_security|08|10_security|11_recovery)$/.test(u.pathname)
+      || !u.port || !/^\/part(?:04_fixture|04_security|08|10_security|11_recovery|16_c2)$/.test(u.pathname)
       || u.username !== 'postgres' || u.password !== 'ci-local-only'
       || u.search !== '?sslmode=disable' || u.hash) throw new Error('refusing non-CI target');
   return u;

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -115,7 +116,7 @@ func TestDocumentHashesEmbeddedBody(t *testing.T) {
 		Sitemap:       postgres.C2Sitemap{CategorySlugs: []string{"milk"}, ProductCount: 1}}}
 	o, _ := parse(after())
 	out, err := document(o, state)
-	if err != nil || !bytes.HasSuffix(out, []byte("}\n")) || bytes.Count(out, []byte("\n")) != 1 {
+	if err != nil || len(out) >= 16<<10 || !bytes.HasSuffix(out, []byte("}\n")) || bytes.Count(out, []byte("\n")) != 1 {
 		t.Fatal("document framing")
 	}
 	var parsed struct {
@@ -130,7 +131,8 @@ func TestDocumentHashesEmbeddedBody(t *testing.T) {
 		t.Fatal("document envelope")
 	}
 	sum := sha256.Sum256(parsed.Body)
-	if parsed.Provenance.CanonicalStateID != hex.EncodeToString(sum[:]) {
+	wantBody, err := json.Marshal(state.Body)
+	if err != nil || !bytes.Equal(parsed.Body, wantBody) || parsed.Provenance.CanonicalStateID != hex.EncodeToString(sum[:]) {
 		t.Fatal("canonicalStateId must hash the embedded body bytes")
 	}
 	keys := []string{`"version"`, `"phase"`, `"attemptId"`, `"snapshotId"`, `"previousSnapshotId"`, `"provenance"`, `"body"`}
@@ -141,5 +143,71 @@ func TestDocumentHashesEmbeddedBody(t *testing.T) {
 			t.Fatal("envelope key order")
 		}
 		last = i
+	}
+}
+
+func TestDocumentSizeLimit(t *testing.T) {
+	sourceSHA = sha
+	defer func() { sourceSHA = "" }()
+	o, _ := parse(before())
+	for _, tc := range []struct {
+		name     string
+		idLength int
+		tooLarge bool
+	}{
+		{"small", 8, false},
+		{"bounded eight categories with long IDs", 128, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			at := "2026-10-16T01:00:00.000Z"
+			state := postgres.C2State{SnapshotID: snapshot, Body: postgres.C2Body{DashboardAt: at}}
+			for category := 0; category < 8; category++ {
+				slug := fmt.Sprintf("category-%c", 'a'+category)
+				page := postgres.C2CategoryPage{Slug: slug}
+				for product := 0; product < 24; product++ {
+					id := fmt.Sprintf("p%03d-", category*24+product) + strings.Repeat("x", tc.idLength-5)
+					if !postgres.C2ValidID(id) || len(id) != tc.idLength {
+						t.Fatal("invalid bounded fixture ID")
+					}
+					page.ProductIDs = append(page.ProductIDs, id)
+				}
+				state.Body.CategoryPages = append(state.Body.CategoryPages, page)
+				state.Body.Sitemap.CategorySlugs = append(state.Body.Sitemap.CategorySlugs, slug)
+				id, topIndex, categoryIndex, sitemapIndex := page.ProductIDs[0], category, 0, category*24
+				state.Body.TopEight = append(state.Body.TopEight, id)
+				state.Body.Candidates = append(state.Body.Candidates, postgres.C2Candidate{ID: id, Slug: &slug,
+					SnapshotAt: &at, TopEightIndex: &topIndex, CategoryIndex: &categoryIndex, SitemapIndex: &sitemapIndex})
+			}
+			state.Body.WitnessID = &state.Body.TopEight[0]
+			state.Body.Sitemap.ProductCount = 8 * 24
+			body, err := json.Marshal(state.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := document(o, state)
+			if tc.tooLarge {
+				if len(body)+1 < 16<<10 || len(body)+1 >= 64<<10 {
+					t.Fatal("fixture must exceed 16KiB but remain below old 64KiB limit")
+				}
+				if err == nil || out != nil {
+					t.Fatalf("oversized document accepted: %d bytes including LF", len(out))
+				}
+				return
+			}
+			if err != nil || len(out) >= 16<<10 || !bytes.HasSuffix(out, []byte("\n")) || bytes.Count(out, []byte("\n")) != 1 {
+				t.Fatal("small document framing/size")
+			}
+			var parsed projection
+			if json.Unmarshal(out, &parsed) != nil {
+				t.Fatal("invalid JSON")
+			}
+			encoded, err := json.Marshal(parsed)
+			sum := sha256.Sum256(body)
+			if err != nil || len(out) != len(encoded)+1 || !bytes.Equal(out[:len(out)-1], encoded) ||
+				!bytes.Equal(parsed.Body, body) || parsed.Provenance.CanonicalStateID != hex.EncodeToString(sum[:]) {
+				t.Fatal("size including LF, document format or canonicalStateId changed")
+			}
+			t.Logf("small document: %d bytes including LF", len(out))
+		})
 	}
 }

@@ -175,7 +175,7 @@ func document(o options, state postgres.C2State) ([]byte, error) {
 		PreviousSnapshotID: state.PreviousSnapshotID, Body: body, Provenance: provenance{
 			Kind: "sealed-repository-projection", EvidenceID: o.attempt + suffix, CanonicalStateID: hex.EncodeToString(sum[:]),
 			SourceSHA: sourceSHA, FrontendSHA: o.frontendSHA, Semantics: "go-next-c2-v2", SnapshotStatus: "published", ConsistentRead: true}})
-	if err != nil || len(out) >= 64<<10 {
+	if err != nil || len(out)+1 >= 16<<10 {
 		return nil, errors.New("projection output unavailable")
 	}
 	return append(out, '\n'), nil

@@ -108,3 +108,185 @@
 - Code Review этого кандидата (Backend 1 / независимый).
 - Совместный локальный PoC: настоящие `Stage`/`Publish` S1 (как `ingestor_integration_test.go`) → AFTER → Node verdict на одной версии исходников. Synthetic provider в Node заменяется production-disabled адаптером к этому CLI (зона Backend 1).
 - Production (роль/DSN, запуск провайдера и observer, хранение evidence) — только с отдельного разрешения Owner.
+
+## 2026-10-17 — Owner-approved P1 JSON16KiB / P2 semantics correction
+
+**READY_FOR_EXTERNAL_REVIEW для узкой source correction.** Production C2 OPEN;
+полный общий DB integration runner не прошёл из-за существующего allowlist
+guard (подробности ниже). Его PASS не заявляется. Исторические результаты выше
+сохранены без изменений.
+
+После fetch origin --prune (exit0) фактический
+origin/feat/part16-c2-projection-provider совпал с разрешённым SHA
+**2fbe48dfdd5264700c1fcd0ee2a17a841418572e**. Созданы отдельный native-WSL
+worktree и ветка **fix/part16-c2-provider-json16k** от этого exact SHA. Исходная
+ветка Backend2 и другие worktrees не изменены. Начальный worktree был чистым.
+Использованы только корневые AGENTS instructions.
+
+### P1: точный предел с завершающим LF
+
+В document() изменено только условие размера:
+
+```go
+if err != nil || len(out)+1 >= 16<<10 {
+```
+
+Успешный stdout — один неизменённый JSON плюс один LF, суммарно **строго меньше
+16384 байт**. Превышение возвращает nil/error без усечения. Существующий emit()
+при этой ошибке возвращает exit1 до единственного stdout.Write; эта логика не
+изменялась. canonicalStateId по-прежнему SHA256 исходных байтов embedded body.
+
+Регрессия добавлена **до** правки условия. Старая реализация приняла bounded
+BEFORE с8 категориями,24 уникальными product IDs длиной128 в каждой категории:
+**29484 байта включая LF**. Негативный subtest упал, команда exit1. Малый вариант
+с той же структурой и короткими ID успешно сериализовался: **4404 байта с LF**.
+После исправления oversized-вариант возвращает nil/error. Малый вариант проходит;
+проверены размер повторно сериализованного JSON+LF, единственный LF, embedded
+body, canonicalStateId и прежний порядок/формат успешного envelope.
+
+### P2: null не является доказательством отсутствия товара
+
+slug/snapshotAt/sitemapIndex=null могут означать отсутствие товара либо отсутствие
+в доступной bounded sitemap projection, а не обязательно отсутствие в snapshot.
+Провайдер читает максимум5001 строку, sitemap включает первые5000. Для строки
+на позиции5000 slug/snapshotAt могут быть известны, но sitemapIndex остаётся null;
+за пределами прочитанного подмножества эти данные вообще не устанавливаются.
+Кандидат без подтверждённого sitemap membership не становится witness:
+fail-closed, без выбора замены в AFTER. Это уточнение существующей семантики;
+SQL, JSON v2, выбор witness, chain, ACL/privileges не менялись.
+
+### Фактические проверки
+
+WSL, Go1.27.2 из уже установленного toolchain; Node24.10.0 для локального CI
+runner. Чистое process environment, без production DSN/provider settings.
+
+| Команда / проверка | Фактический результат |
+| --- | --- |
+| go test -count=1 ./cmd/c2projection -run '^TestDocumentSizeLimit$' -v, до исправления | exit1; small PASS, oversized FAIL: старый код принял29484 bytes с LF |
+| gofmt -w cmd/c2projection/main.go cmd/c2projection/main_test.go | exit0 |
+| gofmt -l . | exit0, пустой вывод |
+| go test -count=1 ./cmd/c2projection | exit0 PASS |
+| go test -count=1 ./... | exit0 PASS |
+| go test -race -count=1 ./... | exit0 PASS |
+| go vet ./... | exit0 PASS |
+| node scripts/ci/run-db-integration.mjs | **exit1 FAIL**: existing scripts/ci/common.mjs localURL rejects part16_c2; ни один Go integration шаг этого runner не достигнут |
+| go test -count=1 -race -tags=integration ./cmd/c2projection -run '^TestLocalC2Projection$' -v, отдельный ephemeral PG17 профиль | exit0 PASS; test3.28s / package4.301s; BEFORE по5013 продуктам278.983436ms — один локальный замер, не production benchmark |
+
+Общий runner создал собственную loopback PG17, применил Prisma migrations в
+пяти предыдущих disposable БД, создал part16_c2, затем остановился **до** её
+миграций: allowlist в common.mjs не содержит part16_c2, хотя postgres.mjs
+включает эту БД. Его finally удалил только собственный container/volume. Guard
+не ослаблялся и не исправлялся в этом scope. Этот отдельный integration-harness
+вопрос требует Backend2 review перед заявлением полного CI DB-profile PASS.
+
+Для выполнения существующего C2 test создан другой owned disposable
+postgres:17-alpine, bind только127.0.0.1 со случайным портом. Четыре существующих
+migration.sql применены без изменений непосредственно psql, как в историческом
+Backend2 local test; Prisma migration-history parity этим способом не заявляется.
+Bootstrap reader и runtime membership взяты из существующего профиля. Запущен
+неизменённый TestLocalC2Projection с его C2_DISPOSABLE_CONFIRM/loopback guard,
+положительными проекциями, цепочкой, отрицательными ACL/identity cases и sitemap
+границей5000. Контейнер и его собственный volume удалены после exit0. Другие
+контейнеры не трогались. Это не замена результата FAIL общего runner и не
+совместный Go/Node production-provider PoC.
+
+Точный scope: backend-go/cmd/c2projection/main.go,
+backend-go/cmd/c2projection/main_test.go и этот append-only report. Никаких
+изменений repository SQL, ingestion/Notify/HMAC, schema/migrations, API,
+scheduler, production config или чужой ветки. Production SSH/SQL/HTTP, deploy,
+commit/push/PR/merge не выполнялись.
+
+Clean review artifact: **adilbaga-c2-provider-json16k-fix-20261017.tar.gz**,
+штатный target full-stack. STOP для независимого Code Review; production и
+полный общий DB runner не объявляются PASS.
+
+## 2026-10-17 — CI database allowlist correction and PR preparation
+
+**READY_FOR_EXTERNAL_REVIEW. Полный локальный DB integration profile — PASS.**
+Предыдущий FAIL сохранён выше как историческое evidence, не переписан.
+Совместный Go/Node PoC ещё **НЕ ВЫПОЛНЯЛСЯ**; production C2 остаётся OPEN.
+
+Owner/Backend2 разрешили эту точечную correction и commit/push/отдельный PR
+только после полного локального test gate. Работа продолжена в существующем
+worktree, ветка fix/part16-c2-provider-json16k. Fetch exit0; HEAD и исходная
+origin/feat/part16-c2-projection-provider совпали с
+2fbe48dfdd5264700c1fcd0ee2a17a841418572e. origin/main:
+61eccfb957237781a8b5c14110f4a73de4952e83. Чужие worktrees не изменялись.
+
+### Regression-first и минимальный diff
+
+До изменения regex добавлены два теста. `node --test scripts/ci/guard.test.mjs`
+дал exit1:5 PASS,1 FAIL. Позитивный тест воспроизвёл отказ part16_c2; все старые
+базы и отрицательные случаи продолжали вести себя ожидаемо.
+
+В common.mjs добавлена **только** альтернатива16_c2 в anchored database allowlist:
+
+```js
+/^\/part(?:04_fixture|04_security|08|10_security|11_recovery|16_c2)$/
+```
+
+Проверки protocol, loopback host, port, username, password, exact sslmode/query
+и hash остались побайтно прежними. Позитивный тест покрывает все шесть разрешённых
+имён. Отрицательный — part16_c2x, произвольное имя, remote host, localhost,
+изменённый пароль, дополнительные query params и отсутствие port. Старые guard
+assertions не ослаблены. postgres.mjs и run-db-integration.mjs не изменены.
+JSON16KiB condition, byte/framing/hash tests и P2 null clarification сохранены.
+
+### Реально выполненный test gate
+
+Чистое process environment: WSL, Node24.10.0, Go1.27.2, Docker PG17. Ни один
+production DSN, provider secret или существующий контейнер не использовался.
+
+| Команда | Exit / результат |
+| --- | --- |
+| node --test scripts/ci/guard.test.mjs, после correction | 0;6/6 PASS,0 SKIP |
+| node scripts/ci/run-db-integration.mjs | **0; полный профиль PASS**, включая cleanup |
+| node scripts/ci/run-checks.mjs security | 0; source/workflow policy и synthetic backup guard PASS |
+| go test -count=1 ./cmd/c2projection | 0 PASS |
+| go test -count=1 ./... | 0 PASS |
+| go test -race -count=1 ./... | 0 PASS |
+| go vet ./... | 0 PASS |
+| git diff --check | 0 PASS |
+
+Полный runner сам создал новую owned postgres:17-alpine с loopback binding и
+случайным портом. Frozen Nest install, Prisma migrate deploy и проверка цепочки
+четырёх migrations выполнены для part04_fixture, part04_security, part08,
+part10_security, part11_recovery и part16_c2. Все семь существующих Go integration
+invocations завершились PASS с -race:
+
+1. Destructive target guard, deterministic catalog, bootstrap fail-closed.
+2. Production identity.
+3. C2 projection: BEFORE/AFTER, chain, ACL/identity denials, sitemap boundary.
+4. Ingestion transaction batch atomicity на disposable fixture only.
+5. Snapshot security на disposable fixture only.
+6. Physical pool policy, clone plans и observability selection.
+7. Clone restricted security.
+
+C2 test2.86s / package3.882s; BEFORE по5013 продуктам200.062054ms — только
+один локальный диагностический замер, не performance/SLA claim. Никакие тесты
+не пропускались и assertions/runner не подменялись. Штатный finally сообщил
+PG cleanup PASS и удалил только созданный им container/anonymous volumes.
+Таким образом прежний allowlist blocker закрыт полным runner, а не ручной заменой.
+
+### Exact correction / publication scope
+
+Пять файлов относительно исходного Backend2 SHA:
+
+- backend-go/cmd/c2projection/main.go — approved JSON16KiB condition.
+- backend-go/cmd/c2projection/main_test.go — approved size/framing/hash regressions.
+- scripts/ci/common.mjs — только точное имя part16_c2 в allowlist.
+- scripts/ci/guard.test.mjs — positive/negative regressions.
+- docs/production/reports/PART_16_C2_BACKEND2_PROJECTION_PROVIDER_REPORT.md — append-only.
+
+PR base main включает исходный Backend2 provider commit плюс эти corrections;
+его исходные новые Go provider/CLI/integration и два DB-runner wiring файла
+остаются без дополнительных изменений. PR35/PR38, frontend, HMAC, Notify,
+ingest runtime, public API, scheduler, PostgreSQL roles/SQL/schema/migrations и
+production не изменялись. Полный совместный Go provider/Node observer PoC и
+любые production действия требуют отдельного review/разрешения.
+
+Разрешённое publication: отдельный PR fix/part16-c2-provider-json16k -> main,
+без merge/deploy. Точный новый commit SHA и PR URL передаются в итоговом handoff;
+этот report не объявляет будущий Hosted CI PASS на основании локальных тестов.
+Новый clean artifact: **adilbaga-c2-provider-ci-guard-fix-20261017.tar.gz**,
+штатный target full-stack. STOP после publication/artifact для Code Review.
