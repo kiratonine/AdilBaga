@@ -71,7 +71,7 @@ const freeze = value => {
 // Ranking is supplied in repository order, never recomputed with JS collation.
 // Selection uses ASCII product-ID ascending, independent of changing price rank.
 // Deadline eligibility belongs to the existing trusted event/observer, not UTC.
-export function buildManifest(input) {
+function buildManifestV1(input) {
   try {
     keys(input, ['version', 'attemptId', 'beforeSnapshotId', 'afterSnapshotId', 'before', 'after']);
     if (input.version !== 1 || !hex(input.attemptId, 32) || !uuid(input.beforeSnapshotId) || !uuid(input.afterSnapshotId)
@@ -104,5 +104,105 @@ export function buildManifest(input) {
     const safe = ['invalid_projection', 'invalid_membership', 'projection_identity', 'unqualified_provenance', 'invalid_products', 'invalid_run',
       'conflicting_provenance', 'unchanged_or_reversed_dashboard', 'no_changed_stable_witness'];
     return { status: 'inconclusive', reason: safe.includes(error?.message) ? error.message : 'invalid_projection' };
+  }
+}
+
+// v2 is compact: positions attest membership without exporting 5000 products.
+// This validates claims, not their custody; provider trust is separate.
+export function validateProjectionV2(p, phase, attemptId) {
+  keys(p, ['version', 'phase', 'attemptId', 'snapshotId', 'previousSnapshotId', 'provenance', 'body']);
+  if (p.version !== 2 || p.phase !== phase || !hex(attemptId, 32) || p.attemptId !== attemptId
+    || !uuid(p.snapshotId) || !(p.previousSnapshotId === null || uuid(p.previousSnapshotId))
+    || p.previousSnapshotId === p.snapshotId) fail('projection_identity');
+  const s = p.provenance;
+  keys(s, ['kind', 'evidenceId', 'canonicalStateId', 'sourceSha', 'frontendSha', 'semantics', 'snapshotStatus', 'consistentRead']);
+  if (s.kind !== 'sealed-repository-projection' || s.evidenceId !== `${attemptId}-${phase === 'after-commit' ? 'after' : 'before'}`
+    || !hex(s.canonicalStateId, 64) || !hex(s.sourceSha, 40) || !hex(s.frontendSha, 40)
+    || s.semantics !== 'go-next-c2-v2' || s.snapshotStatus !== 'published' || s.consistentRead !== true) fail('unqualified_provenance');
+  const b = p.body;
+  keys(b, ['dashboardAt', 'topEight', 'witnessId', 'candidates', 'categoryPages', 'sitemap']);
+  if (!iso(b.dashboardAt) || !(b.witnessId === null || id(b.witnessId))) fail('invalid_products');
+  list(b.topEight, 8, id); list(b.candidates, 8, () => true); list(b.categoryPages, 8, () => true);
+  keys(b.sitemap, ['categorySlugs', 'productCount', 'truncated']);
+  list(b.sitemap.categorySlugs, 64, slug);
+  if (!Number.isInteger(b.sitemap.productCount) || b.sitemap.productCount < 0 || b.sitemap.productCount > 5000
+    || typeof b.sitemap.truncated !== 'boolean' || (b.sitemap.truncated && b.sitemap.productCount !== 5000)) fail('invalid_membership');
+  const pages = new Map(), products = new Map();
+  for (const page of b.categoryPages) {
+    keys(page, ['slug', 'productIds']);
+    if (!slug(page.slug) || pages.has(page.slug)) fail('invalid_membership');
+    list(page.productIds, 24, id); pages.set(page.slug, page.productIds);
+  }
+  const index = (v, max) => v === null || Number.isInteger(v) && v >= 0 && v <= max;
+  const beforeSitemapPositions = new Set();
+  for (const c of b.candidates) {
+    keys(c, ['id', 'slug', 'snapshotAt', 'topEightIndex', 'categoryIndex', 'sitemapIndex']);
+    if (!id(c.id) || products.has(c.id) || !(c.slug === null || slug(c.slug)) || !(c.snapshotAt === null || iso(c.snapshotAt))
+      || (c.snapshotAt !== null && c.snapshotAt > b.dashboardAt) || !index(c.topEightIndex, 7)
+      || !index(c.categoryIndex, 23) || !index(c.sitemapIndex, 4999)) fail('invalid_products');
+    if (phase === 'before-canonical-mutation') {
+      if (!b.topEight.includes(c.id) || c.topEightIndex !== b.topEight.indexOf(c.id)) fail('invalid_products');
+      if (c.sitemapIndex !== null) {
+        if (beforeSitemapPositions.has(c.sitemapIndex)) fail('invalid_membership');
+        beforeSitemapPositions.add(c.sitemapIndex);
+      }
+    }
+    // Null means ineligible, not fabricated membership. Non-null claims must agree.
+    if (c.topEightIndex !== null && b.topEight[c.topEightIndex] !== c.id
+      || c.categoryIndex !== null && pages.get(c.slug)?.[c.categoryIndex] !== c.id
+      || c.sitemapIndex !== null && c.sitemapIndex >= b.sitemap.productCount) fail('invalid_membership');
+    products.set(c.id, c);
+  }
+  if (phase === 'after-commit' && (b.candidates.length !== 1 || b.categoryPages.length !== 1)) fail('invalid_products');
+  const eligible = c => c && c.slug !== null && c.snapshotAt !== null && c.topEightIndex !== null
+    && c.categoryIndex !== null && c.sitemapIndex !== null && b.sitemap.categorySlugs.includes(c.slug);
+  return { products, eligible };
+}
+
+function targetsV2(b, a, p, q) {
+  const productBefore = p.snapshotAt, productAfter = q.snapshotAt;
+  return [
+    ['product_ru', `/ru/products/${p.id}`, productBefore, productAfter],
+    ['product_kk', `/kk/products/${p.id}`, productBefore, productAfter],
+    ['sitemap', '/sitemap.xml', b.body.dashboardAt, a.body.dashboardAt],
+    ['catalog', '/ru/catalog', b.body.dashboardAt, a.body.dashboardAt],
+    ['dashboard', '/ru/dashboard', b.body.dashboardAt, a.body.dashboardAt],
+    ['category', `/ru/collections/${p.slug}`, productBefore, productAfter],
+  ].map(([name, path, before, after]) => ({ name, path, productId: p.id, slug: p.slug, before, after, productBefore, productAfter }));
+}
+
+export function prepareBeforeV2(before) {
+  try {
+    const checked = validateProjectionV2(before, 'before-canonical-mutation', Object.getOwnPropertyDescriptor(before, 'attemptId')?.value);
+    const witness = [...checked.products.values()].filter(c => c.slug !== null && c.snapshotAt !== null
+      && c.categoryIndex !== null && c.sitemapIndex !== null && before.body.sitemap.categorySlugs.includes(c.slug))
+      .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)[0];
+    if (!witness || witness.id !== before.body.witnessId || !checked.eligible(witness)) fail('witness_mismatch');
+    // Capture needs only BEFORE. No invented AFTER timestamp is introduced.
+    const targets = targetsV2(before, before, witness, witness).map(({ after, productAfter, ...target }) => target);
+    return freeze({ status: 'ready', witness: { id: witness.id, slug: witness.slug }, targets, fixtureOnly: true });
+  } catch { return { status: 'inconclusive', reason: 'unqualified_before' } }
+}
+
+export function buildManifest(input) {
+  if (!input || Object.getOwnPropertyDescriptor(input, 'version')?.value !== 2) return buildManifestV1(input);
+  try {
+    keys(input, ['version', 'attemptId', 'before', 'after']);
+    const b = input.before, a = input.after;
+    const prepared = prepareBeforeV2(b);
+    if (prepared.status !== 'ready' || input.attemptId !== b.attemptId) fail('unqualified_before');
+    const checked = validateProjectionV2(a, 'after-commit', input.attemptId);
+    if (a.previousSnapshotId !== b.snapshotId || a.snapshotId === b.snapshotId) fail('snapshot_chain');
+    if (a.provenance.sourceSha !== b.provenance.sourceSha || a.provenance.frontendSha !== b.provenance.frontendSha
+      || a.provenance.canonicalStateId === b.provenance.canonicalStateId) fail('conflicting_provenance');
+    const p = b.body.candidates.find(c => c.id === prepared.witness.id), q = checked.products.get(p.id);
+    if (a.body.witnessId !== p.id || !checked.eligible(q) || q.slug !== p.slug) fail('unqualified_after');
+    if (q.snapshotAt <= p.snapshotAt || a.body.dashboardAt <= b.body.dashboardAt) fail('unchanged_marker');
+    return freeze({ status: 'ready', manifest: { snapshotId: a.snapshotId, attemptId: input.attemptId, fixtureOnly: true,
+      targets: targetsV2(b, a, p, q) } });
+  } catch (e) {
+    const safe = ['unqualified_before', 'snapshot_chain', 'conflicting_provenance', 'unqualified_after', 'unchanged_marker',
+      'invalid_projection', 'invalid_membership', 'projection_identity', 'unqualified_provenance', 'invalid_products'];
+    return { status: 'inconclusive', reason: safe.includes(e?.message) ? e.message : 'invalid_projection' };
   }
 }

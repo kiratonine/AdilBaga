@@ -8,6 +8,9 @@ import { execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { calibrateClock, openReceiver } from './fifo-adapter.mjs';
 import { fixtureManifest, fixtureBody } from './fixtures/c2-manifest.mjs';
+import { createSyntheticProjectionProvider } from './projection-provider.mjs';
+import { projectionPair, fixtureS1 } from './fixtures/projection-v2.mjs';
+import { buildManifest } from './c2-manifest.mjs';
 
 // Explicit local test binary only. Missing PoC binary is a failure, not a skip.
 const probe = process.env.C2_LOCAL_PROBE;
@@ -185,4 +188,34 @@ for (const id of ['a'.repeat(32) + '\n', 'A'.repeat(32)]) test('invalid receiver
   const c = setup(), counts = { n: 0 };
   const r = await openReceiver({ ...c, attemptId: id }).observe({ get: getter(c, counts) });
   assert.equal(r.reason, 'invalid_run'); assert.equal(counts.n, 0);
+});
+
+test('v2 real Go mock204 -> private FIFO -> BEFORE-only capture -> synthetic exec AFTER', async () => {
+  const c = setup(), provider = createSyntheticProjectionProvider(), before = await provider.before(c.attemptId);
+  const manifest = buildManifest(projectionPair(c.attemptId)).manifest;
+  let calls = 0;
+  const observing = openReceiver({ ...c, manifest: undefined, before, provider }).observe({ get: async p => {
+    calls++; return { status: 200, headers: {}, text: fixtureBody(manifest.targets.find(t => t.path === p)) };
+  } });
+  const child = await exec(probe, ['notify', '204', c.fifo, fixtureS1], { env: { ...env, C2_EVENT_ATTEMPT_ID: c.attemptId }, timeout: 2000, maxBuffer: 2048 });
+  const r = await observing;
+  assert.equal(JSON.parse(child.stdout).requests, 1); assert.equal(r.acceptance, 'PASS'); assert.equal(calls, 6);
+  assert.equal(r.event.receipt.snapshotId, fixtureS1);
+  assert.ok(BigInt(r.event.receipt.endMono) >= BigInt(r.event.receipt.startMono));
+  assert.ok(Object.isFrozen(r.event.receipt));
+});
+
+test('v2 fixture-only receiver has no default public transport', async () => {
+  const c = setup(), provider = createSyntheticProjectionProvider(), before = await provider.before(c.attemptId);
+  const observing = openReceiver({ ...c, before, provider }).observe(); write(c, event(c, { snapshotId: fixtureS1 }));
+  const r = await observing; assert.equal(r.reason, 'fixture_transport_required'); assert.equal(r.request_count, 0);
+});
+
+test('v2 forged provider cannot substitute AFTER or admit GET', async () => {
+  const c = setup(), real = createSyntheticProjectionProvider(), before = await real.before(c.attemptId);
+  let calls = 0;
+  const forged = { fixtureOnly: true, after: () => assert.fail('untrusted callback') };
+  const observing = openReceiver({ ...c, before, provider: forged }).observe({ get: () => { calls++; assert.fail('no GET') } });
+  write(c, event(c, { snapshotId: fixtureS1 }));
+  assert.equal((await observing).reason, 'manifest_unverified'); assert.equal(calls, 0);
 });

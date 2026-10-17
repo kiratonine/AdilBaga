@@ -1191,3 +1191,196 @@ their source is unchanged; the Go probe build is not a production image build.
 No production HTTP/SSH/SQL, secrets, sync/ingestion, deploy, commit/push/PR/merge.
 Independent trusted BEFORE/AFTER acquisition and separate authorization remain
 production blockers. **STOP — READY_FOR_EXTERNAL_REVIEW** for repeat Code Review.
+
+## C2 Node projection v2 — append-only local implementation, 2026-10-17
+
+**Local candidate: READY_FOR_EXTERNAL_REVIEW. Production C2 and joint Backend2
+provider PoC: BLOCKED / NOT EXECUTED.** All historical FAIL/BLOCKED evidence above
+is preserved. This section supersedes the earlier proposal that AFTER must exist
+before measurement; it does not supersede the five-second acceptance contract.
+
+### Baseline and approved protocol
+
+Fetch and GitHub read-only inspection: exit0. origin/main is
+61eccfb957237781a8b5c14110f4a73de4952e83. PR #35 is OPEN, main base, head
+b934cfb62e3d89a64c967f45b367f81ea9f251b1. Its original worktree is clean and
+untouched. Created a separate branch **feat/part16-c2-node-projection-v2** from
+that exact PR head, reusing its strict v1 builder rather than duplicating it.
+No merge/rebase/reset or changes to the other worktrees. Main's independent
+analytics commits are not merged into this branch; the archive represents this
+PR35-based candidate, not a claim to be a checkout of main's tip. C2 source on
+main and the open PR was inspected independently.
+
+Read the Owner-approved final C2_BACKEND2_PROJECTION_SCHEMA_V2.md and preceding
+CONTRACT_V2/DECISION documents. The final schema takes precedence: body envelope,
+indices, exact evidence IDs, hex64 body digest, previousSnapshotId chain,
+go-next-c2-v2, no exclusiveWindow. Earlier SQL budgets/CLI sketches in the
+preceding documents are historical; no SQL/provider implementation is added here.
+Only root project instructions used; nested instructions not loaded.
+
+### Implemented Node boundaries
+
+- buildManifest dispatches v2 while retaining the 84 v1 regression tests.
+  Exact own enumerable data keys and normal dense JSON arrays are enforced;
+  Symbol/hidden/accessor/inherited properties do not qualify. Bounds: Top8,
+  candidates8, category pages8 x24, category slugs64, sitemap indices0..4999.
+- Witness selection is recalculated from BEFORE alone using ASCII ID order.
+  AFTER cannot substitute a different witness. Position claims must agree with
+  Top8/category arrays, sitemap count and category membership. Null/ineligible
+  witness, chain or SHA/attempt mismatch, precision error, unchanged or reversed
+  product/dashboard marker yields inconclusive without a manifest.
+- The six original target representations remain unchanged. Product and
+  dashboard timestamps are independent. Catalog requires its actual Top8 product
+  hydration plus dashboard marker; sitemap checks the eight exact RU/KK locs
+  for catalog/dashboard/selected category/product, not the full sitemap.
+- BEFORE-only capture reuses the existing GET scheduler/marker parser. Each
+  sample retains safe headers, path, start/end UTC and monotonic elapsed,
+  uncertainty, status, marker vector, SHA256 of decoded response text, and
+  stale/changed/error. Changed is NOT yet fresh. No raw HTML is retained.
+- The capture, original FIFO receipt and clock/calibration bounds are copied
+  independently and deeply frozen. WeakMap custody rejects serialized/cloned
+  evidence. A given event cannot restart capture; AFTER acquisition cannot be
+  repeated for the same capture. No window reset or post-AFTER GET exists.
+- FIFO v2 mode learns S1 from its validated actual204 event. It preserves raw
+  monotonic ns strings, bootId and calibration lower/upper bounds. V1 mode remains
+  compatible. Its path/ownership, duplicate, age and clock checks are unchanged.
+- A separate **synthetic-only** provider adapter uses fixed Node executable and
+  fixed reviewed fixture script via execFile, no shell, no inherited environment,
+  no stdin/file projection input, bounded validated CLI arguments,10s timeout,
+  64KiB stdout cap and final-schema output below16KiB. Output must be one compact
+  JSON plus LF; duplicate keys/trailing output, bad body digest or schema fail
+  closed. Only the synthetic fixture source/frontend identities are accepted.
+  This is NOT the Go provider and accepts no DSN/credential configuration.
+- Provider-owned BEFORE/AFTER and capture custody must match; a forged provider
+  callback or imported projection cannot replace trusted AFTER. AFTER runs only
+  after capture completes, using S1 from receipt and S0/witness/slug from frozen
+  BEFORE. Acquisition after event.end+60s returns after_late. Fixture-only mode
+  never selects default public transport; all test GETs are injected mocks.
+- Retrospective classification first qualifies chain and AFTER. Changed markers
+  unequal to AFTER are inconclusive; unchanged markers cannot create false FAIL.
+  PASS requires all six complete bodies within5s including uncertainty. A valid
+  stale request started strictly beyond the latest event bound+5s proves FAIL
+  only after qualification. Late freshness alone is INCONCLUSIVE. Capture errors
+  remain INCONCLUSIVE. Existing20s diagnostics,21 GET maximum and2 sitemap maximum,
+  method/origin/body/timeouts/redirect/no-retry constraints remain unchanged.
+
+### Actual local verification
+
+Node24.10.0, clean environment, synthetic data only. An initial probe build with
+GOTOOLCHAIN=local/system Go1.27.1 exited1 (module requires1.27.2). Used the already
+installed Go1.27.2 toolchain to build the **unchanged** relayprobe: exit0. No Go
+source/dependency update, image build, database or real provider involved.
+
+| Executed check | Actual result |
+| --- | --- |
+| Initial focused v1/v2/observer/verifier Node suite | exit0;171/171 PASS,0 SKIP |
+| Full Node suite before final provider-brand regression | exit0;297/297 PASS,0 SKIP |
+| node --check on all eight changed/new JS files | exit0 each |
+| node scripts/revalidation/verify-part16.mjs | exit0; static boundaries PASS, not production evidence |
+| node scripts/ci/run-checks.mjs security | exit0; source/workflow policy and synthetic backup guard PASS |
+
+Full-suite command executed (with C2_LOCAL_PROBE pointing only to the locally
+built relayprobe; no runtime/provider configuration inherited):
+
+```sh
+node --test scripts/revalidation/*.test.mjs scripts/perf/helpers.test.mjs scripts/network/verify-part14.test.mjs scripts/ci/guard.test.mjs scripts/deploy/verify-part15.test.mjs scripts/deploy/auto-gate.test.mjs ops/postgres/backup.test.mjs
+```
+
+Tests exercise BEFORE S0 -> capture -> synthetic child-process AFTER S1 -> PASS;
+unrelated changed body, wrong witness/snapshot/SHA/attempt/chain, unchanged or
+ineligible AFTER, invalid JSON/hash/oversized stdout, actual provider timeout,
+after_late, nested mutation, serialized evidence, provider substitution, repeated
+capture/AFTER, HTTP errors and cap21/sitemap2. Existing actual Go mock HTTP statuses
+200/204/401/timeout and real private FIFO regressions are included. The v2 local
+FIFO test uses the unchanged Go notifier with a loopback HTTP server, then the
+synthetic Node projection child; **not a joint Go/PostgreSQL provider PoC**.
+
+No frontend runtime or Go change, so full frontend/Go checks and Next cache-smoke
+were not rerun or claimed as new evidence. Existing parser fixtures still match
+the inspected Next hydration/sitemap semantics. Production GET/HEAD/POST/SSH/SQL,
+ingest/sync, timers, systemd, HMAC/config, deploy, commit/push/PR/merge: none.
+
+Exact nine-file review scope relative to PR35 head:
+
+- scripts/revalidation/c2-manifest.mjs
+- scripts/revalidation/production-observer.mjs
+- scripts/revalidation/fifo-adapter.mjs
+- scripts/revalidation/fifo-adapter.test.mjs
+- scripts/revalidation/c2-projection-v2.test.mjs (new)
+- scripts/revalidation/projection-provider.mjs (new)
+- scripts/revalidation/fixtures/projection-v2.mjs (new)
+- scripts/revalidation/fixtures/projection-provider-v2.mjs (new)
+- docs/production/reports/PART_16_C2_CACHE_CONVERGENCE_REPORT.md (append-only)
+
+Remaining blockers: reviewed Backend2 Go provider/CLI and real coherent
+projections, independent source/frontend revision evidence, combined ephemeral
+database/provider PoC, separate Owner production authorization and explicit
+fixtureOnly transition. JSON claims or local PASS cannot close these gates.
+Production C2 remains OPEN; this candidate does not permit production GET.
+
+Final checks after provider-custody hardening: full command above exit0,
+**298/298 PASS,0 FAIL,0 SKIP** (22.038s). Eight JS syntax checks exit0;
+Part16 verifier exit0; final security CI exit0. Exact nine-file allowlist,
+empty staged set, diff-check (including new files), nine Markdown links and
+bounded source/privacy scan PASS. Historical report prefix is byte-identical to
+PR35 HEAD. No forbidden scope change. The archive deliverable uses the unchanged
+full-stack archiver and unique name
+**adilbaga-c2-node-projection-v2-20261017.tar.gz**; it is a local review artifact,
+not a release or production execution authorization.
+
+**STOP — READY_FOR_EXTERNAL_REVIEW** for this Node-only synthetic candidate.
+Joint Backend2 provider PoC and production readiness remain **BLOCKED** as above.
+
+## Projection v2 P1 BEFORE index correction — append-only, 2026-10-17
+
+**READY_FOR_EXTERNAL_REVIEW (local source candidate). Production readiness and
+joint Backend2 provider PoC remain BLOCKED.** Same existing branch
+feat/part16-c2-node-projection-v2, HEAD
+b934cfb62e3d89a64c967f45b367f81ea9f251b1. Fetch exit0; origin/main unchanged at
+61eccfb957237781a8b5c14110f4a73de4952e83. Preserved the complete existing candidate;
+no new worktree, checkout/reset/rebase, staging or commit.
+
+Added two minimal regressions **before** the validator change. The command
+`node --test --test-name-pattern='P1 BEFORE' scripts/revalidation/c2-projection-v2.test.mjs`
+exited1:0 PASS,2 FAIL. Both returned ready instead of inconclusive: different
+BEFORE candidates shared non-null sitemapIndex1; and the non-witness p-b had
+topEightIndex=null despite membership in Top8, while p-a remained qualified.
+These failed runs reproduce the review findings; they are not historical PASS.
+
+Minimal fix in validateProjectionV2: only in before-canonical-mutation, each
+candidate must have topEightIndex equal to its actual Top8 position, and all
+non-null candidate sitemap indices must be unique. Null sitemap positions are
+not entered into the uniqueness set. AFTER validation is unchanged: null can
+legally represent lost eligibility, which still yields INCONCLUSIVE at witness
+qualification, not a fabricated FAIL. Witness selection, v2 wire schema,
+classification, SQL contract, HTTP limits, FIFO, clocks and custody unchanged.
+
+| Actual command/check (clean Node24.10.0 environment) | Result |
+| --- | --- |
+| Same two P1 regressions after fix | exit0;2/2 PASS,0 SKIP |
+| node --test --test-name-pattern='v2 \|BEFORE choice' scripts/revalidation/c2-projection-v2.test.mjs | exit0;33/33 PASS,0 SKIP |
+| Direct local AFTER-null control: validateProjectionV2 accepts null topEightIndex; buildManifest returns inconclusive | exit0; PASS |
+| Full Node profile below, using existing local relayprobe | exit0;300/300 PASS,0 FAIL,0 SKIP;21.967s |
+| node --check scripts/revalidation/c2-manifest.mjs | exit0 |
+| node --check scripts/revalidation/c2-projection-v2.test.mjs | exit0 |
+| node scripts/revalidation/verify-part16.mjs | exit0; static boundaries PASS |
+| node scripts/ci/run-checks.mjs security | exit0; source/workflow policy and synthetic backup guard PASS |
+| git diff --check | exit0 |
+
+Full profile command (C2_LOCAL_PROBE is the existing local mock relayprobe;
+no production/provider environment inherited):
+
+```sh
+node --test scripts/revalidation/*.test.mjs scripts/perf/helpers.test.mjs scripts/network/verify-part14.test.mjs scripts/ci/guard.test.mjs scripts/deploy/verify-part15.test.mjs scripts/deploy/auto-gate.test.mjs ops/postgres/backup.test.mjs
+```
+
+Only three files changed by this correction: scripts/revalidation/c2-manifest.mjs,
+scripts/revalidation/c2-projection-v2.test.mjs and this append-only report.
+The previously reviewed nine-file candidate remains intact. All other source,
+tests and reports are preserved; no Go, PostgreSQL, frontend, ingest, HMAC,
+scheduler, API, env or production action. No commit/push/PR/merge/deploy.
+
+New review artifact name:
+**adilbaga-c2-node-projection-v2-p1-fix-20261017.tar.gz**, generated with the unchanged
+full-stack archive script. No prior unique review archive is reused or removed.
+Local success is not production C2 acceptance. **STOP for repeat Code Review.**

@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createEventSource } from './production-observer.mjs';
+import { ownsSyntheticBefore } from './projection-provider.mjs';
+import { prepareBeforeV2 } from './c2-manifest.mjs';
 
 const calibrations = new WeakSet(), consumed = new Set();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -50,7 +52,7 @@ function checkPath(file) {
 
 // Authority comes from a private same-UID FIFO plus expected run identity,
 // not bootId. Same UID/root are trusted; FIFO cannot attest an executable/PID.
-export function openReceiver({ fifo, attemptId, calibration, manifest }) {
+export function openReceiver({ fifo, attemptId, calibration, manifest, before, provider }) {
   let fd;
   try {
     const st = checkPath(fifo);
@@ -92,8 +94,14 @@ export function openReceiver({ fifo, attemptId, calibration, manifest }) {
       const start = BigInt(event.startMono), end = BigInt(event.endMono), nowNS = process.hrtime.bigint();
       if (nowNS - calibration.measuredAt > 60_000_000_000n) return inconclusive('clock_unverified');
       if (start > end || end + calibration.lower > nowNS || nowNS - (end + calibration.lower) > 5_000_000_000n) return inconclusive('event_expired_or_unordered');
-      if (manifest?.snapshotId !== snapshotId || manifest?.attemptId !== attemptId) return inconclusive('manifest_unverified');
-      if (manifest.fixtureOnly === true && !get) return inconclusive('fixture_transport_required');
+      if (before !== undefined) {
+        if (!ownsSyntheticBefore(provider, before) || before.attemptId !== attemptId || prepareBeforeV2(before).status !== 'ready'
+          || provider?.fixtureOnly !== true || typeof provider.after !== 'function') return inconclusive('manifest_unverified');
+        if (!get) return inconclusive('fixture_transport_required');
+      } else {
+        if (manifest?.snapshotId !== snapshotId || manifest?.attemptId !== attemptId) return inconclusive('manifest_unverified');
+        if (manifest.fixtureOnly === true && !get) return inconclusive('fixture_transport_required');
+      }
       // BigInt until subtraction of the local anchor. Convert only bounded
       // relative durations; round bounds outward by <=1 microsecond.
       const anchor = nowNS;
@@ -105,7 +113,14 @@ export function openReceiver({ fifo, attemptId, calibration, manifest }) {
       let replay = beginMs;
       const now = () => replay === null ? Number(process.hrtime.bigint() - anchor) / 1e6 : replay;
       const source = createEventSource({ now, utc: () => Date.now() - (Number(process.hrtime.bigint() - anchor) / 1e6 - endMs) });
-      source.begin(attemptId); replay = endMs; source.accept204(204); replay = null;
+      source.begin(attemptId); replay = endMs;
+      source.accept204(204, { ...event, calibrationLowerNs: calibration.lower.toString(), calibrationUpperNs: calibration.upper.toString(),
+        calibrationMeasuredAtNs: calibration.measuredAt.toString() }); replay = null;
+      if (before !== undefined) {
+        const capture = await source.capture(before, { ...(get ? { get } : {}), ...(sleep ? { sleep } : {}) });
+        if (!capture.acceptance.startsWith('capture_')) return capture;
+        return await provider.after(capture, before);
+      }
       return await source.observe({ publicationId: attemptId, targets: manifest.targets }, { ...(get ? { get } : {}), ...(sleep ? { sleep } : {}) });
     } catch { return inconclusive('ipc_unavailable') } finally { close() }
   } };
