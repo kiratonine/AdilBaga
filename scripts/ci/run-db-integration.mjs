@@ -12,6 +12,9 @@ await postgres(async ({ url, sql, login, load, go }) => {
     PART10_ADMIN_DATABASE_URL: url('part10_security'), PART10_DISPOSABLE_CONFIRM: '1',
   });
   login('aktau_api_runtime', 'aktau_api_reader');
+  go(['test', '-count=1', '-race', '-tags=integration', './cmd/c2projection', '-run', '^TestLocalC2Projection$', '-v'], {
+    C2_ADMIN_DATABASE_URL: url('part16_c2'), C2_READER_DATABASE_URL: url('part16_c2', 'aktau_api_runtime'), C2_DISPOSABLE_CONFIRM: '1',
+  });
   for (const db of ['part04_security', 'part08', 'part11_recovery']) load(db);
   go(['test', '-count=1', '-race', '-tags=integration', './internal/ingestion', '-run', '^TestLocalTxBatchAtomicity$', '-v'], {
     TEST_INGEST_ADMIN_DATABASE_URL: url('part08'),
