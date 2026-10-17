@@ -5,6 +5,7 @@ import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type Input
 import { useTranslation } from 'react-i18next'
 import { useHref } from '../../lib/useLang'
 import { Icon } from '../ui/Icon'
+import { searchEdited } from '../../lib/pilot-analytics'
 
 export const SEARCH_DEBOUNCE_MS = 350
 /** Короче — слишком много случайных совпадений, ждём Enter */
@@ -66,7 +67,7 @@ export function SearchBox() {
     if (liveQuery && liveQuery !== urlQuery) goTo(liveQuery)
   }
 
-  return <SearchField ref={inputRef} onSubmit={submit} value={value} onChange={(e) => setValue(e.target.value)} />
+  return <SearchField ref={inputRef} onSubmit={submit} value={value} onChange={(e) => { searchEdited(); setValue(e.target.value) }} />
 }
 
 /**
