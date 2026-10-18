@@ -202,7 +202,11 @@ async function liveSchemas(request: APIRequestContext) {
   })))
 }
 
-/** Категория и multi-select фильтр со строковыми значениями (бренды) и самым длинным списком */
+// Тесты ниже — data-agnostic: в CI http.spec идёт против Go API на маленькой синтетической фикстуре
+// (backend-go/tests/fixtures/catalog.sql), локально — против живого api.aktau.market
+const LIVE_PRODUCTION = new URL(API).hostname === 'api.aktau.market'
+
+/** Категория и multi-select фильтр со строковыми значениями (бренды) и самым длинным списком (13+) */
 async function longestTextFilter(request: APIRequestContext) {
   let best: { category: CategoryDto; key: string; options: string[] } | undefined
   for (const { category, schema } of await liveSchemas(request)) {
@@ -212,13 +216,21 @@ async function longestTextFilter(request: APIRequestContext) {
       if (options.length > (best?.options.length ?? 0)) best = { category, key: filter.key, options }
     }
   }
-  expect(best && best.options.length, 'live API must have a long text filter').toBeGreaterThanOrEqual(13)
-  return best!
+  return best && best.options.length >= 13 ? best : undefined
+}
+
+/** Первая категория, где есть что показать в фильтрах */
+async function categoryWithFilters(request: APIRequestContext) {
+  const found = (await liveSchemas(request)).find(({ schema }) =>
+    schema.filters.some((f) => f.type === 'boolean' || (f.options?.length ?? 0) > 0))
+  return found?.category
 }
 
 test('long live filter: fixed-height scroll box, search finds and selects the last value', async ({ page, request, isMobile }) => {
   const errors = collectErrors(page)
-  const { category, key, options } = await longestTextFilter(request)
+  const long = await longestTextFilter(request)
+  test.skip(!long, 'в данных нет фильтра с 13+ значениями (фикстура CI) — проверяется против живого API')
+  const { category, key, options } = long!
   await page.goto(`/ru/collections/${category.slug}`)
   if (isMobile) await page.getByTestId('filters-toggle').click()
   const scope = isMobile ? page.getByTestId('filters-sheet') : page.getByRole('complementary', { name: 'Фильтры' })
@@ -254,21 +266,26 @@ test('long live filter: fixed-height scroll box, search finds and selects the la
 
 test('filters sheet on a phone shows the filters, not only its header and buttons', async ({ page, request, isMobile }) => {
   test.skip(!isMobile, 'шторка — только на мобильном')
-  const { category } = await longestTextFilter(request)
-  await page.goto(`/ru/collections/${category.slug}`)
+  const category = await categoryWithFilters(request)
+  test.skip(!category, 'нет категории с фильтрами')
+  await page.goto(`/ru/collections/${category!.slug}`)
   await page.getByTestId('filters-toggle').click()
   const sheet = page.getByTestId('filters-sheet')
-  const viewport = page.viewportSize()!
-  // Длинные списки — шторка должна вырасти почти до max-h (85dvh), тело — занять её середину
-  expect((await sheet.boundingBox())!.height).toBeGreaterThan(viewport.height * 0.6)
+  // Баг iOS: тело шторки схлопывалось в ноль — фильтр обрезан прокруткой и не виден, хотя он в DOM
   const firstFilter = sheet.locator('fieldset').first()
   await expect(firstFilter).toBeInViewport()
-  expect((await firstFilter.boundingBox())!.height).toBeGreaterThan(100)
+  expect((await firstFilter.boundingBox())!.height).toBeGreaterThan(30)
+  if (await longestTextFilter(request)) {
+    // С длинными списками шторка вырастает почти до max-h (85dvh)
+    expect((await sheet.boundingBox())!.height).toBeGreaterThan(page.viewportSize()!.height * 0.6)
+  }
   await expect(sheet.getByRole('button', { name: 'Показать', exact: true })).toBeInViewport()
   await expect(sheet.getByRole('button', { name: 'Сбросить', exact: true })).toBeInViewport()
 })
 
 test('kk dictionary covers every live category and filter', async ({ request }) => {
+  // Сверка словаря с боевыми данными; у синтетической фикстуры CI свои ключи — для них остаётся русский текст бэка
+  test.skip(!LIVE_PRODUCTION, 'только против api.aktau.market')
   for (const { category, schema } of await liveSchemas(request)) {
     expect(kk.category[category.slug], `data.category.${category.slug} (${category.name})`).toBeTruthy()
     for (const filter of schema.filters) {
