@@ -205,3 +205,275 @@ Source patch and clean review archive rebuilt for this corrected candidate;
 exact-base apply/source-byte proof, safe members, report/source byte-match and
 bounded secret scan are required again. Automation remains disabled by default;
 no commit/push/merge/SSH setup/deployment. STOP for repeat independent Code Review.
+
+## 12. 2026-10-18 — Security Finding01 / CWE-345, Owner-approved Variant A
+
+**Current source candidate: READY_FOR_EXTERNAL_REVIEW.** Earlier source/verification
+history above is preserved byte-for-byte. This is not broker installation,
+production authorization, hosted artifact acceptance or closure of the security
+finding. Auto-deploy remains DISABLED; no actual approval record was issued.
+
+### Baseline, isolation and exact scope
+
+Fresh fetch/prune exit0. HEAD/origin/main matched the approved immutable baseline
+**e5486c3cfb3de37e8aab33fda27529b4af972399**. Main working tree was clean; open
+GitHub PR inventory returned0. Created a separate native-WSL worktree
+`/home/denis/tmp/aktau-security01-deploy-artifact-provenance`, branch
+`fix/security01-deploy-artifact-provenance`, at that exact SHA. Other worktrees
+were not changed, repaired, reset, pruned or rebased. Root project rules, complete
+Owner Variant A task, Codex Security finding/report and existing deployment
+sources/tests/setup were read before implementation. No nested AGENTS was used.
+
+Exactly seven tracked paths comprise this candidate:
+
+1. scripts/deploy/auto_broker.py
+2. scripts/deploy/auto_broker_test.py
+3. scripts/deploy/auto-build.mjs
+4. scripts/deploy/auto-transport.mjs
+5. .github/workflows/deploy-production.yml
+6. docs/production/AUTO_DEPLOY_SETUP.md
+7. docs/production/reports/AUTO_DEPLOY_CI_CD_REPORT.md
+
+No application source, Go dependencies/tool configuration, frontend, Backend2,
+C2/HMAC/Voice, API, schema/migrations, compose, entrypoint privileges or original
+CI workflow/gate was modified. Local test installs/build outputs are ignored and
+excluded from the review artifact. No new source/test/support file was needed.
+
+### Reproduction first, then the enforcement boundary
+
+Before changing broker implementation, added
+`test_unapproved_self_consistent_archive_never_reaches_docker` using an actual
+local synthetic docker-save inventory and matching uploader-controlled hash/size.
+The dedicated command
+`python3 -B -m unittest discover -s scripts/deploy -p auto_broker_test.py -k unapproved_self_consistent`
+returned **exit1 /1 FAIL**: old Host.identity reached the mocked docker load and
+raised `AssertionError: unapproved Docker access`. No Docker execution occurred.
+This was a concrete source-boundary regression, not merely a missing-symbol test.
+
+Original ordering: receive/check uploader manifest → preflight → image identity
+(including docker load/create/cp) → fresh main SHA → closed cutover. Hash, labels,
+RootFS and API binary checks authenticated only self-consistency.
+
+New ordering: existing preflight/NO_OP → fresh main → independent fixed-path
+root-owned authorization + actual stored-byte hash/size → sealed archive fd →
+original archive/tag inventory → approval/file-identity/bytes recheck → durable
+single-use approval consumption → docker load from sealed fd → original portable
+image/API-binary checks → same authorization/expiry + fresh main recheck → original
+stop/activate/local/open/public/observation/one-compensation flow.
+
+Rejected approval/artifact cannot reach load/create/cp, tunnel stop, release-ref
+change, activation or runtime environment exposure. These pre-cutover failures do
+not invoke rollback or close the healthy old tunnel. NO_OP and pre-load stale skip
+do not load/consume authorization. A post-load stale decision does not activate.
+
+### Independent authorization and viable two-phase artifact handoff
+
+The full strict schema/procedure is in
+[AUTO_DEPLOY_SETUP.md](../AUTO_DEPLOY_SETUP.md), Variant A section.
+Broker accepts no approval-write operation or caller-selected authorization path.
+Only trusted Owner/operator administrative authority can atomically provision the
+fixed `STATE/authorizations/<releaseSha>.json` outside restricted SSH authority.
+The root filesystem custody is authentication; `approved=true` and the owner audit
+handle alone confer no trust. Deploy principal cannot create/replace/write the
+root0700 directory/root0600 records or change a root-owned ancestor. No new SSH/
+sudo rights, signing key, runtime HMAC or broad GitHub credential is introduced.
+
+Schema v1 has exact keys/strict types: repository/environment/releaseSha,
+ciWorkflow/ciRunId/ciAttempt, distinct buildWorkflow/buildRunId/buildAttempt,
+immutable artifactIdentity{id,name}, archiveSha256/archiveSize, approved/approvedBy,
+approvedAt/expiresAt and authorizationId. Positive run/id integers are safe JS
+integers; SHA is40hex, digest64hex; raw archive1..256MiB. Approval validity is at
+most86400seconds and is checked before load and immediately before cutover.
+Missing/corrupt/duplicate/unknown/unreadable/unapproved/expired records fail closed.
+
+Workflow dispatch now has dry-run/build/deploy. Explicit build-only on main is
+possible while the deployment flag is false; it verifies exact original main CI,
+builds a clean Git export and saves ONE archive, then uses the SHA-pinned GitHub
+upload-artifact v4.6.2 action to publish only image.tar and manifest.json. Its name
+binds release SHA, producer run and attempt. This job has no production Environment
+or deploy SSH secrets. It never issues root approval. Existing read-only GitHub
+permissions remain; artifact runtime upload uses the normal Actions service.
+
+Owner must independently inspect the original GitHub CI and producer workflow/
+revision/run/current attempt, wait for completed success, download the exact
+numeric artifact ID and independently compute image.tar hash/size. The GitHub ZIP
+digest and image.tar digest are explicitly distinguished. Only then may a separately
+authorized trusted operator install the root approval with file/directory fsync
+and atomic rename. Copying uploader-supplied assertions is expressly insufficient.
+The trusted CI builder and this independent human approval are the trust roots;
+their compromise/misapproval is outside restricted-key containment.
+
+Explicit manual deploy subsequently requires the existing activation flag plus
+production Environment approval and sha/ci_run/artifact_id. It verifies artifact
+API producer/workflow/repository/main/run/attempt identity, downloads by exact ID
+using SHA-pinned download-artifact v4.3.0, verifies raw saved bytes and reuses them.
+There is NO build/resave in release phase or fallback to artifact name/latest.
+CI workflow_run cannot enter build or rollout. The two action tag→commit mappings
+were checked through read-only official GitHub repository metadata. No workflow
+dispatch, artifact upload/download or production approval was executed here.
+
+An expired/deleted artifact, unavailable producer evidence, wrong run/attempt or
+downloaded-byte mismatch blocks release. Existing runtime-change and DB/compose/
+contract delta guards still operate before submit. Build-only can produce a
+candidate later skipped as NO_OP/NO_RUNTIME_CHANGE; release never rebuilds it.
+
+### Filesystem, TOCTOU and repeat semantics
+
+All authorization/archive parent directories are opened from / via held dirfds
+with O_DIRECTORY/O_NOFOLLOW/O_CLOEXEC and fstat checks for root ownership and no
+group/other writes; the final directory is0700. Records and received archives
+must be root0600 regular single-link files; reads are bounded and descriptor
+metadata is checked before/after reading. Incoming archive has a unique mkstemp
+name and is written through that same original descriptor, not reopened for
+receipt. JSON duplicate keys/unknown authorization fields fail closed.
+
+Actual stored bytes are compared to independent approval, copied into a Linux
+memfd, and sealed against writes/grow/shrink/seal changes. The load subprocess
+inherits only that fd and opens /proc/self/fd/N; it cannot follow a later archive
+pathname replacement. Before load, original inode/device/size/mtime/ctime and
+digest/size plus approval bytes are checked again. An fd-handoff regression uses
+a real child process; Docker operations themselves remain mocked in these tests.
+Linux sealing support is mandatory, with no unsafe compatibility fallback.
+
+Before load, an exclusive root0600 authorizationId.used marker is flushed/fsynced
+along with its root directory. Authorization permits one attempted load. Any
+failed load/rollback/crash requires NEW independent approval ID, not marker
+deletion or an automatic retry. Existing remote flock serializes this operation;
+durable RUNNING/result journal and manual crash-recovery limitations are unchanged.
+Approval replacement/expiry before cutover blocks without changing the old live
+release. Actual production owner/modes/ACLs and administrative-channel custody
+remain later host-review obligations, not inferred from mocked UIDs.
+
+### Actual local verification
+
+Native WSL, Node24.10.0, Python3.12.3 and the existing Go1.27.2 toolchain. No runtime
+provider/production env file or credential was loaded. Existing CI runners strip
+inherited private env and provision only disposable loopback PostgreSQL fixtures.
+
+Baseline before implementation: Python28/28, Node21/21, Part15 31/31; both static
+verifiers, Python compile, Node syntax and diff-check exit0. The negative test
+then failed as recorded above. An intermediate new-test expectation treated an
+already-consumed approval as OSError rather than the existing Blocked wrapper;
+corrected the test's expected denial class, not the fail-closed implementation.
+Final focused suite is **39/39 PASS,0 SKIP**, including the original28 tests and
+the embedded Node producer/download/manual-release harness (counted as ONE Python
+test, not as an invented standalone Node suite count).
+
+| Final command/check | Actual result |
+| --- | --- |
+| python3 -m unittest discover -s scripts/deploy -p 'auto_*_test.py' | exit0,39/39 PASS,0 SKIP |
+| node --test scripts/deploy/auto-gate.test.mjs | exit0,21/21 PASS |
+| node scripts/deploy/verify-auto-deploy.mjs | exit0, original trust-boundary markers retained |
+| node --test scripts/deploy/verify-part15.test.mjs | exit0,31/31 PASS |
+| node scripts/deploy/verify-part15.mjs | exit0 |
+| python3 -m py_compile scripts/deploy/auto_broker.py | exit0 |
+| node --check scripts/deploy/auto-build.mjs; node --check scripts/deploy/auto-transport.mjs | exit0 each |
+| actionlint v1.7.7 .github/workflows/deploy-production.yml | exit0; pinned tool built in owned temporary directory, not added to project dependencies |
+| node scripts/ci/run-checks.mjs contracts | exit0, frozen install/lint; offline12 PASS/10 HTTP SKIP explicitly retained |
+| existing documented loopback Nest fixture + contracts pnpm test:fixture | exit0,22/22 PASS,0 SKIP; owned process cleaned |
+| node scripts/ci/run-checks.mjs go | exit0: gofmt/tidy/no module drift/mod verify/test/race/vet/staticcheck normal+integration/govulncheck/build; no vulnerabilities found |
+| node scripts/ci/run-checks.mjs nest | exit0: frozen install/generate/build,27/27 tests, prod audit clean |
+| PW_CHANNEL=chrome node scripts/ci/run-checks.mjs frontend | exit0: frozen install/typecheck/lint/263 unit tests/no-isolate/audit/build/configured E2E |
+| node scripts/ci/run-checks.mjs pipeline | exit0: frozen install/test/typecheck |
+| node scripts/ci/run-checks.mjs security; node --test scripts/ci/guard.test.mjs | exit0: source/workflow policy, synthetic backup guard1/1, CI guards6/6 |
+| node scripts/ci/run-db-integration.mjs | exit0: own PG17, all six disposable databases, migrations, seven existing race-enabled integration invocations, cleanup PASS |
+| PW_CHANNEL=chrome node scripts/ci/run-ephemeral-staging.mjs | exit0: own PG17, Go/Nest GET/security/Voice parity, GET contracts18 PASS/4 expected fixture-POST SKIP per origin,12/12 HTTP browser tests, local hardened Docker/outage/recovery/cleanup PASS |
+| git diff --check; exact scope; relative Markdown links; bounded privacy scan; historical-report prefix preservation | PASS |
+
+All local component profiles underlying the existing CI gate were executable and
+completed; this is NOT a hosted nine-job result for an uncommitted candidate.
+Configured local browser installer SKIP used existing Chrome; E2E actually ran.
+Analytics-ID/platform-gated E2E cases skipped by existing profiles are not claimed
+as new analytics PASS. Frontend wrapper retains only output tail, so no full mock
+E2E count is fabricated. Existing destination-stream-closed messages appeared;
+the unchanged runner still exited0. Go live-provider tests are opt-in and were
+not enabled. A first optional fixture operator invocation had shell-quoting syntax
+failure before starting a service; corrected invocation completed22/22 above.
+
+Negative tests assert all privileged sinks remain untouched for self-consistent
+unapproved bytes; different digest/size/repo/environment/SHA/workflow/run/attempt/
+artifact/approval; absent/bad/expired/unreadable records; caller-selected path;
+symlinks/wrong owner/mode/writable ancestors; resaved bytes; original file mutation/
+replacement and approval replacement. Positive test crosses the REAL authorization/
+sealing/image-identity code then mocked controlled rollout. Replay consumption,
+same approval/expiry recheck, pre/post-load stale behavior and existing NO_OP,
+rollback once/failure,5xx and journal file+directory fsync regressions all pass.
+No real forged image, private env or production Docker action was used.
+
+### Review artifact and remaining authorization gates
+
+Fresh clean full-stack archive via unchanged `scripts/create-clean-archive.mjs`:
+**artifacts/adilbaga-security-finding01-variant-a-20261018.tar.gz**.
+Safe unique regular members, seven-path inclusion, all included source/report
+byte-match and bounded private-key/token scans are checked on the final archive;
+Git/TODO/env credentials/dependencies/builds/test artifacts/DB backups are excluded.
+The earlier report prefix and all out-of-scope tracked paths remain unchanged.
+
+Still NOT RUN/NOT AUTHORIZED: hosted candidate CI/artifact lifecycle, independent
+Owner issuance/installation, real restricted-user ACL/SSH/sudo/broker verification,
+production rollout or rollback. These are later separately authorized gates.
+Source tests do not attest deployed permissions or supply-chain integrity beyond
+the defined trusted builder/Owner boundary. Do not enable unattended CD or mark
+the finding production-closed on this report alone.
+
+No production SSH/API/SQL/Redis, ingest/publish, actual approval, secrets/settings,
+timer/activation/deploy/commit/push/PR/merge occurred. Existing Part15 manual path
+and application contracts remain untouched. **STOP — READY_FOR_EXTERNAL_REVIEW.**
+
+## 13. 2026-10-18 — Approved PR41 main-drift integration and publication gate
+
+Owner accepted the Variant A source archive and separately authorized this
+isolated integration/publication. Old baseline e5486c3cfb3de37e8aab33fda27529b4af972399
+advanced to **240d6ef7564d9d125ef5fcfd4193c441acd10d93**, merged frontend-only PR41.
+Fresh fetch confirmed exactly that new main; its hosted CI run39120701203 is
+9/9 SUCCESS. PR41 changes22 frontend/worklog paths, none of the seven approved
+security paths. The previous publication attempt correctly stopped on drift.
+
+Created new native-WSL worktree
+`/home/denis/tmp/aktau-security01-artifact-provenance-main241`, branch
+`fix/security01-artifact-provenance-main241`, from exact new main. No reset/rebase/
+stash/clean or old-worktree modification. Captured original `git diff --binary`,
+checked with `git apply --check`, then applied it. All seven copied files matched
+the independently reviewed archive/source byte-for-byte before this append.
+The six other paths remain byte-identical; this report preserves the complete old
+candidate as a byte-identical prefix. Every PR41 path and all other tracked paths
+remain equal to new main. No conflicts, extra source, contract/Go/DB/frontend edits.
+
+Repeated local gates on this new worktree, Node24.10.0/Python3.12.3/Go1.27.2:
+
+| Command/profile | Actual result |
+| --- | --- |
+| python3 -m unittest discover -s scripts/deploy -p 'auto_*_test.py' | exit0,39/39 PASS |
+| node --test scripts/deploy/auto-gate.test.mjs | exit0,21/21 PASS |
+| node --test scripts/deploy/verify-part15.test.mjs | exit0,31/31 PASS |
+| node scripts/deploy/verify-auto-deploy.mjs; node scripts/deploy/verify-part15.mjs | exit0 each |
+| node scripts/ci/run-checks.mjs security; node --test scripts/ci/guard.test.mjs | exit0 each; synthetic backup1/1 and CI guards6/6 |
+| node scripts/ci/run-checks.mjs frontend, with existing PW_CHANNEL=chrome | exit0; frozen install/typecheck/lint,273/273 unit tests/no-isolate, audit, production build, configured mock E2E |
+| node scripts/ci/run-checks.mjs go | exit0; gofmt/tidy/no drift/mod verify/test/race/vet/staticcheck normal+integration/govulncheck/build; no vulnerabilities found |
+| node scripts/ci/run-checks.mjs contracts | exit0; frozen install/lint; offline12 PASS/10 HTTP SKIP, not22 PASS |
+| node scripts/ci/run-checks.mjs nest; node scripts/ci/run-checks.mjs pipeline | exit0 each; Nest27/27 plus audit; pipeline test/typecheck |
+| node scripts/ci/run-db-integration.mjs | exit0; complete owned disposable PG17 profile, seven race-enabled integration invocations and cleanup PASS |
+| PW_CHANNEL=chrome node scripts/ci/run-ephemeral-staging.mjs | exit0; Go/Nest GET/security/Voice parity, GET contracts18 PASS/4 expected fixture-POST SKIP per origin; HTTP E2E14 PASS/6 configured SKIP; local hardened Docker health/outage/recovery and cleanup PASS |
+| actionlint1.7.7, Python py_compile, Node --check both changed JS modules | exit0 each |
+| git diff --check; scope/history/links/privacy/artifact byte checks | PASS |
+
+No SKIP is counted as PASS: existing Chrome skips only browser installation;
+configured analytics/platform/live-filter cases retain their own existing gates.
+Mock E2E wrapper retains its output tail, not a fabricated full passed count.
+The existing destination-stream-closed diagnostic appeared again with exit0.
+All backend/API/Voice/SQL activity above used synthetic loopback fixtures, never
+production credentials/data/provider calls. The reviewed security implementation
+was not edited or weakened to make integration tests pass.
+
+Publication requires another exact-main/scope check, explicit seven-path staging,
+the Owner-specified commit/push and PR, then exact-commit hosted CI inspection.
+This appendix is written before that commit: no future SHA, PR or hosted PASS is
+invented here; final handoff and GitHub checks carry those results. Auto-deploy
+remains disabled; broker installation, real Owner approval, host ACL verification,
+artifact-service acceptance and production rollout remain separately authorized
+gates. No production SSH/API/DB, secrets/flag changes or merge is performed.
+
+New local review archive: `artifacts/adilbaga-security01-main241-review-20261018.tar.gz`,
+via the unchanged full-stack archiver, with safe-member/source/report byte-match
+checks. The original worktree/archive is preserved. **READY_FOR_EXTERNAL_REVIEW**
+after successful local publication gates; STOP before merge or production action.

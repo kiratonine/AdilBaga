@@ -8,14 +8,18 @@ on:
     inputs:
       mode:
         type: choice
-        options: [dry-run, deploy]
+        options: [dry-run, build, deploy]
         default: dry-run
       sha:
-        description: Exact main SHA (deploy only)
+        description: Exact main SHA (build/deploy)
         required: false
         type: string
       ci_run:
-        description: Successful push-main CI run ID (deploy only)
+        description: Successful push-main CI run ID (build/deploy)
+        required: false
+        type: string
+      artifact_id:
+        description: Immutable artifact ID from successful build-only run (deploy only)
         required: false
         type: string
 permissions:
@@ -43,13 +47,15 @@ jobs:
       - run: node scripts/deploy/verify-part15.mjs
   gate:
     needs: offline
-    # Only repository variables, not environment vars, may enable this first gate.
+    # Build-only needs no activation. Only repository variables enable release.
     if: >-
-      vars.AUTO_DEPLOY_ENABLED == 'true' && github.repository == 'kiratonine/AdilBaga' &&
+      github.repository == 'kiratonine/AdilBaga' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'build') ||
+      (vars.AUTO_DEPLOY_ENABLED == 'true' &&
       ((github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_repository.full_name == 'kiratonine/AdilBaga' &&
         github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success') ||
-       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'deploy'))
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'deploy'))))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -65,10 +71,38 @@ jobs:
         env:
           AUTO_DEPLOY_ENABLED: ${{ vars.AUTO_DEPLOY_ENABLED }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/deploy/auto-gate.mjs
+        run: node scripts/deploy/auto-build.mjs gate
+  build_only:
+    needs: gate
+    if: needs.gate.outputs.eligible == 'true' && github.event_name == 'workflow_dispatch' && inputs.mode == 'build'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - id: build
+        env:
+          RELEASE_SHA: ${{ needs.gate.outputs.sha }}
+          CI_RUN: ${{ needs.gate.outputs.ci_id }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/deploy/auto-build.mjs build
+      # One immutable upload; no SSH, production Environment or approval issuance.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ steps.build.outputs.name }}
+          path: |
+            ${{ steps.build.outputs.path }}/image.tar
+            ${{ steps.build.outputs.path }}/manifest.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
   rollout:
     needs: gate
-    if: needs.gate.outputs.eligible == 'true'
+    if: needs.gate.outputs.eligible == 'true' && vars.AUTO_DEPLOY_ENABLED == 'true' && github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
     environment: production
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -80,10 +114,29 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with: {node-version: '24.10.0', package-manager-cache: false}
-      - name: Read-only release plan before build
+      - name: Verify immutable producer identity before download
+        id: artifact
+        env:
+          RELEASE_SHA: ${{ needs.gate.outputs.sha }}
+          CI_RUN: ${{ needs.gate.outputs.ci_id }}
+          RELEASE_ARTIFACT_ID: ${{ inputs.artifact_id }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/deploy/auto-build.mjs artifact
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ steps.artifact.outputs.artifact_id }}
+          run-id: ${{ steps.artifact.outputs.build_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/release-artifact
+          merge-multiple: true
+      - name: Verify exact saved bytes; never rebuild or resave
+        run: node scripts/deploy/auto-build.mjs verify-download
+      - name: Read-only release plan for already-approved archived bytes
         id: plan
         env:
           DEPLOY_PHASE: plan
+          DEPLOY_MODE: deploy
+          AUTO_DEPLOY_ENABLED: ${{ vars.AUTO_DEPLOY_ENABLED }}
           RELEASE_SHA: ${{ needs.gate.outputs.sha }}
           CI_RUN: ${{ needs.gate.outputs.ci_id }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -93,16 +146,11 @@ jobs:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: node scripts/deploy/auto-transport.mjs
-      - name: Recheck candidate and build outside VPS
-        if: steps.plan.outputs.changed == 'true'
-        env:
-          RELEASE_SHA: ${{ needs.gate.outputs.sha }}
-          CI_RUN: ${{ needs.gate.outputs.ci_id }}
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/deploy/auto-build.mjs
       - name: Approved broker transport and bounded rollout
         if: steps.plan.outputs.changed == 'true'
         env:
+          DEPLOY_MODE: deploy
+          AUTO_DEPLOY_ENABLED: ${{ vars.AUTO_DEPLOY_ENABLED }}
           RELEASE_SHA: ${{ needs.gate.outputs.sha }}
           CI_RUN: ${{ needs.gate.outputs.ci_id }}
           GITHUB_TOKEN: ${{ github.token }}
