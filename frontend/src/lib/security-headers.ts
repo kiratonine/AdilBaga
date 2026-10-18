@@ -1,8 +1,15 @@
 import { httpUrl } from './config'
 import { analyticsIds } from './analytics'
 
-// Image origins in the committed prepared dataset. No store API/script access.
-const productImageOrigins = ['https://backend.dinamarket.kz', 'https://dana-market.kz', 'https://fix-price.kz']
+// Image origins in the live dataset. No store API/script access.
+// Fix Price serves photos from img.fix-price.com / img.fix-price.kz (CDN), not from fix-price.kz itself
+const productImageOrigins = [
+  'https://backend.dinamarket.kz',
+  'https://dana-market.kz',
+  'https://fix-price.kz',
+  'https://img.fix-price.com',
+  'https://img.fix-price.kz',
+]
 const tileOrigins = ['https://tile.openstreetmap.org']
 
 /** Production-only policy: dev HMR is outside this policy. No HSTS before HTTPS rollout. */
