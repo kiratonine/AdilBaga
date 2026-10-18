@@ -16,8 +16,32 @@ test('production factory rejects caller-manufactured authority before any execut
 
 // Separate Node process: mocked OS metadata/exec only; no root files, DSN or
 // privileged resources created. No test hook is exported by the production code.
+const credentialUsers = [
+  ['direct', 'aktau_api_runtime', true],
+  ['pooler', 'aktau_api_runtime.abcdefghijklmnopqrst', true],
+  ['encoded_direct', 'aktau%5Fapi_runtime', true],
+  ['encoded_pooler', 'aktau_api_runtime%2Eabcdefghijklmnopqrst', true],
+  ['ingest', 'aktau_ingest_runtime.abcdefghijklmnopqrst', false],
+  ['postgres', 'postgres.abcdefghijklmnopqrst', false],
+  ['extra_suffix', 'aktau_api_runtime.abcdefghijklmnopqrst.x', false],
+  ['short', 'aktau_api_runtime.SHORT', false],
+  ['ref19', 'aktau_api_runtime.abcdefghijklmnopqrs', false],
+  ['ref21', 'aktau_api_runtime.abcdefghijklmnopqrstu', false],
+  ['uppercase_ref', 'aktau_api_runtime.Abcdefghijklmnopqrst', false],
+  ['uppercase_role', 'Aktau_api_runtime.abcdefghijklmnopqrst', false],
+  ['ref_punctuation', 'aktau_api_runtime.abcdefghijklmnopqrs_', false],
+  ['malformed_percent', 'aktau_api_runtime%ZZ', false],
+  ['incomplete_percent', 'aktau_api_runtime%', false],
+  ['malformed_utf8', 'aktau_api_runtime.%C3%28', false],
+  ['double_encoding', 'aktau_api_runtime%252Eabcdefghijklmnopqrst', false],
+  ['encoded_suffix', 'aktau_api_runtime.abcdefghijklmnopqrst%2Ex', false],
+  ['encoded_newline', 'aktau_api_runtime%0A', false],
+  ['encoded_return', 'aktau_api_runtime%0D', false],
+  ['encoded_separator', 'aktau_api_runtime%E2%80%A8', false],
+].map(([name, user, accepted]) => ({ scenario: `credential_${name}`, user, accepted }));
 for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', 'missing', 'symlink', 'writable_acl_mask', 'replace_before_exec', 'wrong_alias',
-  'before_frontend_drift', 'before_deployment_drift', 'before_confirmation_drift', 'stable_identity', 'after_frontend_drift', 'after_deployment_drift']) {
+  'before_frontend_drift', 'before_deployment_drift', 'before_confirmation_drift', 'stable_identity', 'after_frontend_drift', 'after_deployment_drift',
+  ...credentialUsers.map(c => c.scenario)]) {
   test(`production authority OS mock: ${scenario}`, () => {
     const child = String.raw`
       import fs from 'node:fs'; import cp from 'node:child_process';
@@ -25,6 +49,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
       import { promisify } from 'node:util'; import { createHash } from 'node:crypto';
       import assert from 'node:assert/strict';
       const scenario = process.argv[1], uid = process.geteuid();
+      const credentialCase = JSON.parse(process.argv[2]);
       const { projectionPair } = await import('./scripts/revalidation/fixtures/projection-v2.mjs');
       const bytes = Buffer.from([127,69,76,70,1,2,3]);
       const digest = createHash('sha256').update(bytes).digest('hex');
@@ -53,7 +78,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
           }
           return Buffer.from(JSON.stringify(deployment)+'\n');
         }
-        if(p.endsWith('reader.dsn'))return 'postgres://aktau_api_runtime:synthetic-only@fixture.invalid:5432/test';
+        if(p.endsWith('reader.dsn'))return 'postgres://'+(credentialCase?.user??'aktau_api_runtime')+':synthetic-only@fixture.invalid:5432/test';
         if(p.endsWith('c2projection')&&scenario==='replace_before_exec'&&++binaryReads>1)return Buffer.from('replaced');
         return bytes;
       };
@@ -61,6 +86,8 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
       const fake=()=>{};fake[promisify.custom]=async(file,args,options)=>{
         executions++;assert.equal(options.shell,undefined);assert.equal(options.env.APP_ENV,'production');
         assert.ok(options.timeout<=10000);assert.ok(options.maxBuffer<=65536);
+        if(credentialCase)assert.equal(options.env.C2_PROJECTION_DATABASE_URL,
+          'postgres://'+credentialCase.user+':synthetic-only@fixture.invalid:5432/test');
         const p=projectionPair().before;
         p.provenance.frontendSha=deployment.frontendSha;
         if(scenario==='wrong_source')p.provenance.sourceSha='d'.repeat(40);
@@ -80,7 +107,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
         if(scenario==='after_frontend_drift')deployment.frontendSha='d'.repeat(40);
         if(scenario==='after_deployment_drift')deployment.deploymentId='dpl_other';
         assert.throws(()=>api.productionIdentity(provider,'a'.repeat(32),'after'),/deployment/);
-      }else if(scenario==='valid'||scenario==='stable_identity'){
+      }else if(scenario==='valid'||scenario==='stable_identity'||credentialCase?.accepted){
         assert.ok(before);assert.equal(executions,1);
         if(scenario==='stable_identity'){
           assert.equal(before.provenance.frontendSha,initial.frontendSha);
@@ -99,7 +126,8 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
       }else{assert.equal(before,null);if(scenario!=='wrong_source')assert.equal(executions,0)}
       assert.equal(api.isProductionProvider({fixtureOnly:false}),false);
     `;
-    execFileSync(process.execPath, ['--input-type=module', '-e', child, scenario], { cwd: new URL('../../', import.meta.url),
+    execFileSync(process.execPath, ['--input-type=module', '-e', child, scenario,
+      JSON.stringify(credentialUsers.find(c => c.scenario === scenario) ?? null)], { cwd: new URL('../../', import.meta.url),
       env: { PATH: '/usr/bin:/bin' }, timeout: 5000, maxBuffer: 4096 });
   });
 }

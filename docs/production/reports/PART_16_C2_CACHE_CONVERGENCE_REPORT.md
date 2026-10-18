@@ -1541,3 +1541,33 @@ Minimal runtime diff: save the result of await provider.after(capture,before), c
 Relative to the previous reviewed P1 archive, correction scope is only fifo-adapter.mjs, fifo-adapter.test.mjs, c2-production-supervisor.test.mjs and this append-only report. The production-code change is the post-await check; other changes are tests/documentation. No Go/SQL/manifest algorithm/frontend/API/HMAC/systemd/SLA/credential or general-contract changes. Existing260 tests remain and5 regressions are added. No SKIP or mocked authority is claimed as real production proof.
 
 Fresh unique clean archive via unchanged scripts/create-clean-archive.mjs full-stack: **artifacts/adilbaga-part18-c2-supervisor-coverage-deadline-fix-20261018.tar.gz**. Preserve both older unique archives and the full prior report prefix. Verify643 safe unique regular members, all source/report byte-match, absence of Git/TODO/env credentials/dependencies/build/test artifacts/backups and exact correction scope. Current production Go438ecdfa and ingestion af2fb77 are not inspected or changed. No production HTTP/SSH/SQL, publish, deployment, credential action or Git publication. **STOP for independent Code Review.**
+
+## PR #43 Backend2 P1 — Supabase pooler username compatibility, 2026-10-18 (append-only)
+
+**READY_FOR_EXTERNAL_REVIEW (source only). Production C2 acceptance remains BLOCKED.** Reviewed HEAD e5fbd117ea5fe3240cc297b84766f02c6aaa98a5; branch feat/part18-c2-production-adapter-source. Fresh fetch/prune exit0; origin/main remains70e6e24dbe149f353ce20f0f2ede0cdcb42b2a8e. Initial working tree clean. Read the complete Backend2 PR43 review, original source-only task and approved production handoff. This correction does not implement optional P3 suggestions or update the existing PR.
+
+### Reproduction and minimal compatibility fix
+
+Added factory-boundary regressions first using the existing isolated child-process OS mocks: synthetic root authorization/deployment/binary metadata, mocked credential-file read and mocked Go execFile. No real DSN, root resource, credential, DB or network was used. The successful factory cases execute one mock Go BEFORE with APP_ENV=production and the original synthetic encoded DSN; rejection cases execute zero children. Existing manufactured-event tests still admit zero GET.
+
+Initial fail-first command: `node --test --test-name-pattern="production authority OS mock: credential_" scripts/revalidation/c2-projection-v2.test.mjs`. The shell initially selected Node20.20.2: exit1,16 PASS/3 FAIL,83 unrelated tests filtered/skipped. Direct username passed; pooler username and both valid URL-encoded forms failed. These filtered tests are not claimed executed. Subsequent checks explicitly select installed Node24.10.0. After the fix, those19 cases passed on Node24 (exit0,0 SKIP); two additional encoded line-separator cases are included in the final complete suite.
+
+Production-only username validation now decodes the URL username exactly once, rejects decode errors, and accepts only the complete exact role aktau_api_runtime or that role followed by a dot and exactly20 lowercase ASCII letters/digits. Full-match equality also rejects a trailing encoded line terminator despite JavaScript dollar-anchor semantics. The original encoded DSN is passed unchanged to Go, not reconstructed or double-decoded. Protocol, hostname, password, credential-file ownership/mode, independent root approval, executable authority, deployment identity and private custody checks are unchanged.
+
+The21 added cases cover direct/pooler and encoded direct/pooler success; ingest/postgres roles, extra suffix, SHORT,19/21-character refs, uppercase role/ref, punctuation, malformed/incomplete percent encoding, invalid UTF-8, double encoding, encoded suffix and LF/CR/Unicode line separator rejection. Go OpenProductionReadOnly still independently checks actual current_user/session_user and read-only authority. Local/synthetic factory behavior is untouched.
+
+### Actual verification
+
+| Command/check | Actual result |
+| --- | --- |
+| Non-root assertion, Node24.10.0; existing relayprobe built with GOTOOLCHAIN=go1.27.2 in an owned local temporary directory | exit0; uid1000; no production installation |
+| C2_LOCAL_PROBE=<owned-temp>/relayprobe node --test scripts/revalidation/*.test.mjs scripts/ci/guard.test.mjs | exit0;286/286 PASS,0 FAIL,0 SKIP;25.357s; existing265 retained plus21 cases |
+| GOTOOLCHAIN=go1.27.2 go test -count=1 ./cmd/c2projection ./internal/revalidation ./internal/postgres (backend-go) | exit0; all3 packages PASS, uncached |
+| node --check scripts/revalidation/projection-provider.mjs and scripts/revalidation/c2-projection-v2.test.mjs | exit0 each |
+| node scripts/revalidation/verify-part16.mjs | exit0; static boundaries PASS |
+| node scripts/ci/run-checks.mjs security | exit0; source/workflow policy and1/1 synthetic backup guard PASS |
+| git diff --check; exact three-path scope, historical-prefix preservation, local Markdown links, bounded privacy scan, archive safe members and all-file byte-match | PASS at final artifact verification |
+
+Exact correction paths: scripts/revalidation/projection-provider.mjs, scripts/revalidation/c2-projection-v2.test.mjs, and this append-only report. No Go/SQL/ingestion/frontend/API/HMAC/dependency/systemd/production configuration change. No production SSH/HTTP/SQL, credentials access, real observer, installation or deploy; no commit/push/PR update/merge. Hosted CI for this uncommitted correction is NOT RUN; earlier exact-SHA CI remains historical.
+
+New clean full-stack review artifact via unchanged scripts/create-clean-archive.mjs: **artifacts/adilbaga-part18-c2-pr43-dsn-compatibility-fix-20261018.tar.gz**. Preserve previous archives and the entire reviewed HEAD report prefix byte-for-byte. Production provisioning, independent alias/deployment evidence and three qualified legitimate publication measurements remain separate blocked gates. **STOP for independent Code Review.**

@@ -133,7 +133,11 @@ export function createProductionProjectionProvider(options = {}) {
     databaseURL = fs.readFileSync(fd, 'utf8').trim();
   } finally { fs.closeSync(fd) }
   const url = new URL(databaseURL);
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname || url.username !== 'aktau_api_runtime' || !url.password) throw Error('credential');
+  let username;
+  try { username = decodeURIComponent(url.username) } catch { throw Error('credential') }
+  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname
+    || /^aktau_api_runtime(?:\.[a-z0-9]{20})?$/.exec(username)?.[0] !== username
+    || !url.password) throw Error('credential');
   // Frontend identity is bound per attempt at BEFORE, not to current main.
   let initial = null;
   const provider = createProvider({ sourceSha: approved.sourceSha, frontendSha: null, run: async (args, phase) => {
