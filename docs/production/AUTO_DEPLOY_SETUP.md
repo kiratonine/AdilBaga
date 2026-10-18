@@ -10,22 +10,29 @@ Repository variable `AUTO_DEPLOY_ENABLED` must be absent or exactly `false` unti
 external Code Review and owner authorization. Only literal `true` enables the
 production gate; unset/invalid values disable it. `workflow_dispatch` defaults
 to `dry-run`, which runs offline tests without SSH or production secrets.
-An enabled manual deploy requires main, exact 40-character SHA and push-main CI
-run ID, with all nine jobs successful at the current run attempt. Automatic runs
-accept only original-repository push-main CI; no PR artifacts/code are consumed.
+An enabled manual deploy requires main, exact 40-character SHA, push-main CI
+run ID, immutable build artifact ID and independent root-owned Owner approval.
+All nine CI jobs must succeed at the current attempt. CI workflow_run can verify
+eligibility but cannot build or roll out automatically. No PR/fork artifacts/code
+are consumed. Variant A is per-artifact manual release, NOT unattended CD.
 CI identity is verified by API workflow path/ID, not just the display name.
 Main is checked again on runner before transport and on VPS before closed cutover.
 Stale releases yield `SKIPPED_STALE`; active SHA yields `NO_OP`.
-After gates and Environment approval, read-only broker status resolves the real
-active release before any image build. If only docs/tests/frontend changed and
+Build-only is an explicit main workflow_dispatch mode, available with the flag
+disabled, without production Environment or SSH secrets. It saves an image ONCE
+and uploads only image.tar and manifest.json under an attempt-specific immutable
+artifact name. After separate Owner approval, an explicit deploy dispatch
+downloads that SAME artifact ID, verifies producer/bytes, then reads broker status.
+If only docs/tests/frontend changed and
 Go runtime inputs did not, return `NO_RUNTIME_CHANGE`, preserving Part15's
 documentation-only/no-rebuild rule. Runtime diff uses Dockerfile, go.mod/go.sum,
 cmd and internal, not an invented historical baseline. Planning is not dry-run:
 it belongs only to the authorized deploy job and may read VPS status.
 
 `workflow_run` can access privileged context, so this workflow checks out trusted
-main only for guards, then the API-verified exact candidate for the build. Do not
-add artifact downloads, arbitrary remote commands, caller-controlled paths,
+main only for guards, then the API-verified exact candidate for a manual build.
+Only the pinned immutable-artifact downloader in explicit deploy is allowed.
+Do not add arbitrary downloads, remote commands, caller-controlled paths,
 shell interpolation, PR caches or broader token permissions.
 See [GitHub workflow-run guidance](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).
 
@@ -62,6 +69,9 @@ Only after explicit owner approval, a trusted operator may install reviewed byte
 - `auto_broker.py`, `auto_smoke.py` → `/usr/local/lib/adilbaga-deploy/`, root0644
   within root0755 directory (no deploy-user write access);
 - private `/var/lib/adilbaga/deploy` root0700, on the same persistent local host;
+- its `authorizations` directory root0700, approval records root0600; every parent
+  root-owned, non-symlink and not group/other writable. The deploy principal has
+  NO approval-write operation or additional sudo permission;
 - dedicated SSH account/key, restricted forwarding/PTY and only exact broker
   command as its allowed SSH operation; no unrelated shell access.
 
@@ -79,6 +89,92 @@ only exact release reference is replaced atomically. Runtime env/compose bytes
 must remain unchanged. No Docker prune, migrations, DB probes, ingestion or secret
 rotation. A DB/compose/frozen-contract change relative to active release blocks
 automatic transport. Root-owned compose hash is fixed to the reviewed Part15 file.
+
+## Variant A: independent approval of one exact saved archive
+
+This procedure is a future separately authorized operator task, NOT executed by
+the source implementation. No actual authorization or signing credential is
+created here. Existing trusted Owner administrative access is separate from the
+restricted deployment account; do not grant that account approval-install rights.
+
+1. Keep AUTO_DEPLOY_ENABLED absent/false. After reviewed source is merged and its
+   exact push-main CI succeeds, dispatch this workflow on main with mode=build,
+   sha=that exact SHA and ci_run=that successful run. artifact_id stays empty.
+   The build job has only read-only GitHub metadata permissions and the GitHub
+   artifact runtime service; no deploy SSH, private API env or production secrets.
+2. Wait for the whole build-only run to finish successfully. In original repository
+   Actions, independently check CI workflow `.github/workflows/ci.yml`, CI run and
+   current attempt/9 jobs, then producer workflow `.github/workflows/deploy-production.yml`,
+   exact main SHA, manual build mode, run/attempt and upload step. The checked-in
+   build workflow/source is part of the trusted computing base. Never approve a
+   matching label alone or metadata sent privately by the restricted uploader.
+3. Obtain the artifact by its numeric GitHub artifact ID from that verified run,
+   named `adilbaga-api-<sha>-<buildRunId>-<buildAttempt>`. Independently download and
+   inspect exactly image.tar and manifest.json. Compute SHA256 and byte size of
+   image.tar on the trusted Owner workstation; compare producer/run/attempt and
+   manifest. GitHub's artifact ZIP digest is NOT the image.tar digest. Never build,
+   modify, truncate or docker-save again after approval. Artifact retention is7days;
+   deletion/expiry requires another reviewed build/approval, not a name fallback.
+4. Through the separately approved trusted administrative channel, atomically
+   install `<releaseSha>.json` under the fixed root-only authorizations directory.
+   Validate record bytes/schema offline before installation; use a new root0600
+   file in that directory, flush/fsync, atomic rename, and parent-directory fsync.
+   Only this trusted administrative role can grant/revoke approval. No broker
+   request creates it; no approval record, approvedBy identity or administrative
+   channel details are uploaded to GitHub artifacts. Approval is the root-protected
+   file custody, not a JSON boolean or uploader assertion by itself.
+5. Only after separate activation authorization, temporarily enable the existing
+   flag for an explicit mode=deploy dispatch on main with the same sha, ci_run and
+   artifact_id. Production Environment approval is additional protection, not a
+   substitute for step4. Release verifies artifact API identity and producer before
+   download, rechecks exact raw bytes afterward, and NEVER invokes build/save.
+   Main drift fails closed; do not rebuild silently to bypass stale approval.
+
+### Strict approval schema v1
+
+Exactly these keys, no duplicates/unknown fields. All run/attempt/id fields are
+positive JSON integers ≤9007199254740991, not strings/bools. Record size≤16384bytes.
+
+| Field | Required value |
+| --- | --- |
+| schemaVersion | integer1 |
+| repository / environment | kiratonine/AdilBaga / production |
+| releaseSha | exact lowercase40hex current main |
+| ciWorkflow / ciRunId / ciAttempt | .github/workflows/ci.yml and independently verified successful main CI |
+| buildWorkflow / buildRunId / buildAttempt | .github/workflows/deploy-production.yml and verified immutable archive producer |
+| artifactIdentity | exact object with numeric id and attempt-specific name defined above |
+| archiveSha256 / archiveSize | lowercase64hex and byte size of EXACT image.tar, 1..268435456bytes |
+| approved | true, established only by trusted file installation |
+| approvedBy | owner: followed by1..64 ASCII letters/digits/underscore/hyphen; non-sensitive audit handle, not an authentication mechanism |
+| approvedAt / expiresAt | Unix seconds integers; approvedAt≤now<expiresAt; maximum validity86400seconds |
+| authorizationId | new random lowercase32hex per attempted load |
+
+The submitted manifest keeps its existing image fields and adds `provenance`
+with repository, ciWorkflow/ciRunId/ciAttempt, buildWorkflow/buildRunId/buildAttempt
+and artifactIdentity. These are UNTRUSTED claims matched against the independent
+record; they cannot create authority. Path selection is fixed from validated SHA.
+
+### Verification, consumption and TOCTOU
+
+Under the existing remote flock, broker uses no-follow/CLOEXEC directory-fd
+traversal, fstat root/mode/link/size checks and strict bounded JSON. Actual stored
+archive bytes must match both independent approval and transfer manifest before
+tar inventory or Docker access. A uniquely named root0600 archive in root0700
+STATE is copied into a Linux sealing-enabled memfd; write/grow/shrink/further-seal
+changes are disabled. After inventory, original file identity/bytes and approval
+are checked again. docker load inherits only the sealed fd and reads its proc-fd
+path, never the original archive pathname. Unsupported sealing fails closed.
+
+Before load, a root0600 exclusive `<authorizationId>.used` marker is fsynced along
+with its directory. One approval permits ONE attempted load. A failed load,
+rollback, crash or post-load stale decision requires explicit NEW approval ID;
+there is no automatic authorization retry. NO_OP on the active SHA and stale
+pre-load skip do not load or consume approval. Do not erase a used marker to retry.
+Immediately before cutover, the same authorization bytes/expiry and main freshness
+are rechecked. Approval failures are pre-cutover and never stop the live tunnel or
+trigger compensation. Existing compensation remains for failures after cutover.
+Root/admin compromise or a compromised trusted builder is outside this boundary;
+this does not attest real host ACLs from offline tests.
 
 ## Rollout, rollback, observation
 
@@ -111,10 +207,10 @@ recovery. No reboot/startup recovery facility is introduced silently.
 
 ## Enablement sequence
 
-After review: disabled merge → actual hosted offline checks → owner-configured
-Environment/key/broker privileges → dry-run → separately approved controlled
-manual deployment and rollback proof in an authorized test environment → public
-E2E/manual Siri → owner sets `AUTO_DEPLOY_ENABLED=true`. Because manual deploy
-uses the same global flag, enable it only in a reviewed maintenance window, with
-main fixed and no concurrent main push, then disable again if review is pending.
-Do not claim unattended activation from offline tests.
+After review: disabled merge → exact-SHA hosted checks/dry-run → manual build-only
+→ independent artifact verification/Owner record → separately approved broker/
+Environment setup and controlled manual release/rollback proof. No setup is implied
+by these instructions. Enable the existing flag only in a reviewed maintenance
+window with main fixed; disable again after the separately approved manual run.
+Variant A never enables unattended main-push rollout. Existing physical Siri PASS
+is Owner evidence, not something this source task repeats or claims to execute.

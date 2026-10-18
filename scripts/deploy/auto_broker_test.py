@@ -8,8 +8,12 @@ import fcntl
 import io
 import tarfile
 import json
+import time
+import types
+import contextlib
+import subprocess
 from unittest.mock import patch
-from auto_broker import Blocked, Host, rollout, ready, validate_manifest, verify_image, replace_release, receive_archive, write_result
+from auto_broker import Blocked, Host, rollout, ready, validate_manifest, verify_image, replace_release, receive_archive, write_result, authorization, approved_archive
 
 SHA = 'a' * 40
 
@@ -18,6 +22,46 @@ def manifest():
     return dict(sha=SHA, revision=SHA, os='linux', arch='amd64', user='10001:10001',
                 entrypoint=['/usr/local/bin/api'], rootfs=['sha256:' + 'b' * 64],
                 binary='c' * 64, archive='d' * 64, size=100)
+
+
+@contextlib.contextmanager
+def approved_fixture(tags=None):
+    # Real local fds/modes/memfd; only UID ownership and /tmp's ancestor mode
+    # are simulated. This is NOT deployed-host ACL evidence or a real approval.
+    with tempfile.TemporaryDirectory() as d:
+        root = pathlib.Path(d)
+        (root / 'authorizations').mkdir(mode=0o700)
+        archive = root / 'synthetic.tar'
+        content = json.dumps([{'RepoTags': tags or ['adilbaga-api:' + SHA]}]).encode()
+        with tarfile.open(archive, 'w') as saved:
+            entry = tarfile.TarInfo('manifest.json')
+            entry.size = len(content)
+            saved.addfile(entry, io.BytesIO(content))
+        os.chmod(archive, 0o600)
+        m = manifest()
+        m.update(archive=hashlib.sha256(archive.read_bytes()).hexdigest(), size=archive.stat().st_size)
+        m['provenance'] = dict(repository='kiratonine/AdilBaga', ciWorkflow='.github/workflows/ci.yml',
+                               ciRunId=42, ciAttempt=2, buildWorkflow='.github/workflows/deploy-production.yml',
+                               buildRunId=43, buildAttempt=1,
+                               artifactIdentity=dict(id=99, name='adilbaga-api-' + SHA + '-43-1'))
+        record = dict(schemaVersion=1, environment='production', releaseSha=SHA,
+                      archiveSha256=m['archive'], archiveSize=m['size'], approved=True,
+                      approvedBy='owner:synthetic', approvedAt=int(time.time())-1,
+                      expiresAt=int(time.time())+3600, authorizationId='f'*32, **m['provenance'])
+        record_path = root / 'authorizations' / (SHA + '.json')
+        record_path.write_text(json.dumps(record))
+        os.chmod(record_path, 0o600)
+        control = {'bad_owner': None}
+        real_fstat = os.fstat
+        def synthetic_root(fd):
+            s = real_fstat(fd)
+            values = {k: getattr(s, k) for k in dir(s) if k.startswith('st_')}
+            target = os.readlink('/proc/self/fd/' + str(fd))
+            values['st_uid'] = 1001 if target == control['bad_owner'] else 0
+            if target == '/tmp': values['st_mode'] = (s.st_mode & ~0o777) | 0o755
+            return types.SimpleNamespace(**values)
+        with patch('auto_broker.STATE', root), patch('auto_broker.os.fstat', synthetic_root):
+            yield m, archive, record, record_path, control
 
 
 class FakeHost:
@@ -34,6 +78,7 @@ class FakeHost:
 
     def preflight(self): self.step('preflight')
     def identity(self, *_): self.step('identity')
+    def recheck_authorization(self): self.step('reauthorize')
     def fresh_main(self, *_):
         self.step('fresh_main')
         return self.fail != 'stale'
@@ -54,6 +99,23 @@ class FakeHost:
 
 
 class BrokerTests(unittest.TestCase):
+    def test_unapproved_self_consistent_archive_never_reaches_docker(self):
+        # The compromised restricted principal controls BOTH these matching values.
+        with tempfile.TemporaryDirectory() as d:
+            archive = pathlib.Path(d) / 'image.tar'
+            content = json.dumps([{'RepoTags': ['adilbaga-api:' + SHA]}]).encode()
+            with tarfile.open(archive, 'w') as saved:
+                entry = tarfile.TarInfo('manifest.json')
+                entry.size = len(content)
+                saved.addfile(entry, io.BytesIO(content))
+            m = manifest()
+            m['archive'] = hashlib.sha256(archive.read_bytes()).hexdigest()
+            m['size'] = archive.stat().st_size
+            with patch('auto_broker.STATE', pathlib.Path(d)), \
+                 patch('auto_broker.command', side_effect=AssertionError('unapproved Docker access')) as run:
+                with self.assertRaises(Blocked): Host().identity(m, archive)
+                run.assert_not_called()
+
     def test_manifest(self): validate_manifest(manifest())
 
     def test_manifest_rejects_all_identity_mismatches(self):
@@ -81,7 +143,7 @@ class BrokerTests(unittest.TestCase):
     def test_success_order(self):
         host = FakeHost()
         self.assertEqual(rollout(host, manifest(), None), 'DEPLOYED')
-        self.assertEqual(host.calls, ['preflight', 'identity', 'fresh_main', 'stop', 'activate', 'local', 'open', 'public', 'observe'])
+        self.assertEqual(host.calls, ['preflight', 'fresh_main', 'identity', 'reauthorize', 'fresh_main', 'stop', 'activate', 'local', 'open', 'public', 'observe'])
 
     def test_noop(self):
         host = FakeHost()
@@ -198,19 +260,225 @@ class BrokerTests(unittest.TestCase):
                 self.assertFalse(path.exists())
 
     def test_save_cannot_overwrite_previous_image_tag(self):
-        with tempfile.TemporaryDirectory() as d:
-            path=pathlib.Path(d)/'image.tar'
-            tags=['adilbaga-api:' + SHA, 'adilbaga-api:' + 'e'*40]
-            raw=json.dumps([{'RepoTags':tags}]).encode()
-            with tarfile.open(path,'w') as archive:
-                entry=tarfile.TarInfo('manifest.json')
-                entry.size=len(raw)
-                archive.addfile(entry,io.BytesIO(raw))
-            m=manifest()
-            m['archive']=hashlib.sha256(path.read_bytes()).hexdigest()
+        with approved_fixture(['adilbaga-api:' + SHA, 'adilbaga-api:' + 'e'*40]) as (m,path,*_):
             with patch('auto_broker.command') as run:
                 with self.assertRaisesRegex(Blocked,'save_tag_allowlist'): Host().identity(m,path)
                 run.assert_not_called()
+
+    def assert_preload_rejected(self, m, path):
+        host = Host()
+        host.prior = 'adilbaga-api:' + 'e'*40
+        host.preflight = lambda: None
+        host.fresh_main = lambda *_: True
+        with patch('auto_broker.command') as command, patch.object(host, 'stop') as stop, \
+             patch.object(host, 'activate') as activate, patch('auto_broker.replace_release') as release:
+            with self.assertRaises((Blocked, OSError)): rollout(host, m, path)
+            command.assert_not_called()
+            stop.assert_not_called()
+            activate.assert_not_called()
+            release.assert_not_called()
+
+    def test_authorization_wrong_bound_fields_rejected_before_all_sinks(self):
+        mutations = dict(repository='other/repo', environment='staging', releaseSha='b'*40,
+                         ciWorkflow='.github/workflows/other.yml', ciRunId=41, ciAttempt=3,
+                         buildWorkflow='.github/workflows/other.yml', buildRunId=44, buildAttempt=2,
+                         artifactIdentity={'id':100,'name':'wrong'}, archiveSha256='a'*64,
+                         archiveSize=1, approved=False, approvedBy='uploader', authorizationId='../x',
+                         approvedAt=int(time.time())+60, expiresAt=int(time.time())-1, schemaVersion=True)
+        for key, value in mutations.items():
+            with self.subTest(key=key), approved_fixture() as (m,path,a,record,_):
+                a[key] = value
+                record.write_text(json.dumps(a))
+                self.assert_preload_rejected(m,path)
+
+    def test_missing_corrupt_duplicate_oversized_or_unreadable_approval(self):
+        for kind in ['missing','corrupt','duplicate','oversized','unreadable']:
+            with self.subTest(kind=kind), approved_fixture() as (m,path,a,record,_):
+                if kind == 'missing': record.unlink()
+                if kind == 'corrupt': record.write_bytes(b'{')
+                if kind == 'duplicate': record.write_text(json.dumps(a)[:-1]+',"approved":true}')
+                if kind == 'oversized': record.write_bytes(b' '*16385)
+                if kind == 'unreadable':
+                    with patch('auto_broker.root_bytes',side_effect=PermissionError()):
+                        self.assert_preload_rejected(m,path)
+                    continue
+                self.assert_preload_rejected(m,path)
+
+    def test_record_filesystem_trust_is_not_uploader_authority(self):
+        for kind in ['record_symlink','parent_symlink','record_mode','parent_writable','ancestor_writable',
+                     'record_owner','parent_owner','ancestor_owner','archive_symlink','archive_mode']:
+            with self.subTest(kind=kind), approved_fixture() as (m,path,a,record,control):
+                parent=record.parent
+                if kind == 'record_symlink':
+                    copy=record.with_suffix('.copy');record.rename(copy);record.symlink_to(copy)
+                if kind == 'parent_symlink':
+                    copy=parent.with_name('moved');parent.rename(copy);parent.symlink_to(copy)
+                if kind == 'record_mode': os.chmod(record,0o644)
+                if kind == 'parent_writable': os.chmod(parent,0o777)
+                if kind == 'ancestor_writable': os.chmod(parent.parent,0o777)
+                if kind == 'record_owner': control['bad_owner']=str(record)
+                if kind == 'parent_owner': control['bad_owner']=str(parent)
+                if kind == 'ancestor_owner': control['bad_owner']=str(parent.parent)
+                if kind == 'archive_symlink':
+                    copy=path.with_suffix('.copy');path.rename(copy);path.symlink_to(copy)
+                if kind == 'archive_mode': os.chmod(path,0o644)
+                self.assert_preload_rejected(m,path)
+
+    def test_forged_manifest_and_resaved_archive_cannot_reauthorize_themselves(self):
+        for kind in ['bytes','size','provenance','auth_path']:
+            with self.subTest(kind=kind), approved_fixture() as (m,path,a,record,_):
+                if kind == 'bytes':
+                    path.write_bytes(path.read_bytes()+b'changed')
+                    m.update(archive=hashlib.sha256(path.read_bytes()).hexdigest(),size=path.stat().st_size)
+                if kind == 'size': path.write_bytes(path.read_bytes()[:-1])
+                if kind == 'provenance': m['provenance']['buildAttempt']=9
+                if kind == 'auth_path': m['authorizationPath']=str(record)
+                self.assert_preload_rejected(m,path)
+
+    def test_archive_replacement_or_mutation_after_verification_is_rejected(self):
+        for replacement in [False,True]:
+            with self.subTest(replacement=replacement), approved_fixture() as (m,path,*_):
+                with approved_archive(m,path) as (fd,raw,a,identity):
+                    data=path.read_bytes()
+                    if replacement: path.unlink()
+                    path.write_bytes(data if replacement else data+b'x')
+                    os.chmod(path,0o600)
+                    with patch('auto_broker.command') as run:
+                        with self.assertRaisesRegex(Blocked,'archive_changed_before_load'):
+                            Host()._load_approved(m,path,fd,raw,a,identity)
+                        run.assert_not_called()
+
+    def test_approval_replaced_after_verification_rejects_before_load(self):
+        with approved_fixture() as (m,path,a,record,_):
+            with approved_archive(m,path) as (fd,raw,a,identity):
+                a['authorizationId']='b'*32
+                record.write_text(json.dumps(a))
+                with patch('auto_broker.command') as run:
+                    with self.assertRaisesRegex(Blocked,'authorization_changed'):
+                        Host()._load_approved(m,path,fd,raw,a,identity)
+                    run.assert_not_called()
+
+    def test_sealed_archive_descriptor_survives_real_child_fd_handoff(self):
+        with approved_fixture() as (m,path,*_):
+            with approved_archive(m,path) as (fd,*_):
+                result=subprocess.run(['python3','-B','-c',
+                    'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())',
+                    '/proc/self/fd/'+str(fd)],pass_fds=(fd,),capture_output=True,text=True,timeout=5,
+                    env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
+                self.assertEqual(result.returncode,0)
+                self.assertEqual(result.stdout.strip(),m['archive'])
+
+    def test_exact_approved_bytes_are_sealed_and_consumed_once(self):
+        with approved_fixture() as (m,path,a,record,_):
+            image=dict(Os='linux',Architecture='amd64',Config=dict(User=m['user'],Entrypoint=m['entrypoint'],
+                Labels={'org.opencontainers.image.revision':SHA},Env=['PATH=/usr/bin']),RootFS={'Layers':m['rootfs']})
+            m['binary']=hashlib.sha256(b'synthetic executable').hexdigest()
+            calls=[]
+            def command(args,*_,**kwargs):
+                calls.append(args[:2])
+                if args[:2]==['docker','load']:
+                    fd=kwargs['pass_fds'][0]
+                    with self.assertRaises(OSError): os.write(fd,b'forged')
+                    self.assertEqual(hashlib.sha256(os.pread(fd,m['size'],0)).hexdigest(),m['archive'])
+                    self.assertEqual(args[-1],'/proc/self/fd/'+str(fd))
+                if args[:2]==['docker','create']: return b'c'*64
+                if args[:2]==['docker','cp']: pathlib.Path(args[-1]).write_bytes(b'synthetic executable')
+                return b''
+            with patch('auto_broker.command',command),patch('auto_broker.inspect',return_value=image):
+                host=Host()
+                host.prior='adilbaga-api:'+'e'*40
+                host.preflight=lambda: None
+                host.fresh_main=lambda *_: True
+                cutover=[]
+                for name in ['stop','activate','local','open','public','observe']:
+                    setattr(host,name,lambda *_,name=name: cutover.append(name))
+                self.assertEqual(rollout(host,m,path),'DEPLOYED')
+                self.assertEqual(cutover,['stop','activate','local','open','public','observe'])
+            self.assertEqual(calls,[['docker','load'],['docker','create'],['docker','cp'],['docker','rm']])
+            self.assertTrue((record.parent/(a['authorizationId']+'.used')).exists())
+            with patch('auto_broker.command') as run:
+                with self.assertRaises(Blocked): Host().identity(m,path)
+                run.assert_not_called()
+            record.write_text(record.read_text()+' ')
+            with self.assertRaisesRegex(Blocked,'authorization_changed_before_cutover'): host.recheck_authorization()
+
+    def test_stale_before_load_and_authorization_failure_never_roll_back(self):
+        host=FakeHost('stale')
+        self.assertEqual(rollout(host,manifest(),None),'SKIPPED_STALE')
+        self.assertEqual(host.calls,['preflight','fresh_main'])
+        host=FakeHost('reauthorize')
+        with self.assertRaises(Blocked): rollout(host,manifest(),None)
+        self.assertNotIn('stop',host.calls)
+        self.assertNotIn('rollback',host.calls)
+        host=FakeHost()
+        answers=iter([True,False])
+        host.fresh_main=lambda *_: next(answers)
+        self.assertEqual(rollout(host,manifest(),None),'SKIPPED_STALE')
+        self.assertNotIn('stop',host.calls)
+
+    def test_node_immutable_producer_and_download_regressions(self):
+        # Keep support/tests inside the approved seven-file scope. No network,
+        # credentials, Docker or external artifact is used by this Node harness.
+        program = r"""
+import assert from 'node:assert/strict';
+import {mkdtempSync,writeFileSync,rmSync,symlinkSync,readFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';import {join} from 'node:path';import {createHash} from 'node:crypto';
+import {validateProducer,verifyDownloaded,artifactMetadata,artifactName,gateCandidate} from './scripts/deploy/auto-build.mjs';
+import {manualRelease} from './scripts/deploy/auto-transport.mjs';
+const sha='a'.repeat(40),raw=Buffer.from('synthetic saved archive'),hash=createHash('sha256').update(raw).digest('hex');
+const run={id:43,workflow_id:7,event:'workflow_dispatch',head_branch:'main',head_sha:sha,status:'completed',
+ conclusion:'success',run_attempt:1,repository:{full_name:'kiratonine/AdilBaga'},head_repository:{full_name:'kiratonine/AdilBaga'}};
+const workflow={id:7,path:'.github/workflows/deploy-production.yml',state:'active'};
+const artifact={id:99,name:artifactName(sha,43,1),expired:false,workflow_run:{id:43,head_sha:sha}};
+const ci={id:42,run_attempt:2,head_sha:sha};
+const m={sha,size:raw.length,archive:hash,provenance:{repository:'kiratonine/AdilBaga',ciWorkflow:'.github/workflows/ci.yml',
+ ciRunId:42,ciAttempt:2,buildWorkflow:workflow.path,buildRunId:43,buildAttempt:1}};
+validateProducer(m,run,workflow,artifact,ci);
+for(const [object,key,bad] of [[run,'event','push'],[run,'head_sha','b'.repeat(40)],[run,'conclusion','failure'],
+ [run,'run_attempt',2],[workflow,'path','other'],[workflow,'id',8],[artifact,'expired',true],
+ [artifact,'name','reused-name'],[ci,'id',41],[ci,'run_attempt',1],[ci,'head_sha','b'.repeat(40)]]) {
+ const good=object[key];object[key]=bad;assert.throws(()=>validateProducer(m,run,workflow,artifact,ci));object[key]=good;
+}
+for(const object of [run.repository,run.head_repository]) {
+ const good=object.full_name;object.full_name='fork/repo';assert.throws(()=>validateProducer(m,run,workflow,artifact,ci));object.full_name=good;
+}
+const dir=mkdtempSync(join(tmpdir(),'security01-node-test-'));
+try {
+ writeFileSync(join(dir,'manifest.json'),JSON.stringify(m));writeFileSync(join(dir,'image.tar'),raw);
+ assert.deepEqual(verifyDownloaded(dir,{run,workflow,artifact,ci}).provenance.artifactIdentity,{id:99,name:artifact.name});
+ writeFileSync(join(dir,'image.tar'),Buffer.concat([raw,Buffer.from('resaved')]));
+ assert.throws(()=>verifyDownloaded(dir,{run,workflow,artifact,ci}));
+ rmSync(join(dir,'image.tar'));symlinkSync(join(dir,'manifest.json'),join(dir,'image.tar'));
+ assert.throws(()=>verifyDownloaded(dir,{run,workflow,artifact,ci}));
+} finally {rmSync(dir,{recursive:true});}
+const release={AUTO_DEPLOY_ENABLED:'true',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',DEPLOY_MODE:'deploy'};
+manualRelease(release);
+for(const [key,value] of [['AUTO_DEPLOY_ENABLED',undefined],['AUTO_DEPLOY_ENABLED','false'],['GITHUB_EVENT_NAME','workflow_run'],
+ ['GITHUB_REF','refs/heads/feature'],['DEPLOY_MODE','build'],['DEPLOY_MODE','dry-run']])assert.throws(()=>manualRelease({...release,[key]:value}));
+const event={repository:{full_name:'kiratonine/AdilBaga'},inputs:{mode:'build',sha,ci_run:'42'}};
+assert.equal(gateCandidate(event,{...release,AUTO_DEPLOY_ENABLED:'false'}).status,'VERIFY_CI');
+assert.equal(gateCandidate({...event,inputs:{...event.inputs,mode:'deploy'}},{...release,AUTO_DEPLOY_ENABLED:'false'}).status,'DISABLED');
+assert.equal(gateCandidate(event,{...release,GITHUB_REF:'refs/heads/feature'}).status,'REJECTED_EVENT');
+let calls=[];const env={RELEASE_SHA:sha,RELEASE_ARTIFACT_ID:'99',CI_RUN:'42'};
+const get=async p=>{calls.push(p);return {'actions/artifacts/99':artifact,'actions/runs/43':run,
+ 'actions/workflows/7':workflow,'actions/runs/42':ci}[p];};
+assert.equal((await artifactMetadata(env,get)).artifact.id,99);assert.equal(calls.length,4);
+await assert.rejects(artifactMetadata({...env,RELEASE_ARTIFACT_ID:'../x'},get));
+await assert.rejects(artifactMetadata(env,async()=>{throw Error('offline');}));
+const yaml=readFileSync('.github/workflows/deploy-production.yml','utf8');
+const build=yaml.split('  build_only:')[1].split('  rollout:')[0];
+assert.ok(!/secrets\.|environment:|auto-transport/.test(build));
+const rollout=yaml.split('  rollout:')[1];assert.ok(rollout.includes("inputs.mode == 'deploy'"));
+assert.ok(rollout.includes("vars.AUTO_DEPLOY_ENABLED == 'true'"));
+assert.ok(!rollout.includes('auto-build.mjs build'));assert.ok(rollout.includes('artifact-ids:'));
+const broker=readFileSync('scripts/deploy/auto_broker.py','utf8');
+assert.ok(!broker.includes("operation == 'authorize'"));
+console.log('offline producer/download/manual release assertions PASS');
+"""
+        result = subprocess.run(['node','--input-type=module','-e',program],
+                                cwd=pathlib.Path(__file__).resolve().parents[2], capture_output=True,
+                                text=True, timeout=30, env={'PATH':os.environ['PATH'], 'HOME':os.environ['HOME']})
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
     def test_observed_5xx_runs_existing_single_compensation(self):
         for status in [500, 502, 503, 504, 501, 599]:

@@ -3,6 +3,14 @@ import {mkdtempSync,readFileSync,writeFileSync,rmSync,appendFileSync} from 'node
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {check,shaPattern} from './auto-gate.mjs';
+import {verifyDownloaded} from './auto-build.mjs';
+
+export function manualRelease(env) {
+  assert.equal(env.AUTO_DEPLOY_ENABLED,'true','deployment disabled');
+  assert.equal(env.GITHUB_EVENT_NAME,'workflow_dispatch','explicit release required');
+  assert.equal(env.GITHUB_REF,'refs/heads/main');
+  assert.equal(env.DEPLOY_MODE,'deploy');
+}
 
 export function runtimeChanged(paths) {
   return paths.some(p=>['backend-go/Dockerfile','backend-go/.dockerignore','backend-go/go.mod','backend-go/go.sum'].includes(p)
@@ -19,9 +27,15 @@ export function sshOptions(env,key,hosts) {
     `${env.DEPLOY_USER}@${env.DEPLOY_HOST}`,'sudo -n /usr/local/sbin/adilbaga-deploy'];
 }
 async function main() {
+  manualRelease(process.env);
   const sha=process.env.RELEASE_SHA; assert.match(sha,shaPattern);
   const result=await check({sha,run:Number(process.env.CI_RUN)});
   if(result.status!=='ELIGIBLE'){console.log(result.status);return;}
+  const build=readFileSync(join(process.env.RUNNER_TEMP,'adilbaga-build-path'),'utf8');
+  assert.equal(build,join(process.env.RUNNER_TEMP,'release-artifact'),'fixed downloaded artifact path');
+  const metadata=JSON.parse(readFileSync(join(process.env.RUNNER_TEMP,'artifact-metadata.json'),'utf8'));
+  const manifest=verifyDownloaded(build,metadata);assert.equal(manifest.sha,sha);
+  assert.equal(manifest.provenance.ciRunId,Number(process.env.CI_RUN));
   const dir=mkdtempSync(join(process.env.RUNNER_TEMP,'adilbaga-ssh-'));
   try {
     assert.ok(process.env.DEPLOY_SSH_KEY && process.env.DEPLOY_KNOWN_HOSTS,'missing SSH configuration');
@@ -49,8 +63,6 @@ async function main() {
     }
     const fresh=await check({sha,run:Number(process.env.CI_RUN)});
     if(fresh.status!=='ELIGIBLE'){console.log(fresh.status);return;}
-    const build=readFileSync(join(process.env.RUNNER_TEMP,'adilbaga-build-path'),'utf8');
-    const manifest=JSON.parse(readFileSync(join(build,'manifest.json'))); assert.equal(manifest.sha,sha);
     const receipt=call(Buffer.concat([Buffer.from(JSON.stringify({operation:'submit',manifest})+'\n'),readFileSync(join(build,'image.tar'))]),180000);
     assert.ok(['ACCEPTED','NO_OP','SKIPPED_STALE'].includes(receipt.status));
     if(receipt.status!=='ACCEPTED'){console.log(receipt.status);return;}

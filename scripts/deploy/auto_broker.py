@@ -5,6 +5,7 @@ stream; detached worker survives SSH loss and holds flock through compensation.
 Diagnostics are fixed classes, never subprocess stderr or HTTP bodies.
 """
 import fcntl
+import contextlib
 import hashlib
 import ipaddress
 import json
@@ -16,6 +17,7 @@ import subprocess
 import sys
 import time
 import tarfile
+import tempfile
 import urllib.request
 from pathlib import Path
 
@@ -26,6 +28,8 @@ ENV = Path('/etc/adilbaga/api.env')
 SHA = re.compile(r'^[a-f0-9]{40}$')
 DIGEST = re.compile(r'^[a-f0-9]{64}$')
 TAG = re.compile(r'^adilbaga-api:([a-f0-9]{40})$')
+PRODUCER_FIELDS = {'repository', 'ciWorkflow', 'ciRunId', 'ciAttempt',
+                   'buildWorkflow', 'buildRunId', 'buildAttempt', 'artifactIdentity'}
 
 
 class Blocked(Exception):
@@ -37,11 +41,12 @@ def require(ok, reason):
         raise Blocked(reason)
 
 
-def command(args, timeout=30):
+def command(args, timeout=30, pass_fds=()):
     try:
         r = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE, timeout=timeout, check=False,
-                           env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8'})
+                           env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8'},
+                           pass_fds=pass_fds)
         require(r.returncode == 0, 'command_failed')
         require(len(r.stdout) <= 8 << 20, 'output_limit')
         return r.stdout
@@ -159,7 +164,8 @@ def ready(now=time.monotonic, pause=time.sleep, probe=None):
 
 
 def validate_manifest(m):
-    require(set(m) == {'sha', 'revision', 'os', 'arch', 'user', 'entrypoint', 'rootfs', 'binary', 'archive', 'size'}, 'manifest_fields')
+    fields = {'sha', 'revision', 'os', 'arch', 'user', 'entrypoint', 'rootfs', 'binary', 'archive', 'size'}
+    require(isinstance(m, dict) and set(m) in (fields, fields | {'provenance'}), 'manifest_fields')
     require(isinstance(m['sha'], str) and SHA.fullmatch(m['sha']), 'manifest_sha')
     require(m['sha'] == m['revision'] and m['os'] == 'linux' and m['arch'] == 'amd64'
             and m['user'] == '10001:10001' and m['entrypoint'] == ['/usr/local/bin/api'], 'manifest_identity')
@@ -167,6 +173,139 @@ def validate_manifest(m):
     require(isinstance(m['rootfs'], list) and 0 < len(m['rootfs']) <= 20 and
             all(re.fullmatch(r'sha256:[a-f0-9]{64}', x) for x in m['rootfs']), 'manifest_layers')
     require(type(m['size']) is int and 0 < m['size'] <= 256 << 20, 'manifest_size')
+
+
+def strict_json(raw):
+    def pairs(items):
+        out = {}
+        for key, value in items:
+            require(key not in out, 'duplicate_json_key')
+            out[key] = value
+        return out
+    try:
+        return json.loads(raw, object_pairs_hook=pairs,
+                          parse_constant=lambda _: require(False, 'nonfinite_json'))
+    except (ValueError, UnicodeError):
+        raise Blocked('invalid_authorization_json') from None
+
+
+def trusted_directory(fd, private=False):
+    s = os.fstat(fd)
+    require(stat.S_ISDIR(s.st_mode) and s.st_uid == 0 and not s.st_mode & 0o022
+            and (not private or stat.S_IMODE(s.st_mode) == 0o700), 'authorization_directory')
+
+
+@contextlib.contextmanager
+def root_parent(path):
+    # Walk from / using held dirfds. No symlink or writable ancestor is trusted.
+    require(path.is_absolute() and '..' not in path.parts, 'authorization_path')
+    fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        trusted_directory(fd)
+        for part in path.parent.parts[1:]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                            dir_fd=fd)
+            os.close(fd)
+            fd = child
+            trusted_directory(fd)
+        trusted_directory(fd, private=True)
+        yield fd
+    except OSError:
+        raise Blocked('authorization_unavailable') from None
+    finally:
+        os.close(fd)
+
+
+def root_bytes(path, limit, identity=False):
+    with root_parent(path) as parent:
+        fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+                     dir_fd=parent)
+        with os.fdopen(fd, 'rb') as f:
+            s = os.fstat(f.fileno())
+            require(stat.S_ISREG(s.st_mode) and s.st_uid == 0 and
+                    stat.S_IMODE(s.st_mode) == 0o600 and s.st_nlink == 1 and
+                    0 < s.st_size <= limit, 'authorization_file')
+            raw = f.read(limit + 1)
+            after = os.fstat(f.fileno())
+            require(len(raw) == s.st_size and len(raw) <= limit and
+                    (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns) ==
+                    (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns),
+                    'authorization_file_changed')
+            signature = (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+            return (raw, signature) if identity else raw
+
+
+def authorization(m, now=None):
+    validate_manifest(m)
+    require('provenance' in m, 'independent_authorization_required')
+    raw = root_bytes(STATE / 'authorizations' / (m['sha'] + '.json'), 16384)
+    a = strict_json(raw)
+    fields = {'schemaVersion', 'environment', 'releaseSha', 'archiveSha256', 'archiveSize',
+              'approved', 'approvedBy', 'approvedAt', 'expiresAt', 'authorizationId'} | PRODUCER_FIELDS
+    require(isinstance(a, dict) and set(a) == fields and type(a['schemaVersion']) is int
+            and a['schemaVersion'] == 1, 'authorization_schema')
+    p = m['provenance']
+    require(isinstance(p, dict) and set(p) == PRODUCER_FIELDS, 'producer_schema')
+    require(a['repository'] == 'kiratonine/AdilBaga' and a['environment'] == 'production'
+            and a['releaseSha'] == m['sha'] and a['ciWorkflow'] == '.github/workflows/ci.yml'
+            and a['buildWorkflow'] == '.github/workflows/deploy-production.yml', 'authorization_identity')
+    for key in ['ciRunId', 'ciAttempt', 'buildRunId', 'buildAttempt']:
+        require(type(a[key]) is int and 0 < a[key] <= 9007199254740991, 'authorization_run')
+    item = a['artifactIdentity']
+    require(isinstance(item, dict) and set(item) == {'id', 'name'} and type(item['id']) is int
+            and 0 < item['id'] <= 9007199254740991 and item['name'] ==
+            'adilbaga-api-' + m['sha'] + '-' + str(a['buildRunId']) + '-' + str(a['buildAttempt']),
+            'authorization_artifact')
+    require(all(p[k] == a[k] and type(p[k]) is type(a[k]) for k in PRODUCER_FIELDS),
+            'authorization_producer_mismatch')
+    require(type(p['artifactIdentity'].get('id')) is int, 'producer_artifact_type')
+    require(a['approved'] is True and isinstance(a['approvedBy'], str) and
+            re.fullmatch(r'owner:[a-zA-Z0-9_-]{1,64}', a['approvedBy']) and
+            isinstance(a['authorizationId'], str) and re.fullmatch(r'[a-f0-9]{32}', a['authorizationId']),
+            'authorization_approval')
+    require(type(a['approvedAt']) is int and type(a['expiresAt']) is int and
+            0 < a['approvedAt'] <= (time.time() if now is None else now) < a['expiresAt']
+            and 0 < a['expiresAt'] - a['approvedAt'] <= 86400, 'authorization_expired')
+    require(type(a['archiveSize']) is int and a['archiveSize'] == m['size'] and
+            isinstance(a['archiveSha256'], str) and DIGEST.fullmatch(a['archiveSha256']) and
+            a['archiveSha256'] == m['archive'], 'authorization_archive')
+    return raw, a
+
+
+def consume_authorization(a):
+    # One attempted load per Owner authorization; rollback/retry needs NEW approval.
+    marker = STATE / 'authorizations' / (a['authorizationId'] + '.used')
+    with root_parent(marker) as parent:
+        fd = os.open(marker.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW |
+                     os.O_CLOEXEC, 0o600, dir_fd=parent)
+        with os.fdopen(fd, 'wb') as f:
+            f.write(b'consumed\n')
+            f.flush()
+            os.fsync(f.fileno())
+        os.fsync(parent)
+
+
+@contextlib.contextmanager
+def approved_archive(m, path):
+    raw, a = authorization(m)
+    # Copy bounded protected stored bytes into a SEALED Linux memfd. docker CLI
+    # inherits only this fd; it never reopens a caller-replaceable archive path.
+    data, source_identity = root_bytes(path, 256 << 20, identity=True)
+    require(len(data) == a['archiveSize'] and hashlib.sha256(data).hexdigest() == a['archiveSha256'],
+            'independent_archive_digest')
+    fd = os.memfd_create('approved-image', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    try:
+        with os.fdopen(os.dup(fd), 'wb') as f:
+            f.write(data)
+            f.flush()
+        del data
+        seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+        fcntl.fcntl(fd, fcntl.F_ADD_SEALS, seals)
+        require(fcntl.fcntl(fd, fcntl.F_GET_SEALS) == seals, 'archive_not_sealed')
+        os.lseek(fd, 0, os.SEEK_SET)
+        yield fd, raw, a, source_identity
+    finally:
+        os.close(fd)
 
 
 def verify_image(m, image, binary):
@@ -202,9 +341,14 @@ class Host:
         return main['object']['sha'] == sha
 
     def identity(self, m, archive):
-        require(hashlib.sha256(archive.read_bytes()).hexdigest() == m['archive'], 'checksum')
+        with approved_archive(m, archive) as (fd, raw, a, source_identity):
+            self._load_approved(m, archive, fd, raw, a, source_identity)
+        self.authorization_raw = raw
+        self.authorization_manifest = m
+
+    def _load_approved(self, m, archive, fd, raw, a, source_identity):
         # A valid docker-save archive must not silently overwrite rollback tags.
-        with tarfile.open(archive, 'r:') as saved:
+        with os.fdopen(os.dup(fd), 'rb') as stored, tarfile.open(fileobj=stored, mode='r:') as saved:
             members = saved.getmembers()
             names = [x.name for x in members]
             require(len(names) <= 10000 and len(names) == len(set(names)), 'archive_inventory')
@@ -216,7 +360,15 @@ class Host:
             content = json.loads(saved.extractfile(entry).read())
             require(len(content) == 1 and content[0].get('RepoTags') == ['adilbaga-api:' + m['sha']],
                     'save_tag_allowlist')
-        command(['docker', 'load', '--input', str(archive)], 120)
+        require(authorization(m)[0] == raw, 'authorization_changed')
+        current, current_identity = root_bytes(archive, 256 << 20, identity=True)
+        require(current_identity == source_identity and len(current) == a['archiveSize']
+                and hashlib.sha256(current).hexdigest() == a['archiveSha256'],
+                'archive_changed_before_load')
+        del current
+        consume_authorization(a)
+        os.lseek(fd, 0, os.SEEK_SET)
+        command(['docker', 'load', '--input', '/proc/self/fd/' + str(fd)], 120, pass_fds=(fd,))
         tag = 'adilbaga-api:' + m['sha']
         image = inspect(tag)
         cid = command(['docker', 'create', tag]).decode().strip()
@@ -228,6 +380,10 @@ class Host:
         finally:
             command(['docker', 'rm', cid])
             api.unlink(missing_ok=True)
+
+    def recheck_authorization(self):
+        require(authorization(self.authorization_manifest)[0] == self.authorization_raw,
+                'authorization_changed_before_cutover')
 
     def unchanged(self):
         require(secure_file(ENV, 0o600) == self.raw and secure_file(COMPOSE, 0o644) == self.compose,
@@ -338,7 +494,10 @@ def rollout(host, manifest, archive):
     host.preflight()
     if host.prior == 'adilbaga-api:' + manifest['sha']:
         return 'NO_OP'
+    if not host.fresh_main(manifest['sha']):
+        return 'SKIPPED_STALE'
     host.identity(manifest, archive)
+    host.recheck_authorization()
     if not host.fresh_main(manifest['sha']):
         return 'SKIPPED_STALE'
     try:
@@ -383,8 +542,9 @@ def write_result(path, status):
         tmp.unlink(missing_ok=True)
 
 
-def receive_archive(stream, manifest, archive):
-    fd = os.open(archive, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+def receive_archive(stream, manifest, archive, fd=None):
+    if fd is None:
+        fd = os.open(archive, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
         remaining, digest = manifest['size'], hashlib.sha256()
         with os.fdopen(fd, 'wb') as f:
@@ -418,9 +578,11 @@ def serve(stream=sys.stdin.buffer):
     sys.path.insert(0, str(library))  # isolated Python: no user cwd/PYTHONPATH modules
     require(STATE.is_dir() and STATE.stat().st_uid == 0 and stat.S_IMODE(STATE.stat().st_mode) == 0o700,
             'broker_state_setup')
+    with root_parent(STATE / 'state-check'):
+        pass
     line = stream.readline(16385)
     require(len(line) <= 16384 and line.endswith(b'\n'), 'request_header')
-    request = json.loads(line)
+    request = strict_json(line)
     op = request.get('operation')
     if op == 'status' and set(request) == {'operation'}:
         require(not any(json.loads(p.read_text()).get('status') == 'RUNNING'
@@ -443,10 +605,11 @@ def serve(stream=sys.stdin.buffer):
         raise Blocked('release_busy') from None
     require(not any(json.loads(p.read_text()).get('status') == 'RUNNING'
                     for p in STATE.glob('*.json')), 'incomplete_release_manual_review')
-    archive = STATE / (m['sha'] + '.tar')
+    archive_fd, archive_name = tempfile.mkstemp(prefix=m['sha'] + '-', suffix='.tar', dir=STATE)
+    archive = Path(archive_name)
     result = STATE / (m['sha'] + '.json')
     try:
-        receive_archive(stream, m, archive)
+        receive_archive(stream, m, archive, fd=archive_fd)
         write_result(result, 'RUNNING')
         pid = os.fork()
         if pid == 0:
