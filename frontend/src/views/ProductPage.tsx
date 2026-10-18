@@ -14,6 +14,7 @@ import { ProductPageSkeleton } from '../components/ui/Skeleton'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { formatAttributeValue } from '../lib/attributes'
 import { categoryIcon } from '../lib/categoryIcons'
+import { categoryName, filterLabel } from '../lib/dataLabels'
 import { formatDate, formatPrice } from '../lib/format'
 import { discountPercent, savingOf, sortOffers } from '../lib/offers'
 import { storeColor } from '../lib/stores'
@@ -62,7 +63,7 @@ function ProductDetails({ product }: { product: ProductCardDto }) {
           </Link>
           <span aria-hidden="true">/</span>
           <Link href={href(`/collections/${product.category.slug}`)} className="hover:text-ink">
-            {product.category.name}
+            {categoryName(t, product.category)}
           </Link>
         </nav>
       </div>
@@ -193,7 +194,7 @@ function Attributes({ product }: { product: ProductCardDto }) {
   const schema = useCategoryFilters(product.category.slug)
   const rows = (schema.data?.filters ?? []).flatMap((filter: FilterDto) => {
     const value = product.attributes[filter.key]
-    return value === undefined || value === null ? [] : [{ key: filter.key, label: filter.label, value }]
+    return value === undefined || value === null ? [] : [{ key: filter.key, label: filterLabel(t, filter), value }]
   })
 
   if (rows.length === 0) return null

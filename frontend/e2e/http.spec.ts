@@ -1,10 +1,27 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import type { CategoryDto, DashboardDto, FilterSchemaDto, ProductCardDto } from '../src/api/types'
 import { formatPrice } from '../src/lib/format'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 // No fixture IDs/counts/prices: all expectations come from the real read-only API.
 const API = `${process.env.NEXT_PUBLIC_API_BASE_URL!.replace(/\/+$/, '')}/api`
 const PAGE_SIZE = 24
+
+// Живой API разрешает браузерные запросы только с https://aktau.market (CORS), localhost получает 403.
+// HTML рендерит сервер Next (CORS не касается), а запросы браузера (фильтры, поиск, «Показать ещё»)
+// Playwright пересылает сам — без заголовка Origin — и разрешает ответ для страницы
+test.beforeEach(async ({ page }) => {
+  await page.route(`${new URL(API).origin}/**`, async (route) => {
+    const headers = { ...route.request().headers() }
+    delete headers.origin
+    delete headers.referer
+    // Тест может закончиться, пока запрос в пути (например, «Показать» после фильтра) — это не ошибка
+    const response = await route.fetch({ headers }).catch(() => null)
+    if (!response) return route.abort().catch(() => {})
+    await route.fulfill({ response, headers: { ...response.headers(), 'access-control-allow-origin': '*' } }).catch(() => {})
+  })
+})
 
 async function api<T>(request: APIRequestContext, path: string): Promise<T> {
   const response = await request.get(`${API}${path}`)
@@ -21,7 +38,8 @@ function collectErrors(page: Page) {
 
 async function expectProducts(page: Page, products: ProductCardDto[]) {
   const cards = page.getByTestId('product-card')
-  await expect(cards).toHaveCount(products.length)
+  // Живой API отвечает ~1–1,5 с, плюс пересылка через Playwright — 5 с по умолчанию на телефоне не хватает
+  await expect(cards).toHaveCount(products.length, { timeout: 15_000 })
   if (!products.length) await expect(page.getByTestId('empty-state')).toBeVisible()
   for (let i = 0; i < products.length; i++) {
     await expect(cards.nth(i).getByRole('link')).toHaveAttribute('href', `/ru/products/${products[i].id}`)
@@ -170,4 +188,130 @@ test('unknown product/category are real HTTP 404, sitemap and robots use real da
   expect(xml).not.toContain('/search')
   expect(xml).toContain('hreflang="x-default"')
   expect(await (await request.get('/robots.txt')).text()).toContain('/sitemap.xml')
+})
+
+// --- Длинные фильтры, шторка и казахские подписи на настоящих данных (в моках списки короткие) ---
+
+type KkData = { data: { category: Record<string, string>; filter: Record<string, string> } }
+const kk = (JSON.parse(readFileSync(join(process.cwd(), 'src/i18n/kk.json'), 'utf8')) as KkData).data
+
+async function liveSchemas(request: APIRequestContext) {
+  const categories = await api<CategoryDto[]>(request, '/categories')
+  return Promise.all(categories.map(async (category) => ({
+    category, schema: await api<FilterSchemaDto>(request, `/categories/${category.slug}/filters`),
+  })))
+}
+
+// Тесты ниже — data-agnostic: в CI http.spec идёт против Go API на маленькой синтетической фикстуре
+// (backend-go/tests/fixtures/catalog.sql), локально — против живого api.aktau.market
+const LIVE_PRODUCTION = new URL(API).hostname === 'api.aktau.market'
+
+/** Категория и multi-select фильтр со строковыми значениями (бренды) и самым длинным списком (13+) */
+async function longestTextFilter(request: APIRequestContext) {
+  let best: { category: CategoryDto; key: string; options: string[] } | undefined
+  for (const { category, schema } of await liveSchemas(request)) {
+    for (const filter of schema.filters) {
+      if (filter.type !== 'multi-select') continue
+      const options = (filter.options ?? []).filter((o): o is string => typeof o === 'string')
+      if (options.length > (best?.options.length ?? 0)) best = { category, key: filter.key, options }
+    }
+  }
+  return best && best.options.length >= 13 ? best : undefined
+}
+
+/** Первая категория, где есть что показать в фильтрах */
+async function categoryWithFilters(request: APIRequestContext) {
+  const found = (await liveSchemas(request)).find(({ schema }) =>
+    schema.filters.some((f) => f.type === 'boolean' || (f.options?.length ?? 0) > 0))
+  return found?.category
+}
+
+test('long live filter: fixed-height scroll box, search finds and selects the last value', async ({ page, request, isMobile }) => {
+  const errors = collectErrors(page)
+  const long = await longestTextFilter(request)
+  test.skip(!long, 'в данных нет фильтра с 13+ значениями (фикстура CI) — проверяется против живого API')
+  const { category, key, options } = long!
+  await page.goto(`/ru/collections/${category.slug}`)
+  if (isMobile) await page.getByTestId('filters-toggle').click()
+  const scope = isMobile ? page.getByTestId('filters-sheet') : page.getByRole('complementary', { name: 'Фильтры' })
+
+  const box = scope.getByTestId(`filter-options-${key}`)
+  await expect(box.getByRole('button')).toHaveCount(options.length)
+  const size = await box.evaluate((el) => ({ client: el.clientHeight, scroll: el.scrollHeight }))
+  expect(size.client).toBeLessThanOrEqual(260)
+  expect(size.scroll).toBeGreaterThan(size.client)
+  if (!isMobile) {
+    // Каждая карточка фильтра — не выше поля поиска + ящика с прокруткой
+    for (const card of await scope.locator('fieldset').all()) {
+      expect((await card.boundingBox())!.height).toBeLessThanOrEqual(400)
+    }
+  }
+
+  // Последнее значение изначально спрятано внизу прокрутки — поиск поднимает его наверх
+  const target = options[options.length - 1]
+  await scope.getByTestId(`filter-search-${key}`).fill(target.toLocaleUpperCase('ru'))
+  const chip = box.getByRole('button', { name: target, exact: true })
+  // Виден в ящике без его прокрутки (в шторке сам ящик может быть ниже — до него листают шторку)
+  await chip.scrollIntoViewIfNeeded()
+  expect(await box.evaluate((el) => el.scrollTop)).toBe(0)
+  await expect(chip).toBeInViewport()
+  await chip.click()
+  await expect.poll(() => new URL(page.url()).searchParams.getAll(key)).toEqual([target])
+
+  await scope.getByTestId(`filter-search-${key}`).fill('')
+  await expect(box.getByRole('button')).toHaveCount(options.length)
+  await expect(box.getByRole('button', { name: target, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  expect(errors).toEqual([])
+})
+
+test('filters sheet on a phone shows the filters, not only its header and buttons', async ({ page, request, isMobile }) => {
+  test.skip(!isMobile, 'шторка — только на мобильном')
+  const category = await categoryWithFilters(request)
+  test.skip(!category, 'нет категории с фильтрами')
+  await page.goto(`/ru/collections/${category!.slug}`)
+  await page.getByTestId('filters-toggle').click()
+  const sheet = page.getByTestId('filters-sheet')
+  // Баг iOS: тело шторки схлопывалось в ноль — фильтр обрезан прокруткой и не виден, хотя он в DOM
+  const firstFilter = sheet.locator('fieldset').first()
+  await expect(firstFilter).toBeInViewport()
+  expect((await firstFilter.boundingBox())!.height).toBeGreaterThan(30)
+  if (await longestTextFilter(request)) {
+    // С длинными списками шторка вырастает почти до max-h (85dvh)
+    expect((await sheet.boundingBox())!.height).toBeGreaterThan(page.viewportSize()!.height * 0.6)
+  }
+  await expect(sheet.getByRole('button', { name: 'Показать', exact: true })).toBeInViewport()
+  await expect(sheet.getByRole('button', { name: 'Сбросить', exact: true })).toBeInViewport()
+})
+
+test('kk dictionary covers every live category and filter', async ({ request }) => {
+  // Сверка словаря с боевыми данными; у синтетической фикстуры CI свои ключи — для них остаётся русский текст бэка
+  test.skip(!LIVE_PRODUCTION, 'только против api.aktau.market')
+  for (const { category, schema } of await liveSchemas(request)) {
+    expect(kk.category[category.slug], `data.category.${category.slug} (${category.name})`).toBeTruthy()
+    for (const filter of schema.filters) {
+      expect(kk.filter[filter.key], `data.filter.${filter.key} (${filter.label})`).toBeTruthy()
+    }
+  }
+})
+
+test('kk pages show Kazakh category names and filter labels', async ({ page, request, isMobile }) => {
+  test.skip(isMobile, 'подписи одинаковы, на desktop фильтры видны без шторки')
+  test.setTimeout(120_000)
+  const errors = collectErrors(page)
+  const all = await liveSchemas(request)
+  await page.goto('/kk/catalog')
+  for (const { category } of all) {
+    await expect(page.locator(`[data-testid="category-card"][href="/kk/collections/${category.slug}"]`))
+      .toHaveText(kk.category[category.slug] ?? category.name)
+  }
+  for (const { category, schema } of all) {
+    await page.goto(`/kk/collections/${category.slug}`)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(kk.category[category.slug] ?? category.name)
+    const aside = page.getByRole('complementary', { name: 'Сүзгілер' })
+    for (const filter of schema.filters) {
+      if (filter.type === 'multi-select' && !filter.options?.length) continue
+      await expect(aside.getByTestId(`filter-${filter.key}`).locator('legend')).toHaveText(kk.filter[filter.key] ?? filter.label)
+    }
+  }
+  expect(errors).toEqual([])
 })

@@ -28,7 +28,8 @@ test.describe('server HTML', () => {
   test('category page contains the list filtered by the URL', async ({ request }) => {
     const html = await (await request.get('/kk/collections/milk?volumeMl=500&sort=price_desc')).text()
     expect(html).toContain('<html lang="kk"')
-    expect(html).toContain('<title>Молоко — Aktau Market</title>')
+    // Название категории на /kk — из kk-словаря по слагу (бэк отдаёт только русское)
+    expect(html).toContain('<title>Сүт және кілегей — Aktau Market</title>')
     expect(html.match(/data-testid="product-card"/g)).toHaveLength(2)
     expect(html.indexOf('Молоко Emil 3,2% 500 мл')).toBeLessThan(html.indexOf('Молоко Emil 1% 500 мл'))
     expect(html).toMatch(/value="price_desc" selected/)

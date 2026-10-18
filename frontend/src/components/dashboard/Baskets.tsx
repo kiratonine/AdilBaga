@@ -3,6 +3,7 @@
 import { useTranslation } from 'react-i18next'
 import Link from 'next/link'
 import type { BasketSummary } from '../../lib/baskets'
+import { categoryName } from '../../lib/dataLabels'
 import { formatPrice } from '../../lib/format'
 import { storeColor } from '../../lib/stores'
 import { useHref } from '../../lib/useLang'
@@ -58,7 +59,7 @@ export function Baskets({ baskets }: { baskets: BasketSummary[] }) {
                   {basket.items.map((item) => (
                     <li key={item.categorySlug} className="flex items-baseline justify-between gap-3">
                       <span className="min-w-0">
-                        <span className="block text-muted">{item.categoryName}</span>
+                        <span className="block text-muted">{categoryName(t, { slug: item.categorySlug, name: item.categoryName })}</span>
                         {item.productId ? (
                           <Link href={href(`/products/${item.productId}`)} className="hover:underline">
                             {item.name}

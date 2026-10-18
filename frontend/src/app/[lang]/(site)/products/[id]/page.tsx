@@ -5,6 +5,7 @@ import { categoryFiltersQuery, productQuery } from '../../../../../api/queries'
 import { getCategoryFilters, getProduct, notFoundOn404 } from '../../../../../api/server'
 import { JsonLd } from '../../../../../components/seo/JsonLd'
 import { getI18n, isLanguage } from '../../../../../i18n'
+import { categoryName } from '../../../../../lib/dataLabels'
 import { pageMetadata, productDescription } from '../../../../../lib/seo'
 import { breadcrumbJsonLd, productJsonLd } from '../../../../../lib/structuredData'
 import { ProductPage } from '../../../../../views/ProductPage'
@@ -42,7 +43,7 @@ export default async function Page({ params }: PageProps<'/[lang]/products/[id]'
   // Крошки — как на странице: Каталог / Категория / товар
   const breadcrumbs = breadcrumbJsonLd(lang, [
     { name: getI18n(lang).t('nav.home'), path: '/catalog' },
-    { name: product.category.name, path: `/collections/${product.category.slug}` },
+    { name: categoryName(getI18n(lang).t, product.category), path: `/collections/${product.category.slug}` },
     { name: product.name, path: `/products/${id}` },
   ])
 

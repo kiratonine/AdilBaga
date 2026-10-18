@@ -1,8 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import type { CategoryDto } from '../../api/types'
 import { categoryIcon } from '../../lib/categoryIcons'
+import { categoryName } from '../../lib/dataLabels'
 import { useHref } from '../../lib/useLang'
 import { Icon } from '../ui/Icon'
 import { CATEGORY_TILES, TILE_SHAPE } from './layout'
@@ -13,6 +15,7 @@ const TILE_COLORS = ['bg-tile-1', 'bg-tile-2', 'bg-tile-3', 'bg-tile-4', 'bg-til
 /** Плитки категорий: цвет по порядку, иконка по слагу */
 export function CategoryTiles({ categories }: { categories: CategoryDto[] }) {
   const href = useHref()
+  const { t } = useTranslation()
   return (
     <ul className={CATEGORY_TILES}>
       {categories.map((category, index) => (
@@ -26,7 +29,7 @@ export function CategoryTiles({ categories }: { categories: CategoryDto[] }) {
               Длинное слово («растительное») в узкой плитке — переносом, а не обрезкой. Где нет словаря переносов
               (Chrome на Windows), слово рвётся без дефиса — поэтому до 3 строк
             */}
-            <span className="line-clamp-3 leading-tight hyphens-auto [overflow-wrap:anywhere]">{category.name}</span>
+            <span className="line-clamp-3 leading-tight hyphens-auto [overflow-wrap:anywhere]">{categoryName(t, category)}</span>
             <Icon name={categoryIcon(category.slug)} size={32} className="shrink-0 self-end text-ink/70" />
           </Link>
         </li>

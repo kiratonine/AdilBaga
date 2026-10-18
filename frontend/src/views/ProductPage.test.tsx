@@ -105,7 +105,7 @@ describe('ProductPage', () => {
     const links = within(crumbs).getAllByRole('link')
     expect(links[0]).toHaveAttribute('href', '/kk/catalog')
     expect(links[1]).toHaveAttribute('href', '/kk/collections/milk')
-    expect(links[1]).toHaveTextContent('Молоко')
+    expect(links[1]).toHaveTextContent('Сүт және кілегей')
   })
 
   it('shows not found for an unknown product', async () => {

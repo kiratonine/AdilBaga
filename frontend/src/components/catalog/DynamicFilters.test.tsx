@@ -57,4 +57,26 @@ describe('DynamicFilters', () => {
       'Нет',
     ])
   })
+
+  it('adds search and a scroll box to long option lists, keeping selected values visible', async () => {
+    const brands = ['Бурёнка', 'Простоквашино', 'Lactel', ...Array.from({ length: 12 }, (_, i) => `Бренд ${i}`)]
+    const schema: FilterDto[] = [
+      { key: 'brand', label: 'Бренд', type: 'multi-select', options: brands },
+      { key: 'volumeMl', label: 'Объём', type: 'multi-select', options: [500, 1000] },
+    ]
+    render(<DynamicFilters filters={schema} values={{ brand: ['Lactel'] }} onChange={() => {}} />)
+    expect(screen.queryByTestId('filter-search-volumeMl')).not.toBeInTheDocument()
+    expect(screen.getByTestId('filter-options-brand')).toHaveClass('overflow-y-auto')
+
+    const options = () => within(screen.getByTestId('filter-options-brand')).getAllByRole('button').map((b) => b.textContent)
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Поиск: Бренд' }), 'буренка')
+    expect(options()).toEqual(['Бурёнка', 'Lactel'])
+
+    await userEvent.clear(screen.getByTestId('filter-search-brand'))
+    await userEvent.type(screen.getByTestId('filter-search-brand'), 'zzz')
+    expect(options()).toEqual(['Lactel'])
+
+    await userEvent.clear(screen.getByTestId('filter-search-brand'))
+    expect(options()).toHaveLength(brands.length)
+  })
 })

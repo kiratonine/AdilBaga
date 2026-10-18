@@ -121,6 +121,18 @@ backend-down build PASS. Planned URLs: https://aktau.market / https://api.aktau.
 
 ## Журнал
 
+### Сессия 21 — 2026-10-18 (фильтры, kk-названия, шторка на iPhone)
+- Ветка `fix/filters-compact-kk` от `origin/main` (`feat/frontend` в `main` не влит, `main` по `frontend/` впереди на ~70 файлов — дальнейшая работа от `main`).
+- **Фильтры:** у multi-select с ≥ 13 значениями — поле поиска (`filter-search-<key>`, регистр/«ё»/«.»→«,» не важны) и список чипов `max-h-64` с прокруткой (`filter-options-<key>`); выбранные значения видны всегда. И в сайдбаре, и в шторке.
+- **Шторка на iOS:** тело `Sheet` было `flex-1` (базис 0) в `<dialog>` без высоты — Safari схлопывал его в ноль, были видны только заголовок и кнопки. Теперь `min-h-0 flex-auto`.
+- **kk-названия:** `lib/dataLabels.ts` — `categoryName`/`filterLabel`: перевод из `data.category.<slug>` / `data.filter.<key>` (только в `kk.json`), иначе текст бэка. Используется в плитках, h1 категории, крошках и характеристиках товара, metadata, JSON-LD и составе корзины (по `categorySlug`). Реальные категории: bread, dairy, eggs, groats, meat, milk, oil, sugar, vegetables; фильтры: weightGrams, volumeMl, fatPercent, packageCount, brand. Новая категория/фильтр на бэке — остаётся по-русски, пока не добавим строку.
+- Проверено: typecheck (нужны `NEXT_PUBLIC_API_MODE=http` + base URL — правило из `main`), 266 unit, скриншоты на живом API (`api.aktau.market`) 1280 и iPhone 13 (Chromium; настоящий Safari не проверяли). oxlint: 2 предупреждения в файлах `main` (freshness, Analytics), не наши.
+- **Тесты на реальном объёме данных** (в моках длинных списков нет): `DynamicFilters.live.test.tsx` на снимке schema dairy (`src/test/fixtures/liveDairyFilters.json`, 77 жирностей, 228 брендов). E2E в `http.spec.ts`: ящик ≤ 260px с прокруткой и поиск/выбор последнего значения (desktop + iPhone), шторка на телефоне показывает фильтры, kk-словарь покрывает все живые категории и фильтры (упадёт, если бэк добавит новую — сигнал добавить перевод), kk-подписи на всех страницах категорий.
+- **Запуск e2e против живого API:** `E2E_API=http NEXT_PUBLIC_API_BASE_URL=https://api.aktau.market PW_CHANNEL=chrome pnpm test:e2e --workers=2`. API отдаёт CORS только для `https://aktau.market` (localhost → 403), поэтому браузерные запросы в `http.spec.ts` пересылает Playwright (`page.route`, без Origin). По той же причине **локальный `pnpm dev` против живого API**: HTML с сервера есть, но клики по фильтрам/поиск в браузере не грузятся — нужен CORS для localhost на бэке или моки. Ожидание списка товаров — 15 с (API ~1–1,5 с). С 4+ воркерами часть запросов не успевает.
+- `frontend/.env.local` (не в git) — `NEXT_PUBLIC_API_MODE=http` + живой API: в `main` режим API обязателен явно, без него `pnpm dev` падал.
+- **Найдено попутно, исправлено:** CSP `img-src` (`lib/security-headers.ts`) не пускал картинки Fix Price — они с `img.fix-price.com` / `img.fix-price.kz`, а разрешён только `fix-price.kz`. На проде aktau.market фото Fix Price блокируются. Добавлены оба домена.
+- Итог: 273 unit, e2e live 18 passed + 2 skipped (по платформе), e2e моки 51 passed + 11 skipped (`pages.spec`: title kk-категории теперь казахский).
+
 ### Production Part 01 — 2026-10-03
 
 - Fail-closed HTTP/site configuration, без silent mock/localhost production fallback.

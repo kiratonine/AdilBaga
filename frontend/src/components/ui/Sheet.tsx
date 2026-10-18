@@ -53,7 +53,12 @@ export function Sheet({ open, onClose, title, children, footer, testId }: SheetP
           <Icon name="close" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">{children}</div>
+      {/*
+        flex-auto, не flex-1: у <dialog> высота не задана (только max-h), и iOS Safari при базисе 0
+        схлопывал тело до нуля — в шторке были видны только заголовок и кнопки. min-h-0 — чтобы длинный
+        список сжимался до max-h и прокручивался, а не выталкивал футер
+      */}
+      <div className="min-h-0 flex-auto overflow-y-auto overscroll-contain p-4">{children}</div>
       {footer && (
         <div className="flex gap-2 border-t border-line px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] *:flex-1">{footer}</div>
       )}
