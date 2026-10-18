@@ -2,6 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { marker, observeProduction, validatePlan, publicGet, createEventSource, LIMITS } from './production-observer.mjs';
+import { isTrustedProductionEvent } from './fifo-adapter.mjs';
+import { isProductionProvider, admitsProductionCapture } from './projection-provider.mjs';
+
+test('public production toggles and imported FIFO receipt cannot mint authority', () => {
+  const provider = { fixtureOnly: false, production: true }, before = {};
+  const event = { status: 204, errorClass: 'none', provider, before };
+  assert.equal(isProductionProvider(provider), false);
+  assert.equal(admitsProductionCapture(provider, before), false);
+  assert.equal(isTrustedProductionEvent(event, provider, before), false);
+  assert.equal(isTrustedProductionEvent(structuredClone(event), provider, before), false);
+});
 
 const before = '2026-10-14T00:00:00.000Z', after = '2026-10-15T00:00:00.000Z';
 const acceptedUTC = '2026-10-16T00:00:00.000Z';

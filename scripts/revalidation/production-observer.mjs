@@ -2,7 +2,8 @@
 import https from 'node:https';
 import { createHash } from 'node:crypto';
 import { prepareBeforeV2, buildManifest } from './c2-manifest.mjs';
-import { sameProviderCustody } from './projection-provider.mjs';
+import { sameProviderCustody, admitsProductionCapture, isProductionProvider } from './projection-provider.mjs';
+import { isTrustedProductionEvent } from './fifo-adapter.mjs';
 
 export const LIMITS = Object.freeze({ acceptanceMs: 5000, endMs: 20000,
   timeoutMs: 4000, maxRequests: 21, bodyBytes: 2 * 1024 * 1024,
@@ -154,10 +155,13 @@ export function publicGet(path, timeoutMs, maxBytes, request = https.request) {
 // No CLI/autorun. Operator must supply an approved event + verified before/after
 // manifest from the six ACTUAL representations before explicitly invoking this.
 export function observeProduction(plan, dependencies = {}) { return observe(plan, dependencies, false) }
-async function observe(plan, { get = publicGet, now = () => performance.now(), sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}, capture = false) {
+async function observe(plan, { get = publicGet, now = () => performance.now(), sleep = ms => new Promise(r => setTimeout(r, ms)), provider } = {}, capture = false) {
   const inconclusive = reason => ({ acceptance: 'INCONCLUSIVE', reason, request_count: 0, results: [], events: [] });
   try { validatePlan(plan, capture) } catch (e) { return inconclusive(e.message) }
-  if (capture && get === publicGet) return inconclusive('fixture_transport_required');
+  if (capture && isProductionProvider(provider) && (get !== publicGet
+    || !isTrustedProductionEvent(plan.event, provider, plan.before))) return inconclusive('production_transport_untrusted');
+  if (capture && get === publicGet && (!admitsProductionCapture(provider, plan.before)
+    || !isTrustedProductionEvent(plan.event, provider, plan.before))) return inconclusive('fixture_transport_required');
   const startMono = now();
   if (plan.event.now !== now) return inconclusive('unverified_event_clock');
   const startUTC = plan.event.receivedUTC + startMono - plan.event.end;
@@ -225,13 +229,19 @@ export async function captureBefore(plan, dependencies = {}) {
     captureStarted.add(plan.event);
   }
   const before = structuredClone(plan.before);
-  const result = await observe({ ...plan, targets: prepared.targets }, dependencies, true);
+  const result = await observe({ ...plan, before: plan.before, targets: prepared.targets }, dependencies, true);
   if (!result.acceptance.startsWith('capture_')) return result;
   const token = deepFreeze(structuredClone({ ...result, before, event: {
     start: plan.event.start, end: plan.event.end, receivedUTC: plan.event.receivedUTC, receipt: plan.event.receipt,
   } }));
-  captures.set(token, { before: token.before, event: plan.event, completedAt: plan.event.now() });
+  captures.set(token, { before: token.before, event: plan.event, completedAt: plan.event.now(),
+    provider: dependencies?.provider, productionAdmitted: isTrustedProductionEvent(plan.event, dependencies?.provider, plan.before) });
   return token;
+}
+
+export function isProductionCapture(capture, provider) {
+  const stored = captures.get(capture);
+  return !!stored && stored.productionAdmitted && stored.provider === provider && isProductionProvider(provider);
 }
 
 export function captureTiming(capture) {

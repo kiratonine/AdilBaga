@@ -5,6 +5,104 @@ import { projectionPair } from './fixtures/projection-v2.mjs';
 import { fixtureBody } from './fixtures/c2-manifest.mjs';
 import { createEventSource, captureBefore, verdictCapture, LIMITS } from './production-observer.mjs';
 import { createSyntheticProjectionProvider } from './projection-provider.mjs';
+import * as providerModule from './projection-provider.mjs';
+import { execFileSync } from 'node:child_process';
+
+test('production factory rejects caller-manufactured authority before any execution', () => {
+  assert.equal(typeof providerModule.createProductionProjectionProvider, 'function');
+  assert.throws(() => providerModule.createProductionProjectionProvider({ production: true,
+    fixtureOnly: false, approved: true, binary: '/tmp/unapproved', sourceSha: 'a'.repeat(40) }));
+});
+
+// Separate Node process: mocked OS metadata/exec only; no root files, DSN or
+// privileged resources created. No test hook is exported by the production code.
+for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', 'missing', 'symlink', 'writable_acl_mask', 'replace_before_exec', 'wrong_alias',
+  'before_frontend_drift', 'before_deployment_drift', 'before_confirmation_drift', 'stable_identity', 'after_frontend_drift', 'after_deployment_drift']) {
+  test(`production authority OS mock: ${scenario}`, () => {
+    const child = String.raw`
+      import fs from 'node:fs'; import cp from 'node:child_process';
+      import { syncBuiltinESMExports } from 'node:module';
+      import { promisify } from 'node:util'; import { createHash } from 'node:crypto';
+      import assert from 'node:assert/strict';
+      const scenario = process.argv[1], uid = process.geteuid();
+      const { projectionPair } = await import('./scripts/revalidation/fixtures/projection-v2.mjs');
+      const bytes = Buffer.from([127,69,76,70,1,2,3]);
+      const digest = createHash('sha256').update(bytes).digest('hex');
+      const approval = { version:1, approved: scenario !== 'unapproved', sourceSha:'b'.repeat(40), binarySha256:scenario==='wrong_digest'?'0'.repeat(64):digest, clockSha256:digest, buildId:'reviewed-build', platform:'linux/amd64' };
+      const deployment = { version:1, attemptId:'a'.repeat(32), stage:'before', alias:scenario==='wrong_alias'?'elsewhere.invalid':'aktau.market', deploymentId:'dpl_test', frontendSha:'c'.repeat(40), ready:true, target:'Production', confirmedAt:Date.now(), optInInactive:false, legitimatePublication:true };
+      let executions=0, serial=90000; const files=new Map();
+      const original={ lstatSync:fs.lstatSync, openSync:fs.openSync, fstatSync:fs.fstatSync, readFileSync:fs.readFileSync, closeSync:fs.closeSync };
+      const targeted = p => typeof p==='string' && (p.startsWith('/etc/aktau-c2')||p.startsWith('/usr/local/libexec/aktau-c2')||p.startsWith('/var/lib/aktau-sync'));
+      const stats=(p,dir=false)=>({ uid:p.endsWith('reader.dsn')?uid:0, mode:dir?0o40755:p.endsWith('reader.dsn')?0o100600:0o100555, size:p.endsWith('reader.dsn')?100:1000, nlink:1, isDirectory:()=>dir, isFile:()=>!dir, isSymbolicLink:()=>false });
+      fs.lstatSync=(p,...args)=>{
+        if(targeted(p)||['/etc','/usr','/usr/local','/usr/local/libexec','/var','/var/lib','/'].includes(p)) {
+          const s=stats(p,true); if(scenario==='writable_acl_mask'&&p==='/usr/local/libexec')s.mode|=0o020; return s;
+        } return original.lstatSync(p,...args);
+      };
+      fs.openSync=(p,...args)=>{if(!targeted(p))return original.openSync(p,...args);if(scenario==='missing')throw Error('ENOENT');if(scenario==='symlink'&&p.endsWith('c2projection'))throw Error('ELOOP');files.set(++serial,p);return serial};
+      fs.fstatSync=(fd,...args)=>files.has(fd)?stats(files.get(fd)):original.fstatSync(fd,...args);
+      let binaryReads=0, deploymentReads=0;
+      fs.readFileSync=(fd,...args)=>{
+        if(!files.has(fd))return original.readFileSync(fd,...args);
+        const p=files.get(fd); if(p.endsWith('authorization.json'))return Buffer.from(JSON.stringify(approval)+'\n');
+        if(p.endsWith('deployment.json')){
+          if(++deploymentReads===2){
+            if(scenario==='before_frontend_drift')deployment.frontendSha='d'.repeat(40);
+            if(scenario==='before_deployment_drift')deployment.deploymentId='dpl_other';
+            if(scenario==='before_confirmation_drift')deployment.confirmedAt--;
+          }
+          return Buffer.from(JSON.stringify(deployment)+'\n');
+        }
+        if(p.endsWith('reader.dsn'))return 'postgres://aktau_api_runtime:synthetic-only@fixture.invalid:5432/test';
+        if(p.endsWith('c2projection')&&scenario==='replace_before_exec'&&++binaryReads>1)return Buffer.from('replaced');
+        return bytes;
+      };
+      fs.closeSync=(fd,...args)=>files.has(fd)?files.delete(fd):original.closeSync(fd,...args);
+      const fake=()=>{};fake[promisify.custom]=async(file,args,options)=>{
+        executions++;assert.equal(options.shell,undefined);assert.equal(options.env.APP_ENV,'production');
+        assert.ok(options.timeout<=10000);assert.ok(options.maxBuffer<=65536);
+        const p=projectionPair().before;
+        p.provenance.frontendSha=deployment.frontendSha;
+        if(scenario==='wrong_source')p.provenance.sourceSha='d'.repeat(40);
+        p.provenance.canonicalStateId=createHash('sha256').update(JSON.stringify(p.body)).digest('hex');
+        return {stdout:JSON.stringify(p)+'\n'};
+      };cp.execFile=fake;syncBuiltinESMExports();
+      const api=await import('./scripts/revalidation/projection-provider.mjs');
+      let before=null, provider, initial;
+      try{
+        provider=api.createProductionProjectionProvider();assert.ok(api.isProductionProvider(provider));
+        if(scenario.startsWith('before_')||scenario.startsWith('after_')||scenario==='stable_identity')initial=api.productionIdentity(provider,'a'.repeat(32),'before');
+        before=await provider.before('a'.repeat(32));
+      }catch{}
+      if(scenario.startsWith('after_')){
+        assert.ok(before);
+        deployment.stage='after';deployment.optInInactive=true;deployment.confirmedAt=Date.now();
+        if(scenario==='after_frontend_drift')deployment.frontendSha='d'.repeat(40);
+        if(scenario==='after_deployment_drift')deployment.deploymentId='dpl_other';
+        assert.throws(()=>api.productionIdentity(provider,'a'.repeat(32),'after'),/deployment/);
+      }else if(scenario==='valid'||scenario==='stable_identity'){
+        assert.ok(before);assert.equal(executions,1);
+        if(scenario==='stable_identity'){
+          assert.equal(before.provenance.frontendSha,initial.frontendSha);
+          assert.equal(api.productionBeforeIdentity(provider,before),initial);
+          assert.throws(()=>api.productionBeforeIdentity(provider,structuredClone(before)),/deployment/);
+          deployment.stage='after';deployment.optInInactive=true;deployment.confirmedAt=Date.now();
+          assert.equal(api.productionIdentity(provider,'a'.repeat(32),'after').deploymentId,initial.deploymentId);
+        }
+        const { createEventSource } = await import('./scripts/revalidation/production-observer.mjs');
+        const source=createEventSource({now:()=>0});source.begin('a'.repeat(32));source.accept204(204,{status:204});
+        const r=await source.capture(before,{provider,get:()=>assert.fail('custom production transport must not execute')});
+        assert.equal(r.request_count,0);
+        // A manually manufactured event cannot admit default production GET.
+        const source2=createEventSource({now:()=>0});source2.begin('a'.repeat(32));source2.accept204(204,{status:204});
+        assert.equal((await source2.capture(before,{provider})).request_count,0);
+      }else{assert.equal(before,null);if(scenario!=='wrong_source')assert.equal(executions,0)}
+      assert.equal(api.isProductionProvider({fixtureOnly:false}),false);
+    `;
+    execFileSync(process.execPath, ['--input-type=module', '-e', child, scenario], { cwd: new URL('../../', import.meta.url),
+      env: { PATH: '/usr/bin:/bin' }, timeout: 5000, maxBuffer: 4096 });
+  });
+}
 
 const invalid = p => { const r = buildManifest(p); assert.equal(r.status, 'inconclusive'); assert.equal(r.manifest, undefined); return r };
 test('P1 BEFORE duplicate non-null sitemap positions -> INCONCLUSIVE', () => {
