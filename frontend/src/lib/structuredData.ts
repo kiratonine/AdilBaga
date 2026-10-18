@@ -1,5 +1,7 @@
 import type { ProductCardDto } from '../api/types'
+import { getI18n } from '../i18n'
 import type { Language } from '../i18n/languages'
+import { categoryName } from './dataLabels'
 import { localePath } from './paths'
 import { absoluteUrl } from './site'
 import { SITE_NAME } from './brand'
@@ -64,7 +66,7 @@ export function productJsonLd(lang: Language, product: ProductCardDto) {
     name: product.name,
     ...(product.imageUrl && { image: [product.imageUrl] }),
     ...(product.brand && { brand: { '@type': 'Brand', name: product.brand } }),
-    category: product.category.name,
+    category: categoryName(getI18n(lang).t, product.category),
     offers: {
       '@type': 'AggregateOffer',
       priceCurrency: 'KZT',

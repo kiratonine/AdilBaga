@@ -16,6 +16,7 @@ import { Icon } from '../components/ui/Icon'
 import { Sheet } from '../components/ui/Sheet'
 import { CategoryPageSkeleton, ProductGridSkeleton } from '../components/ui/Skeleton'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
+import { categoryName } from '../lib/dataLabels'
 import { countActive, readFilters, readSort, withFilter, withoutFilters, withSort } from '../lib/filterParams'
 import { replaceQuery } from '../lib/urlState'
 import { useHref } from '../lib/useLang'
@@ -75,7 +76,7 @@ export function CategoryPage({ slug }: { slug: string }) {
           </Link>
         </nav>
       </div>
-      <h1 className="mt-3 min-h-[1.2em] text-h1">{category?.name}</h1>
+      <h1 className="mt-3 min-h-[1.2em] text-h1">{category && categoryName(t, category)}</h1>
 
       {schema.isError && <ErrorState onRetry={() => schema.refetch()} />}
 

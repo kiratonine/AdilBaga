@@ -5,6 +5,7 @@ import { categoriesQuery, categoryFiltersQuery, productPagesQuery } from '../../
 import { getCategories, getCategoryFilters, notFoundOn404, toSearchParams } from '../../../../../api/server'
 import { JsonLd } from '../../../../../components/seo/JsonLd'
 import { getI18n, isLanguage } from '../../../../../i18n'
+import { categoryName } from '../../../../../lib/dataLabels'
 import { readFilters, readSort } from '../../../../../lib/filterParams'
 import { pageMetadata } from '../../../../../lib/seo'
 import { breadcrumbJsonLd } from '../../../../../lib/structuredData'
@@ -16,11 +17,13 @@ export async function generateMetadata({ params }: PageProps<'/[lang]/collection
   const category = categories.find((c) => c.slug === slug)
   if (!category || !isLanguage(lang)) return {}
   // canonical — без фильтров и сортировки: варианты списка одной категории в индексе не плодим
+  const { t } = getI18n(lang)
+  const name = categoryName(t, category)
   return pageMetadata({
     lang,
     path: `/collections/${slug}`,
-    title: category.name,
-    description: getI18n(lang).t('meta.category', { name: category.name }),
+    title: name,
+    description: t('meta.category', { name }),
   })
 }
 
@@ -42,7 +45,7 @@ export default async function Page({ params, searchParams }: PageProps<'/[lang]/
 
   const category = categories.find((c) => c.slug === slug)
   const crumbs = [{ name: getI18n(lang).t('nav.home'), path: '/catalog' }]
-  if (category) crumbs.push({ name: category.name, path: `/collections/${slug}` })
+  if (category) crumbs.push({ name: categoryName(getI18n(lang).t, category), path: `/collections/${slug}` })
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>

@@ -92,7 +92,10 @@
     "loadMore": "Показать ещё",
     "empty": "В этой категории пока нет товаров",
     "emptyFiltered": "С такими фильтрами товаров нет",
-    "emptyFilteredHint": "Уберите часть фильтров или сбросьте все."
+    "emptyFilteredHint": "Уберите часть фильтров или сбросьте все.",
+    "filterSearch": "Найти",
+    "filterSearchLabel": "Поиск: {{label}}",
+    "filterNoMatch": "Ничего не нашлось"
   },
   "sort": {
     "label": "Сортировка",
