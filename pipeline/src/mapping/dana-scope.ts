@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { z } from 'zod'
 import { isCategorySlug, type CategorySlug } from '../agent/taxonomy.js'
 import { mappingDir } from '../paths.js'
-import { DANA_SCOPE_ROOTS } from '../scrapers/dana.js'
+import { DANA_SCOPE_ROOTS, DANA_SECTION_RE } from '../scrapers/dana.js'
 import type { SourceFile, SourceProduct } from '../types.js'
 import { resolveCategory, type Dictionary } from './dictionary.js'
 import { publishCategories } from './scope.js'
@@ -23,7 +23,7 @@ export const DanaScopeSchema = z.object({
   unsectionedProducts: z.number().int().nonnegative(),
 }).superRefine((v, ctx) => {
   for (const s of v.sections) {
-    if (!s.startsWith(v.root) || !s.endsWith('/')) ctx.addIssue({ code: 'custom', message: `section ${s} is outside root ${v.root}`, path: ['sections'] })
+    if (!DANA_SECTION_RE.test(s) || s === v.root) ctx.addIssue({ code: 'custom', message: `section ${s} is outside root ${v.root}`, path: ['sections'] })
   }
 })
 export type DanaScope = z.infer<typeof DanaScopeSchema>

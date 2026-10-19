@@ -5,44 +5,66 @@ import { DANA_CONCURRENCY } from '../scrape-policy.js'
 import type { SourceFile, SourceProduct } from '../types.js'
 
 const BASE = 'https://dana-market.kz'
+// После редизайна 2026-10-19 сайт использует числовые id разделов (/catalog/483/) вместо текстовых слагов
 export const DANA_ROOTS = [
-  { path: '/catalog/produkty_pitaniya_/', name: 'Продукты питания' },
-  { path: '/catalog/bytovaya_khimiya/', name: 'Бытовая химия' },
-  { path: '/catalog/detskie_tovary/', name: 'Детские товары' },
-  { path: '/catalog/kosmetika_i_gigiena_/', name: 'Косметика и гигиена' },
-  { path: '/catalog/tovary_dlya_doma/', name: 'Товары для дома' },
+  { path: '/catalog/483/', name: 'Продукты питания' },
+  { path: '/catalog/605/', name: 'Бытовая химия' },
+  { path: '/catalog/589/', name: 'Детские товары' },
+  { path: '/catalog/650/', name: 'Косметика и гигиена' },
+  { path: '/catalog/640/', name: 'Товары для дома' },
+  { path: '/catalog/921/', name: 'Канцелярские товары' },
 ]
 /** Публикуем только продукты питания (scope сайта); остальные корни — SCRAPE_ALL=1 */
 export const DANA_SCOPE_ROOTS = DANA_ROOTS.slice(0, 1)
 const MAX_PAGES_PER_ROOT = 500
 
-const digits = (s: string) => { const d = s.replace(/[^0-9]/g, ''); return d ? parseInt(d, 10) : 0 }
 const abs = (u: string | undefined) => (!u ? null : u.startsWith('http') ? u : `${BASE}${u}`)
+/** Путь раздела: /catalog/<числовой id>/ */
+export const DANA_SECTION_RE = /^\/catalog\/\d+\/$/
+
+/** Цена из DOM: "1 170 тенге", "416.50 тенге" → целые тенге (дробная часть не склеивается с целой) */
+const priceText = (s: string) => {
+  const m = /\d[\d\s]*(?:[.,]\d+)?/.exec(s) // \s покрывает и nbsp
+  return m ? Math.round(parseFloat(m[0].replace(/\s/g, '').replace(',', '.'))) : 0
+}
+
+/**
+ * Цена единицы товара из JSON карточки Bitrix (`JCCatalogItem`, ITEM_PRICES): id → { price, base }.
+ * В самой карточке весовой товар (шаг 0,5 кг) показан ценой шага («416.50 тенге»), а в JSON — цена за кг (833), как было до редизайна.
+ */
+function parseItemPrices(html: string): Map<string, { price: number; base: number }> {
+  const out = new Map<string, { price: number; base: number }>()
+  const re = /'PRODUCT':\{'ID':'(\d+)'[\s\S]*?'ITEM_PRICES':\[\{[^}]*?'BASE_PRICE':'([\d.]+)','PRICE':'([\d.]+)'/g
+  for (const m of html.matchAll(re)) out.set(m[1]!, { base: Math.round(parseFloat(m[2]!)), price: Math.round(parseFloat(m[3]!)) })
+  return out
+}
 
 export function parseDanaPage(html: string, sectionPath: string[]): SourceProduct[] {
   const $ = cheerio.load(html)
   const out: SourceProduct[] = []
-  $('.catalog_item_wrapp').each((_, el) => {
+  const unit = parseItemPrices(html)
+  $('.product-item-container').each((_, el) => {
     const card = $(el)
-    const rawId = card.attr('data-id') || card.find('[data-id]').attr('data-id') || card.attr('id')?.replace(/[^0-9]/g, '')
-    const title = card.find('.item-title a').first()
+    const title = card.find('.product-item-title a').first()
+    const href = title.attr('href')
+    // id товара Bitrix — последний числовой сегмент пути (/catalog/489/17801/); запасной — id контейнера bx_<n>_<id>_<hash>
+    const rawId = /\/(\d+)\/?(?:[?#].*)?$/.exec(href ?? '')?.[1] ?? /^bx_\d+_(\d+)_/.exec(card.attr('id') ?? '')?.[1]
     const name = title.text().trim()
-    const price = digits(card.find('.price_value').first().text())
+    const json = rawId ? unit.get(rawId) : undefined
+    const price = json?.price ?? priceText(card.find('.product-item-price-current').first().text())
     if (!rawId || !name || price <= 0) return
-    const old = digits(card.find('.price_old .price_value').first().text())
-    const img = card.find('.image_wrapper_block img, picture img').first()
-    // В «хлебных крошках» карточки Bitrix пишет раздел; если его нет — путь корня
-    const crumb = card.find('.item-section, .section-name').first().text().trim()
+    const old = json?.base ?? priceText(card.find('.product-item-price-old').first().text())
+    const bg = /url\((['"]?)(.*?)\1\)/.exec(card.find('.product-item-image-original').first().attr('style') ?? '')?.[2]
     out.push({
       sourceProductId: `dana_${rawId}`,
       name,
       price,
       oldPrice: old > price ? old : null,
-      imageUrl: abs(img.attr('data-src') || img.attr('src')),
-      sourceUrl: abs(title.attr('href')),
+      imageUrl: abs(bg),
+      sourceUrl: abs(href),
       brand: null,
-      sourceCategoryPath: crumb ? [...sectionPath, crumb] : sectionPath,
-      rawPayload: { rawId, name, price, oldPrice: old || null, section: sectionPath.join(' / '), sections: [] as string[] },
+      sourceCategoryPath: sectionPath,
+      rawPayload: { rawId, name, price, oldPrice: old > price ? old : null, section: sectionPath.join(' / '), sections: [] as string[] },
     })
   })
   return out
@@ -59,15 +81,19 @@ export function parseDanaPageCount(html: string): number {
   return max
 }
 
-/** Подразделы первого уровня корня (`<rootPath><slug>/`), уникальные и отсортированные */
+/**
+ * Подразделы первого уровня корня, уникальные и отсортированные. Берутся из вложенного меню каталога:
+ * ссылка корня и рядом блок `.burger-dropdown-menu` с `.menu-item > a` (глубже — листья, они входят в родителя).
+ */
 export function parseDanaSections(html: string, rootPath: string): string[] {
   const $ = cheerio.load(html)
-  const escaped = rootPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const re = new RegExp(`^${escaped}[a-z0-9_]+/$`)
   const found = new Set<string>()
   $('a[href]').each((_, a) => {
-    const href = $(a).attr('href') ?? ''
-    if (re.test(href)) found.add(href)
+    if ($(a).attr('href') !== rootPath) return
+    $(a).parent().children('.burger-dropdown-menu').children('.menu-item').children('a[href]').each((_, sub) => {
+      const href = $(sub).attr('href') ?? ''
+      if (DANA_SECTION_RE.test(href) && href !== rootPath) found.add(href)
+    })
   })
   return [...found].sort()
 }

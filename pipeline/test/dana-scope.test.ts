@@ -9,8 +9,8 @@ import type { SourceFile, SourceProduct } from '../src/types.js'
 
 const at = '2026-10-16T06:00:00.000Z'
 const scope = new Set<CategorySlug>(['milk'])
-const ROOT = '/catalog/produkty_pitaniya_/'
-const A = `${ROOT}a/`, B = `${ROOT}b/`, C = `${ROOT}c/`, D = `${ROOT}d/`
+const ROOT = '/catalog/483/'
+const A = '/catalog/484/', B = '/catalog/488/', C = '/catalog/500/', D = '/catalog/513/'
 
 const product = (id: string, sections: string[], path: string[] = ['Продукты питания']): SourceProduct => ({
   sourceProductId: `dana_${id}`, name: `Товар ${id}`, price: 100, oldPrice: null, imageUrl: null, sourceUrl: null, brand: null,
@@ -99,7 +99,7 @@ describe('readDanaScope / writeDanaScope', () => {
   it('rejects sections outside the root', () => {
     const path = join(mkdtempSync(join(tmpdir(), 'dana-scope-')), 'scope.json')
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    writeFileSync(path, JSON.stringify({ ...base(), sections: ['/catalog/other/x/'] }), 'utf8')
+    writeFileSync(path, JSON.stringify({ ...base(), sections: ['/catalog/produkty_pitaniya_/bakaleya/'] }), 'utf8')
     expect(readDanaScope(path, scope)).toBeNull()
   })
 })
