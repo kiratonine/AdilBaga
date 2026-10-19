@@ -107,8 +107,10 @@ source-manifest/approval mismatch fails closed. No network fetch inside installe
 An independently authorized administrator stages the reviewed installer itself
 in a root-controlled directory (no operator-writable ancestors), the **exact**
 public bundle in `/var/lib/aktau-c2-install/bundle`, and independent approval in
-`/etc/aktau-c2-install/approval.json`, root:root 0600. Parents must already exist,
-root-controlled and not effectively writable by nonroot (ACL mask included).
+`/etc/aktau-c2-install/approval.json`, root:root 0600. Root parents must already
+exist, root-controlled and not effectively writable by nonroot (ACL mask
+included). The sole delegated-parent exception below applies only to the
+operator state target, never these trust inputs.
 The guard never creates these trust inputs or broadens privileges. No new sudo
 grant is part of this kit. Installer invocation uses the existing admin channel.
 
@@ -141,6 +143,48 @@ leaves a recovery interlock; **never retry install over partial state**.
 This creates **inactive resources only**. It does not create `reader.dsn`,
 `deployment.json`, attempt FIFO, services or hooks. Those need separate
 independent existing authority. No Go API/Telegram/runtime deployment occurs.
+
+### Part27 — precise delegated parent, not general trust relaxation
+
+Only the third fixed target `/var/lib/aktau-sync/c2` obtains its parent through
+the dedicated private helper. The literal OS account `aktau-sync` supplies UID
+and primary GID; UID must exactly match the independently validated
+`approval.operatorUid`. Invalid/missing account or GID fails closed. There is
+no caller-selected path, env exception, UID override or new CLI switch.
+
+The unchanged general `directory()` still enforces root custody everywhere
+else. `/`, `/var`, `/var/lib` are traversed with its original pinned-descriptor
+checks; `aktau-sync` is opened relative to the pinned `/var/lib` fd using
+O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC. Parent fstat must be a directory with exact
+approved UID/GID, mode0755, no effective group/other write; linked device/inode
+must match the pinned fd. Identity is retained for the operation and checked
+again before receipt creation, staging publication and deletion. Different
+permissions, symlink, owner/group drift or replacement is BLOCKED, not repaired.
+
+No chown/chmod/write is performed on this existing parent or unrelated sibling
+files. A later separately approved installation may create only its new C2
+child/stage entries; directory entry timestamps naturally change during that
+future operation. C2 and empty ledger remain operator-owned0700. New staged
+objects are checked before handover. Rollback revalidates pinned target/ledger
+inodes, ownership, modes and empty/inactive contents before any removal; foreign
+files, nonempty ledger, orphan/unknown stages and ambiguous receipt preserve the
+entire state for manual reconciliation. The inventory still covers all three
+fixed parents, including those absent from partial receipts.
+
+**Residual trust boundary:** the operator owns this parent and can modify its
+children, including between system calls or after installer exit. Revalidation
+detects observed drift; it is not an atomic filesystem transaction against a
+malicious concurrent owner. The operator/admin must exclude concurrent C2 state
+mutation during install/rollback. Root approval, receipt, installer and binary/
+Node bundle remain outside the delegated subtree under unchanged root custody;
+no secrets or privileged approval are placed beneath it. Never treat this
+operator directory as proof of root authorization or relax another root path.
+
+Part27 does **not** create missing `/usr/local/libexec`, parent trust inputs,
+accounts or permissions. After independent source review/merge, a separate
+authorized preflight must prepare missing root parents/stage the independently
+reviewed artifacts, validate approval and all interlocks, then permit one
+inactive install. No actual production installation is part of this source fix.
 
 ## Rollback and crash handling
 
