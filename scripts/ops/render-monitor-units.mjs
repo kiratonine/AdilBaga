@@ -5,15 +5,16 @@ import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const names = ['aktau-go-monitor.service', 'aktau-go-monitor.timer'];
-export function renderUnits({ user, node, source } = {}) {
+export function renderUnits({ user, node, source, delivery = 'https' } = {}) {
   if (typeof user !== 'string' || !/^[a-z_][a-z0-9_-]{0,30}$/.test(user) || user === 'root'
     || typeof node !== 'string' || !/^\/(?:usr|opt)\/[A-Za-z0-9_./-]+\/node$/.test(node) || path.normalize(node) !== node
     || typeof source !== 'string' || !/^\/opt\/aktau-monitor\/releases\/[a-f0-9]{40}$/.test(source)
-    || source.length !== '/opt/aktau-monitor/releases/'.length + 40) throw Error('unit_parameters');
+    || source.length !== '/opt/aktau-monitor/releases/'.length + 40 || !['https','telegram'].includes(delivery)) throw Error('unit_parameters');
   return Object.fromEntries(names.map(name => {
     const raw = fs.readFileSync(path.join(root, 'ops/monitor/systemd', name), 'utf8');
     if (Buffer.byteLength(raw) > 16384) throw Error('unit_template');
-    const text = raw.replaceAll('@MONITOR_USER@', user).replaceAll('@NODE24@', node).replaceAll('@SOURCE_DIR@', source);
+    const text = raw.replaceAll('@MONITOR_USER@', user).replaceAll('@NODE24@', node).replaceAll('@SOURCE_DIR@', source)
+      .replaceAll('@ENV_FILE@', '/etc/aktau-monitor/' + (delivery === 'telegram' ? 'telegram' : 'receiver') + '.env');
     if (/@[A-Z_]+@/.test(text)) throw Error('unit_template');
     return [name, text];
   }));
@@ -48,8 +49,8 @@ export function writeUnits(directory, parameters) {
 }
 export function main(args, write = s => process.stdout.write(s + '\n')) {
   if (args.length === 0 || (args.length === 1 && args[0] === '--offline')) { write('{"status":"OFFLINE","installed":false}'); return 0; }
-  if (args.length !== 5 || args[0] !== '--render') { write('{"status":"BLOCKED","reason":"arguments"}'); return 2; }
-  try { writeUnits(args[1], { user: args[2], node: args[3], source: args[4] }); write('{"status":"RENDERED_NOT_INSTALLED","files":2}'); return 0; }
+  if (![5,6].includes(args.length) || args[0] !== '--render') { write('{"status":"BLOCKED","reason":"arguments"}'); return 2; }
+  try { writeUnits(args[1], { user: args[2], node: args[3], source: args[4], delivery: args[5] }); write('{"status":"RENDERED_NOT_INSTALLED","files":2}'); return 0; }
   catch { write('{"status":"BLOCKED","reason":"unit_parameters_or_output"}'); return 1; }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = main(process.argv.slice(2));

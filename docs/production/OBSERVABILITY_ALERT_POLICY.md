@@ -9,6 +9,13 @@ Go API/VPS/domain/Cloudflare existed and API health was verified then. This is
 not a fresh production observation or proof of active monitoring. Conditions
 below remain policy, not claims of active alarms.
 
+Part22 adds an explicit direct Telegram source transport (no webhook/server),
+not active alerts. Real receipt is NOT_VERIFIED; credential staging was blocked
+by a missing approved private parent directory. Unconfirmed Telegram sends stop
+for manual reconciliation (no idempotency guarantee); legacy HTTPS delivery
+retains its existing bounded policy. See the monitor runbook's Part22 section.
+Same-VPS monitoring cannot notify through a total host/network outage.
+
 | Alert | Signal / condition class | Source / severity | First action / recovery | Deployment dependency / runbook |
 | --- | --- | --- | --- | --- |
 | API unavailable | live probe fails N consecutive checks | private operator probe / critical | inspect process; recover live and ready | probe cadence, N and delivery after staging; [api-down](../runbooks/api-down.md) |

@@ -47,7 +47,8 @@ if (group === 'contracts') {
   run('local TLS prerequisite (no installation)', 'openssl', ['version']);
   console.log(run('ops regressions and local HTTPS lifecycle', process.execPath, ['--test',
     'scripts/ops/verify-go-production.test.mjs', 'scripts/ops/monitor-go-production.test.mjs',
-    'scripts/ops/check-go-release.test.mjs', 'scripts/ops/monitor-lifecycle.test.mjs']));
+    'scripts/ops/check-go-release.test.mjs', 'scripts/ops/monitor-lifecycle.test.mjs',
+    'scripts/ops/telegram-notifier.test.mjs', 'scripts/ops/telegram-lifecycle.test.mjs']));
 } else if (group === 'security') {
   run('tracked secrets / workflow policy', 'node', ['scripts/ci/check-source.mjs']);
   console.log(run('backup synthetic guards', 'node', ['--test', 'ops/postgres/backup.test.mjs']).split('\n').slice(-10).join('\n'));
