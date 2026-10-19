@@ -165,13 +165,12 @@ class Installer:
         auth = a['authorization']
         require(set(auth) == {'version', 'approved', 'sourceSha', 'binarySha256', 'clockSha256', 'buildId', 'platform'})
         require(a['version'] == 1 and a['nodeMajor'] == 24 and a['recipe'] == RECIPE
-                and type(a['operatorUid']) is int and a['operatorUid'] >= 1000
+                and type(a['operatorUid']) is int and a['operatorUid'] > 0
                 and auth['version'] == 1 and auth['approved'] is True
                 and re.fullmatch('[0-9a-f]{40}', auth['sourceSha'])
                 and re.fullmatch('[A-Za-z0-9_-]{1,80}', auth['buildId'])
                 and auth['platform'] == 'linux/amd64' and set(a['files']) == set(FILES))
-        if not self.root:
-            require(pwd.getpwnam('aktau-sync').pw_uid == a['operatorUid'])
+        self._operator(a)
         directory = self.directory(BUNDLE)
         try:
             require(set(os.listdir(directory)) == set(FILES))
