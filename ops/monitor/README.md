@@ -1,6 +1,7 @@
 # Go operator monitor — source candidate, ACTIVATION_PENDING
 
-No scheduler/service/daemon, production probe or external delivery is activated.
+Inactive service/timer templates are provided; no service, production probe or
+external delivery is activated by installing source or merging this change.
 Node24, Linux, dedicated **non-root** operator required for active state. The API,
 ingestion and Frontend are not modified. This is not a public metrics endpoint.
 
@@ -16,8 +17,9 @@ rtk proxy node --test scripts/ops/monitor-go-production.test.mjs scripts/ops/che
 
 Default monitor/checker execution is offline, no state/network/delivery I/O.
 Tests own disposable private state and loopback services; transport mocks never
-contact production or a real receiver. The loopback transport integration does
-not claim a real TLS handshake; default HTTPS/TLS verification is preserved.
+contact production or a real receiver. Part21 adds real loopback TLS handshakes,
+ephemeral private certificates and independent monitoring processes; production
+TLS verification is unchanged. This is not real notification delivery evidence.
 
 ## Future activation — separate Owner approval, not performed
 
@@ -158,6 +160,121 @@ appropriate approved release route, compatible preserved rollback, private confi
 and application Voice gates. Keep AUTO_DEPLOY_ENABLED disabled. C2 provisioning
 and3 qualified legitimate-publication≤5s measurements remain separate OPEN work.
 
-Required local test commands are above and in the Part20 report. Existing hosted
-CI profiles are unchanged and do not automatically add these new ops tests;
-local PASS is recorded explicitly, not inferred from a generic CI badge.
+The mandatory existing Security job runs `node scripts/ci/run-checks.mjs ops`
+with Node24: all92 Part20 cases plus the Part21 lifecycle/unit-kit tests. The
+original nine CI job names and deployment eligibility contract are unchanged.
+OpenSSL and systemd-analyze must already exist on the Linux test runner; tests
+do not install them. A broken operator suite fails the job, not a silent skip.
+
+## Part21 activation permission packet — NOT EXECUTED
+
+**BLOCKED_ON_REAL_RECEIVER.** One future Owner decision must identify the
+dedicated non-root account, root-controlled Node24 executable under `/usr` or
+`/opt`, exact reviewed source commit, receiver/channel, credential provisioning,
+cadence and independent receipt procedure. No provider, account, SSH identity or
+actual Node path is invented here. No new SSH/sudo grant is needed by the monitor.
+
+Request authority only for these new resources and operations:
+
+| Resource | Future custody / permitted change |
+| --- | --- |
+| `/opt/aktau-monitor/releases/FULL40SHA` | Root-owned immutable reviewed source; directories0755, three runtime modules0644: monitor-go-production, monitor-state, verify-go-production under scripts/ops |
+| `/etc/aktau-monitor/receiver.env` | Root-owned0600; parent0755; private provisioning, never cat/log/copy to artifacts |
+| `/var/lib/aktau-monitor/state` | Selected account owns0700, state/lock0600; root-controlled parent0755 |
+| `/var/lib/aktau-monitor/acceptance` | Separate fresh0700 test state, same account; never reuse real monitoring state |
+| `/etc/aktau-monitor/test-receiver.env` | Optional root0600, only Owner-controlled TEST receiver URL/token; no real incident destination for synthetic tests |
+| `/etc/systemd/system/aktau-go-monitor.service` and `.timer` | Root0644 rendered reviewed units; initially disabled |
+
+Only the three documented AKTAU_MONITOR variables belong in receiver.env. The
+state path must be the approved fixed state directory. Systemd reads this file
+as manager, then starts the non-root process. Source and Node executable plus
+all ancestors must be root-controlled, non-writable by the monitor. Reject
+symlinks, shared writable source, unexpected versions/digests or existing
+unreconciled state. Do not overwrite an existing unit or private state silently.
+
+The following is a **future private operator command packet, not authorization
+to execute it now**. Set non-secret `MONITOR_USER`, `NODE24`, `SOURCE_DIR` and
+`RENDER_DIR` to the separately approved values. SOURCE_DIR must end in the full
+reviewed40hex commit; NODE24 must be the approved root-controlled executable.
+Render as non-root in a fresh local0700 directory outside Git:
+
+```bash
+id "$MONITOR_USER"
+"$NODE24" --version                         # must be v24.x, reviewed version
+stat -c '%U %a %F' "$NODE24" "$SOURCE_DIR"
+git show HEAD:scripts/ops/monitor-go-production.mjs | sha256sum
+sha256sum "$SOURCE_DIR/scripts/ops/monitor-go-production.mjs"
+# Repeat the byte/digest comparison for monitor-state.mjs and verify-go-production.mjs.
+"$NODE24" scripts/ops/render-monitor-units.mjs --render "$RENDER_DIR" "$MONITOR_USER" "$NODE24" "$SOURCE_DIR"
+systemd-analyze verify "$RENDER_DIR/aktau-go-monitor.service" "$RENDER_DIR/aktau-go-monitor.timer"
+```
+
+Owner must verify every ancestor, source digest and exact commit, not only the
+shown leaf stat. Confirm receiver DNS/TLS, bearer authentication, durable
+idempotency and a private downstream receipt channel independently. Never put
+URL/token in the command line. Provision the root-owned env files via the
+existing private operator procedure; this kit does not create credentials.
+After path/custody validation and approval, Owner may install only the two
+rendered0644 units (no account or source changes implicit in these commands):
+
+```bash
+sudo install -o root -g root -m 0644 "$RENDER_DIR/aktau-go-monitor.service" /etc/systemd/system/aktau-go-monitor.service
+sudo install -o root -g root -m 0644 "$RENDER_DIR/aktau-go-monitor.timer" /etc/systemd/system/aktau-go-monitor.timer
+sudo systemd-analyze verify /etc/systemd/system/aktau-go-monitor.service /etc/systemd/system/aktau-go-monitor.timer
+sudo systemctl daemon-reload
+# Manual one-shot mode: timer stays disabled. Up to5 fixed API GET, <=1 delivery.
+sudo systemctl start aktau-go-monitor.service
+sudo journalctl -u aktau-go-monitor.service -n 10 --no-pager -o cat
+```
+
+First one-shot must yield complete OK, not pending/blocked; do not manufacture
+an outage of the Go API. Inspect only sanitized monitor outcomes. Exit1 is a
+completed unhealthy/pending observation, not success evidence or a restart.
+
+Bounded synthetic open/recovery acceptance uses the **test receiver only**,
+its separate environment file and fresh acceptance state. This future transient
+unit injects test observations into the real monitor; **0 public API requests,
+at most2 HTTPS POST, each<=5s, no retries**. No tokens/URLs in argv or output:
+
+```bash
+sudo systemd-run --unit=aktau-go-monitor-acceptance --wait --pipe \
+  -p "User=$MONITOR_USER" -p "WorkingDirectory=$SOURCE_DIR" \
+  -p EnvironmentFile=/etc/aktau-monitor/test-receiver.env \
+  -p NoNewPrivileges=yes -p ProtectSystem=strict -p ProtectHome=yes \
+  -p ReadWritePaths=/var/lib/aktau-monitor/acceptance -p UMask=0077 \
+  -p TimeoutStartSec=20s -p KillMode=control-group \
+  "$NODE24" --input-type=module -e '
+import {runMonitor,createNotifier} from "./scripts/ops/monitor-go-production.mjs";
+const notify=createNotifier({url:process.env.AKTAU_MONITOR_RECEIVER_URL,token:process.env.AKTAU_MONITOR_RECEIVER_TOKEN});
+const directory="/var/lib/aktau-monitor/acceptance";
+const bad=()=>({outcome:"FAIL"});
+const good=()=>({outcome:"PASS",requests:5,records:["live","ready","categories","products","dashboard"].map(endpoint=>({endpoint,outcome:"PASS",schemaClass:"valid",statusClass:"2xx"}))});
+for(const [check,expected] of [[bad,"DEGRADED"],[bad,"INCIDENT"],[good,"RECOVERED"]]){
+ const result=await runMonitor({directory,check,notify});
+ console.log(JSON.stringify(result)); if(result.outcome!==expected)process.exit(2);
+}'
+```
+
+STOP on any unexpected outcome, missing receipt, TLS/auth failure or leftover
+lock. A2xx proves only receiver acceptance. Owner must correlate exactly one
+synthetic open and one recovery with independent human/downstream receipt and
+durable receiver dedup; never print private event IDs into shared logs. This
+manual approval remains required after local tests and CI pass.
+
+Only after these checks and the approved cadence decision, enable the new timer:
+
+```bash
+sudo systemctl enable --now aktau-go-monitor.timer
+sudo systemctl status aktau-go-monitor.timer --no-pager
+# Disable/rollback the monitor scheduler only; preserve private state/evidence.
+sudo systemctl disable --now aktau-go-monitor.timer
+sudo systemctl stop aktau-go-monitor.service
+```
+
+Enable and disable are alternative phases, not one script to run end-to-end.
+The candidate timer is5min after inactivity, no catch-up, no overlap, no restart
+loop. Service70s includes verifier50s + notifier5s + storage margin; stop5s kills
+the whole group. Never delete crash locks/pending state automatically; follow
+the reconciliation section above. Source rollback needs a separately reviewed
+previous immutable source and rerender; no Go image rollback is implied. Go,
+Cloudflare, sync/C2 timers and AUTO_DEPLOY_ENABLED remain unchanged.

@@ -1,0 +1,38 @@
+# SOURCE TEMPLATE ONLY. Render/review first; never install unresolved placeholders.
+[Unit]
+Description=Aktau Market private one-shot Go API monitor
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=@MONITOR_USER@
+WorkingDirectory=@SOURCE_DIR@
+EnvironmentFile=/etc/aktau-monitor/receiver.env
+ExecStart=@NODE24@ @SOURCE_DIR@/scripts/ops/monitor-go-production.mjs --run
+TimeoutStartSec=70s
+TimeoutStopSec=5s
+KillMode=control-group
+SendSIGKILL=yes
+Restart=no
+# Unhealthy/pending is a completed observation, not an automatic process retry.
+SuccessExitStatus=1
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/aktau-monitor/state
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal

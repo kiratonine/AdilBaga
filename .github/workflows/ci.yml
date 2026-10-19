@@ -92,6 +92,7 @@ jobs:
         run: node scripts/ci/select-event-base.mjs
       - run: node --test scripts/ci/guard.test.mjs
       - run: node scripts/ci/run-checks.mjs security
+      - run: node scripts/ci/run-checks.mjs ops
   postgres:
     name: PostgreSQL Integration
     needs: [go, nest, contracts, security]
