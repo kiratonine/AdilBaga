@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { createVerifier } from './verify-go-production.mjs';
 import { openState } from './monitor-state.mjs';
+import { createTelegramNotifier, isTelegramNotifier } from './telegram-notifier.mjs';
 
 export function createNotifier(config, { request = https.request, timeoutMs = 5000 } = {}) {
   let url;
@@ -46,13 +47,15 @@ export async function runMonitor({ directory, check = () => createVerifier()(), 
     if (!Number.isSafeInteger(time) || time < 0 || time >= 8639999999940000 || (s.lastUTC !== null && time < s.lastUTC)) answer = result('BLOCKED', 'clock_discontinuity');
     else {
       const deliver = async () => {
+        if (s.pending.manualReconciliation === true || (isTelegramNotifier(notify) && s.pending.attempts > 0)) return result('PENDING', 'delivery_reconciliation_required');
         if (s.pending.attempts >= 3) return result('PENDING', 'delivery_exhausted');
         if (time < s.pending.nextAttemptUTC) return result('PENDING', 'delivery_cooldown');
         s.lastUTC = time; s.pending.attempts++; s.pending.nextAttemptUTC = time + 60000;
+        if (isTelegramNotifier(notify)) s.pending.manualReconciliation = true;
         store.save(s); // Persist id and attempt BEFORE remote side effects.
         let accepted = false;
         try { accepted = await notify(structuredClone(s.pending), signal) === true; } catch { /* fixed pending class only */ }
-        if (!accepted) return result('PENDING', 'delivery_failed');
+        if (!accepted) return result('PENDING', s.pending.manualReconciliation ? 'delivery_reconciliation_required' : 'delivery_failed');
         s.pending = null; store.save(s); return result('DELIVERED', 'pending_delivered');
       };
       if (s.pending) answer = await deliver(); // Drain one event; do not reorder health/recovery behind an undelivered incident.
@@ -82,7 +85,11 @@ export async function main(args, env = process.env, write = s => process.stdout.
   }
   if (args.length !== 1 || args[0] !== '--run') { write(JSON.stringify(result('BLOCKED', 'arguments'))); return 2; }
   let notify;
-  try { notify = createNotifier({ url: env.AKTAU_MONITOR_RECEIVER_URL, token: env.AKTAU_MONITOR_RECEIVER_TOKEN }); }
+  try {
+    if (env.AKTAU_MONITOR_DELIVERY === 'telegram') notify = createTelegramNotifier({ token: env.BOT_TOKEN, admin: env.ADMIN_ID });
+    else if (env.AKTAU_MONITOR_DELIVERY === undefined || env.AKTAU_MONITOR_DELIVERY === 'https') notify = createNotifier({ url: env.AKTAU_MONITOR_RECEIVER_URL, token: env.AKTAU_MONITOR_RECEIVER_TOKEN });
+    else throw Error('delivery_not_configured');
+  }
   catch { write(JSON.stringify(result('BLOCKED', 'delivery_not_configured'))); return 2; }
   const value = await runMonitor({ directory: env.AKTAU_MONITOR_STATE_DIR, notify });
   write(JSON.stringify(value)); return ['OK','RECOVERED','DELIVERED'].includes(value.outcome) ? 0 : value.outcome === 'BLOCKED' ? 2 : 1;

@@ -32,7 +32,7 @@ test('actual ops CI subprocess propagates broken suite failure (isolated miniatu
   const dir = owned(t, 'aktau-ops-ci-');
   fs.mkdirSync(path.join(dir, 'scripts/ci'), { recursive: true }); fs.mkdirSync(path.join(dir, 'scripts/ops'));
   for (const file of ['run-checks.mjs', 'common.mjs']) fs.copyFileSync(path.join(root, 'scripts/ci', file), path.join(dir, 'scripts/ci', file));
-  const names = ['verify-go-production.test.mjs','monitor-go-production.test.mjs','check-go-release.test.mjs','monitor-lifecycle.test.mjs'];
+  const names = ['verify-go-production.test.mjs','monitor-go-production.test.mjs','check-go-release.test.mjs','monitor-lifecycle.test.mjs','telegram-notifier.test.mjs','telegram-lifecycle.test.mjs'];
   for (const name of names) fs.writeFileSync(path.join(dir, 'scripts/ops', name), "import {test} from 'node:test'; test('synthetic positive',()=>{});\n");
   const invoke = () => spawnSync(process.execPath, [path.join(dir, 'scripts/ci/run-checks.mjs'), 'ops'], { cwd: dir, env: cleanEnv, encoding: 'utf8', timeout: 20000, maxBuffer: 65536 });
   assert.equal(invoke().status, 0, 'positive control must execute the ops branch');

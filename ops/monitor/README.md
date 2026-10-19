@@ -30,7 +30,8 @@ Use a separately reviewed root-managed private environment injection into the
 dedicated non-root process. Do not put values into Git, reports, argv, shell
 history, browser/client env or CI. Do not read real credentials just to test.
 
-Only these private process variables are consumed by explicit `--run`:
+In legacy HTTPS mode (delivery unset or `https`), these private process variables
+are consumed by explicit `--run`; Telegram mode is documented below:
 
 - `AKTAU_MONITOR_STATE_DIR`: normalized absolute directory outside source,
   Git/artifacts/dependencies, owned by the effective operator UID, mode0700.
@@ -178,7 +179,7 @@ Request authority only for these new resources and operations:
 
 | Resource | Future custody / permitted change |
 | --- | --- |
-| `/opt/aktau-monitor/releases/FULL40SHA` | Root-owned immutable reviewed source; directories0755, three runtime modules0644: monitor-go-production, monitor-state, verify-go-production under scripts/ops |
+| `/opt/aktau-monitor/releases/FULL40SHA` | Root-owned immutable reviewed source; directories0755, four runtime modules0644: monitor-go-production, monitor-state, verify-go-production, telegram-notifier under scripts/ops |
 | `/etc/aktau-monitor/receiver.env` | Root-owned0600; parent0755; private provisioning, never cat/log/copy to artifacts |
 | `/var/lib/aktau-monitor/state` | Selected account owns0700, state/lock0600; root-controlled parent0755 |
 | `/var/lib/aktau-monitor/acceptance` | Separate fresh0700 test state, same account; never reuse real monitoring state |
@@ -204,7 +205,7 @@ id "$MONITOR_USER"
 stat -c '%U %a %F' "$NODE24" "$SOURCE_DIR"
 git show HEAD:scripts/ops/monitor-go-production.mjs | sha256sum
 sha256sum "$SOURCE_DIR/scripts/ops/monitor-go-production.mjs"
-# Repeat the byte/digest comparison for monitor-state.mjs and verify-go-production.mjs.
+# Repeat for monitor-state.mjs, verify-go-production.mjs and telegram-notifier.mjs.
 "$NODE24" scripts/ops/render-monitor-units.mjs --render "$RENDER_DIR" "$MONITOR_USER" "$NODE24" "$SOURCE_DIR"
 systemd-analyze verify "$RENDER_DIR/aktau-go-monitor.service" "$RENDER_DIR/aktau-go-monitor.timer"
 ```
@@ -278,3 +279,129 @@ the whole group. Never delete crash locks/pending state automatically; follow
 the reconciliation section above. Source rollback needs a separately reviewed
 previous immutable source and rerender; no Go image rollback is implied. Go,
 Cloudflare, sync/C2 timers and AUTO_DEPLOY_ENABLED remain unchanged.
+
+## Part22 — direct Telegram (inactive source candidate)
+
+Telegram is **outbound sendMessage only**; no receiver server, webhook, polling,
+getUpdates, commands or callback endpoint is needed. Protocol reference:
+[official Bot API sendMessage](https://core.telegram.org/bots/api#sendmessage).
+No Telegram network requests are made during tests or this source sprint.
+
+Explicit Telegram process environment consists of exactly these four entries:
+
+- `AKTAU_MONITOR_DELIVERY=telegram`
+- `BOT_TOKEN` — strict token; never in argv/output/Git/CI or a shared transcript.
+- `ADMIN_ID` — positive numeric personal private-chat ID, not a subscriber list.
+- `AKTAU_MONITOR_STATE_DIR=/var/lib/aktau-monitor/state`
+
+Root-managed `/etc/aktau-monitor/telegram.env` must be root:root0600, regular,
+single-link, under a root-controlled nonsymlink directory. Provision via an
+approved private encrypted-stdin procedure only: never source/eval the old
+backend dotenv, upload it wholesale, or print values/lengths/hashes. The Part22
+attempt stopped at read-only preflight because the required directory was absent;
+no credentials were read/transferred and no VPS file was created. Creation of
+the missing root-controlled parent and staging remain a future Owner action.
+
+Unset delivery keeps legacy HTTPS behavior; `https` selects it explicitly.
+Unknown delivery or missing Telegram values blocks before state/probes, never
+falls back. Default/`--offline` reads no env or state and sends nothing. The
+renderer defaults to legacy receiver.env; pass the final literal `telegram` to
+select only telegram.env, never both files or an arbitrary env path:
+
+```bash
+"$NODE24" scripts/ops/render-monitor-units.mjs --render "$RENDER_DIR" "$MONITOR_USER" "$NODE24" "$SOURCE_DIR" telegram
+systemd-analyze verify "$RENDER_DIR/aktau-go-monitor.service" "$RENDER_DIR/aktau-go-monitor.timer"
+```
+
+Do not install the raw template, unresolved placeholders or a unit from another
+reviewed source. The70s bound, non-root hardening and0700 state remain unchanged.
+All four runtime modules must match the same reviewed commit; Node24 and source
+ancestors must be root-controlled. The existing Part21 packet describes source,
+state and unit installation; substitute the explicit Telegram-rendered service,
+and do not provision the legacy receiver env for Telegram mode.
+
+### Receipt/retry limitations and reconciliation
+
+Telegram success requires complete HTTP200, bounded valid JSON `ok:true`, positive
+message_id and the configured private chat identity when returned. Response body,
+chat/message IDs and token-bearing request path are never logged or persisted.
+One attempt<=5s,32768-byte response cap, default TLS, no proxy/redirect/retry.
+Messages contain only fixed Russian ALERT/RECOVERED, service name and UTC time.
+
+**Telegram has no durable idempotency key.** Before a send the real monitor
+durably saves its existing attempt plus `manualReconciliation:true`. On confirmed
+success it clears pending normally. Any unsuccessful/ambiguous result (including
+429, TLS error, timeout or definite rejection) leaves the latch. Subsequent runs,
+even after cooldown or delivery-mode changes, emit only
+`PENDING / delivery_reconciliation_required`, with0 GET/POST. There is at most
+one automatic Telegram send for that event, not exactly-once delivery. This
+conservative policy intentionally also requires manual handling for definite
+rejections; no unsafe transport-phase guess is used to authorize a resend.
+An already attempted legacy pending event cannot be automatically sent to
+Telegram either. Legacy HTTPS events without this latch retain their existing
+idempotency/cooldown/maximum-three-attempt behavior.
+
+SIGTERM/crash can leave the existing lock; no automatic unlock or reset. After
+ambiguous Telegram receipt monitoring pauses, including recovery observation,
+until Owner privately reconciles the event/time with chat receipt and preserved
+state. There is no reset/retry CLI. Never erase state to make green; keep original
+evidence and separately approve any repair. Rolling back to pre-Part22 source
+cannot read a latched record: reconcile first, preserve/quarantine that record,
+and use compatible reviewed source rather than silently dropping the field.
+
+### Post-review manual checklist — NOT EXECUTED
+
+1. Owner opens the bot and sends `/start` personally. Confirm ADMIN_ID is that
+   personal private chat; no webhook/getUpdates or bot command implementation.
+2. Approve root-controlled parent/env staging and verify only metadata/booleans,
+   never file contents. Existing secret file must not be overwritten silently.
+3. Install the four source modules and render/verify units using the reviewed SHA
+   and approved non-root account/Node24 path, as in Part21; timer stays disabled.
+4. In a scheduled manual smoke slot, send **one known synthetic ALERT** using
+   the private manager-injected env below. This is a transport receipt test,
+   not a real outage or a monitor-state incident. If reply is ambiguous STOP,
+   inspect chat privately; do not retry. Verify sanitized ACCEPTED plus actual
+   human receipt (API200 alone is not a human read receipt).
+5. Run the installed service once: up to5 fixed public GET,<=1 delivery; require
+   complete OK from the healthy API. Do not sabotage Go to create an incident.
+6. Synthetic incident/recovery E2E stays local against the loopback test transport:
+   `node --test scripts/ops/telegram-lifecycle.test.mjs`. Never route test fixtures
+   to a real bot; the new tests intercept every send.
+7. Only after source review/merge, manual receipt and one-shot PASS, Owner may
+   enable the existing new monitor timer. No activation is authorized here.
+
+Future **one-message** smoke command (no values in argv/history/logs; actual
+Node/account/source still require Owner selection). Do not run in source review:
+
+```bash
+sudo systemd-run --unit=aktau-monitor-telegram-smoke --wait --pipe \
+  -p "User=$MONITOR_USER" -p "WorkingDirectory=$SOURCE_DIR" \
+  -p EnvironmentFile=/etc/aktau-monitor/telegram.env \
+  -p NoNewPrivileges=yes -p ProtectSystem=strict -p ProtectHome=yes \
+  -p TimeoutStartSec=10s -p KillMode=control-group -p LimitCORE=0 \
+  "$NODE24" --input-type=module -e '
+import {randomBytes} from "node:crypto";
+import {createTelegramNotifier} from "./scripts/ops/telegram-notifier.mjs";
+try{
+ const send=createTelegramNotifier({token:process.env.BOT_TOKEN,admin:process.env.ADMIN_ID});
+ const ok=await send({id:randomBytes(16).toString("hex"),type:"incident_opened",atUTC:Date.now()});
+ console.log(JSON.stringify({outcome:ok?"ACCEPTED":"RECONCILE_STOP"}));process.exitCode=ok?0:2;
+}catch{console.log("{\"outcome\":\"CONFIG_BLOCKED\"}");process.exitCode=2;}'
+```
+
+After separate Owner approval, manual one-shot / later enable / disable commands:
+
+```bash
+sudo systemctl start aktau-go-monitor.service
+sudo journalctl -u aktau-go-monitor.service -n 10 --no-pager -o cat
+# Only after receipt and complete one-shot OK, not automatically after rendering:
+sudo systemctl enable --now aktau-go-monitor.timer
+# Alternative rollback phase: disable this new timer only; keep private state.
+sudo systemctl disable --now aktau-go-monitor.timer
+sudo systemctl stop aktau-go-monitor.service
+```
+
+A same-VPS monitor cannot send an alert if the whole VPS/network fails. External
+watchdog redundancy remains a later operational improvement, not covered by a
+working Telegram adapter. Real smoke NOT_RUN, monitor INACTIVE, C2 OPEN and Go
+API unchanged until separately authorized operations and evidence say otherwise.

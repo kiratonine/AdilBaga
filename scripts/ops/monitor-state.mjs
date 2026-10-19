@@ -11,7 +11,8 @@ export function validateState(s) {
     || !['OK','DEGRADED','INCIDENT'].includes(s.phase) || s.failures !== { OK: 0, DEGRADED: 1, INCIDENT: 2 }[s.phase]
     || !(s.lastUTC === null || time(s.lastUTC)) || (s.lastUTC === null && s.phase !== 'OK')) throw Error('state_invalid');
   const p = s.pending;
-  if (p !== null && (!exact(p, ['id','type','atUTC','nextAttemptUTC','attempts']) || !/^[a-f0-9]{32}$/.test(p.id)
+  if (p !== null && (!(exact(p, ['id','type','atUTC','nextAttemptUTC','attempts'])
+      || (exact(p, ['id','type','atUTC','nextAttemptUTC','attempts','manualReconciliation']) && p.manualReconciliation === true && p.attempts >= 1)) || !/^[a-f0-9]{32}$/.test(p.id)
     || p.id.length !== 32 || !['incident_opened','incident_recovered'].includes(p.type)
     || !time(p.atUTC) || !time(p.nextAttemptUTC) || s.lastUTC === null || p.atUTC > s.lastUTC || p.nextAttemptUTC < p.atUTC
     || !Number.isInteger(p.attempts) || p.attempts < 0 || p.attempts > 3
