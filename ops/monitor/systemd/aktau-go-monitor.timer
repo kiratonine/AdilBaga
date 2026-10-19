@@ -1,0 +1,13 @@
+# SOURCE TEMPLATE ONLY; not enabled by merge/install. Cadence needs Owner approval.
+[Unit]
+Description=Aktau Market private monitor cadence candidate
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=5min
+AccuracySec=1s
+Persistent=false
+Unit=aktau-go-monitor.service
+
+[Install]
+WantedBy=timers.target

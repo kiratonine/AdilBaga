@@ -1,9 +1,13 @@
 # Observability alert policy — local foundation
 
-No monitoring provider/exporter, public /metrics, delivery destination or
-scheduler exists. **External alert delivery NOT CONFIGURED**. All conditions
-below are policy, not claims of active alarms. Runtime remains local-only;
-Railway retired; VPS/domain/Cloudflare not provisioned.
+No monitoring provider/exporter or public /metrics is activated. **External alert
+delivery NOT CONFIGURED**; the private operator monitor and inactive activation
+kit are source candidates, not running alarms (see [monitor runbook](../../ops/monitor/README.md)).
+The old local-only / unprovisioned-VPS statement is superseded by the dated
+[Part19 production observations](reports/PART_19_BACKEND1_RELEASE_INTEGRATION_REPORT.md):
+Go API/VPS/domain/Cloudflare existed and API health was verified then. This is
+not a fresh production observation or proof of active monitoring. Conditions
+below remain policy, not claims of active alarms.
 
 | Alert | Signal / condition class | Source / severity | First action / recovery | Deployment dependency / runbook |
 | --- | --- | --- | --- | --- |
