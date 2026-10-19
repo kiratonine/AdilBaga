@@ -12,6 +12,77 @@ import { createSyntheticProjectionProvider } from './projection-provider.mjs';
 import { projectionPair, fixtureS1 } from './fixtures/projection-v2.mjs';
 import { buildManifest } from './c2-manifest.mjs';
 
+for (const scenario of ['after_11s', 'after_70s', 'deadline', 'non204', 'reboot', 'refresh_failure', 'consume_failure', 'late_after']) {
+  test(`production persistent FIFO virtual-clock OS mock: ${scenario}`, () => {
+    const child = String.raw`
+      import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
+      import cp from 'node:child_process'; import https from 'node:https';
+      import { EventEmitter } from 'node:events'; import { syncBuiltinESMExports } from 'node:module';
+      import { promisify } from 'node:util'; import { createHash } from 'node:crypto'; import assert from 'node:assert/strict';
+      const { projectionPair } = await import('./scripts/revalidation/fixtures/projection-v2.mjs');
+      const { fixtureBody } = await import('./scripts/revalidation/fixtures/c2-manifest.mjs');
+      const { buildManifest } = await import('./scripts/revalidation/c2-manifest.mjs');
+      const scenario=process.argv[1], pair=projectionPair(), manifest=buildManifest(pair).manifest;
+      const attemptId=pair.attemptId, uid=process.geteuid(), boot=fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim();
+      const dir=fs.mkdtempSync(path.join(os.tmpdir(),'c2-persistent-'));fs.chmodSync(dir,0o700);
+      const fifo=path.join(dir,'event');cp.execFileSync('mkfifo',['-m','600',fifo]);
+      const bytes=Buffer.from([127,69,76,70,1]);const digest=createHash('sha256').update(bytes).digest('hex');
+      const approval={version:1,approved:true,sourceSha:'b'.repeat(40),binarySha256:digest,clockSha256:digest,buildId:'test',platform:'linux/amd64'};
+      const deployment={version:1,attemptId,stage:'before',alias:'aktau.market',deploymentId:'dpl_test',frontendSha:'c'.repeat(40),ready:true,target:'Production',confirmedAt:Date.now(),optInInactive:false,legitimatePublication:true};
+      const original={lstat:fs.lstatSync,open:fs.openSync,stat:fs.fstatSync,read:fs.readFileSync,close:fs.closeSync,readSync:fs.readSync};
+      let serial=90000, fifoOpens=0, fifoCloses=0, fifoFD=null, clockCalls=0, getCalls=0, committed=0, sent=false, now=1000000000n;
+      const files=new Map(), root=p=>typeof p==='string'&&(p.startsWith('/etc/aktau-c2')||p.startsWith('/usr/local/libexec/aktau-c2')||p.startsWith('/var/lib/aktau-sync'));
+      const stat=(p,dir=false)=>({uid:p.endsWith('reader.dsn')?uid:0,mode:dir?0o40755:p.endsWith('reader.dsn')?0o100600:0o100555,size:1000,nlink:1,isDirectory:()=>dir,isFile:()=>!dir,isSymbolicLink:()=>false});
+      fs.lstatSync=(p,...a)=>root(p)||['/etc','/usr','/usr/local','/usr/local/libexec','/var','/var/lib'].includes(p)?stat(p,true):original.lstat(p,...a);
+      fs.openSync=(p,...a)=>{if(root(p)){files.set(++serial,p);return serial}const fd=original.open(p,...a);if(p===fifo){fifoFD=fd;fifoOpens++}return fd};
+      fs.fstatSync=(fd,...a)=>files.has(fd)?stat(files.get(fd)):original.stat(fd,...a);
+      fs.readFileSync=(fd,...a)=>{if(!files.has(fd))return original.read(fd,...a);const p=files.get(fd);if(p.endsWith('authorization.json'))return Buffer.from(JSON.stringify(approval)+'\n');if(p.endsWith('deployment.json'))return Buffer.from(JSON.stringify(deployment)+'\n');if(p.endsWith('reader.dsn'))return 'postgres://aktau_api_runtime:synthetic@fixture.invalid:5432/test';return bytes};
+      fs.closeSync=(fd,...a)=>{if(files.has(fd))return files.delete(fd);if(fd===fifoFD)fifoCloses++;return original.close(fd,...a)};
+      const fake=()=>{};fake[promisify.custom]=async(file,args)=>{
+        if(args[0]==='clock'){clockCalls++;if(scenario==='refresh_failure'&&clockCalls>5)throw Error('probe');return{stdout:JSON.stringify({bootId:boot,monoNs:now.toString()})}}
+        const p=args[args.indexOf('-phase')+1]==='before'?pair.before:pair.after;
+        if(scenario==='late_after'&&args[args.indexOf('-phase')+1]==='after')now+=42_000_000_000n;
+        p.provenance.canonicalStateId=createHash('sha256').update(JSON.stringify(p.body)).digest('hex');return{stdout:JSON.stringify(p)+'\n'};
+      };cp.execFile=fake;
+      https.request=(options,callback)=>{
+        assert.equal(options.method,'GET');assert.equal(options.hostname,'aktau.market');getCalls++;
+        const req=new EventEmitter();req.destroy=()=>{};req.end=()=>queueMicrotask(()=>{
+          const res=new EventEmitter();res.statusCode=200;res.headers={};res.destroy=()=>{};callback(res);
+          res.emit('data',Buffer.from(fixtureBody(manifest.targets.find(t=>t.path===options.path))));res.emit('end');
+        });return req;
+      };syncBuiltinESMExports();
+      const api=await import('./scripts/revalidation/projection-provider.mjs');
+      const adapter=await import('./scripts/revalidation/fifo-adapter.mjs');
+      const provider=api.createProductionProjectionProvider();const before=await provider.before(attemptId);assert.ok(before);
+      const realMono=process.hrtime.bigint, timer=global.setTimeout;
+      process.hrtime.bigint=()=>now;
+      // Advance only FIFO wait sleeps. Existing HTTP request timeouts remain real.
+      global.setTimeout=(fn,ms,...args)=>ms===10?setImmediate(()=>{now+=250000000n;fn(...args)}):timer(fn,ms,...args);
+      const at=scenario==='after_11s'?11n:scenario==='late_after'?2060n:70n;
+      fs.readSync=(fd,...a)=>{
+        if(fd===fifoFD&&!sent&&scenario!=='deadline'&&now>=at*1000000000n){
+          sent=true;const event={version:1,snapshotId:pair.after.snapshotId,attemptId,status:scenario==='non204'?200:204,startMono:(now-10000000n).toString(),endMono:(now-1000000n).toString(),bootId:scenario==='reboot'?'00000000-0000-0000-0000-000000000000':boot,errorClass:'none'};
+          const writer=original.open(fifo,fs.constants.O_WRONLY|fs.constants.O_NONBLOCK);fs.writeSync(writer,JSON.stringify(event)+'\n');original.close(writer);
+        }return original.readSync(fd,...a);
+      };
+      try{
+        const calibration=await adapter.calibrateProductionClock(provider);
+        const receiver=adapter.openPersistentReceiver({fifo,attemptId,calibration,before,provider});
+        const result=await receiver.observe({onEvent:()=>{if(scenario==='consume_failure')throw Error('fsync_failure');committed++}});
+        assert.equal(fifoOpens,1);assert.equal(fifoCloses,1);
+        if(scenario==='after_11s'||scenario==='after_70s'){assert.equal(result.acceptance,'PASS');assert.equal(getCalls,6);assert.equal(committed,1);if(scenario==='after_70s')assert.ok(clockCalls>5)}
+        else if(scenario==='late_after'){
+          assert.equal(result.acceptance,'INCONCLUSIVE');assert.equal(result.reason,'supervision_expired');
+          assert.equal(getCalls,6);assert.equal(committed,1);assert.ok(now>2101000000000n);
+        }else{assert.equal(result.acceptance,'INCONCLUSIVE');assert.equal(getCalls,0)}
+        if(scenario==='deadline')assert.ok(now<=2101250000000n);
+      }finally{process.hrtime.bigint=realMono;global.setTimeout=timer;fs.rmSync(dir,{recursive:true})}
+    `;
+    execFileSync(process.execPath, ['--input-type=module', '-e', child, scenario], { cwd: new URL('../../', import.meta.url),
+      env: { PATH: '/usr/bin:/bin' }, timeout: 15000, maxBuffer: 4096 });
+  });
+}
+
 // Explicit local test binary only. Missing PoC binary is a failure, not a skip.
 const probe = process.env.C2_LOCAL_PROBE;
 assert.ok(probe && path.isAbsolute(probe), 'build local relayprobe and set C2_LOCAL_PROBE');

@@ -1384,3 +1384,190 @@ New review artifact name:
 **adilbaga-c2-node-projection-v2-p1-fix-20261017.tar.gz**, generated with the unchanged
 full-stack archive script. No prior unique review archive is reused or removed.
 Local success is not production C2 acceptance. **STOP for repeat Code Review.**
+
+## Part18 C2 production adapter — source-only candidate, 2026-10-18
+
+**READY_FOR_EXTERNAL_REVIEW (source only). Production activation and C2 acceptance remain BLOCKED. ROOT_CAUSE_NOT_VERIFIED.**
+
+Owner source-only specification and supplied Backend2 handoff contract were read completely, together with root rules and the latest preflight reconciliation. Owner now explicitly approves independent root-controlled executable authority, persistent35-minute supervision and the qualified-series policy. No previously missing contract/decision is represented as still missing for this implementation. Exact fresh origin/main is70e6e24dbe149f353ce20f0f2ede0cdcb42b2a8e. New isolated native-WSL branch: feat/part18-c2-production-adapter-source, HEAD unchanged at that baseline. Existing worktrees and their untracked reports remain untouched.
+
+### Exact nine-path candidate
+
+1. scripts/revalidation/projection-provider.mjs
+2. scripts/revalidation/fifo-adapter.mjs
+3. scripts/revalidation/production-observer.mjs
+4. scripts/revalidation/c2-production-supervisor.mjs (new)
+5. scripts/revalidation/c2-projection-v2.test.mjs
+6. scripts/revalidation/fifo-adapter.test.mjs
+7. scripts/revalidation/production-observer.test.mjs
+8. scripts/revalidation/c2-production-supervisor.test.mjs (new)
+9. This append-only report.
+
+No c2-manifest algorithm, Go/SQL/ingestion/Notify/HMAC, frontend, dependency, API, systemd, timer or production configuration changes. Historical report prefix is preserved byte-for-byte.
+
+### Authority and future operator provisioning contract
+
+The closed production factory accepts no options, executable path, digest, callback or public production toggle. Only independently provisioned nonsecret root-controlled metadata and fixed verified executable paths can mint its private capability. Local/synthetic factories keep fixtureOnly=true and their previous behavior.
+
+Future separately authorized administrators provision:
+
+- /etc/aktau-c2/authorization.json: canonical compact JSON plus one LF; exact keys version=1, approved=true, sourceSha (full40hex), binarySha256/clockSha256 (64hex), buildId (bounded audit identifier), platform=linux/amd64.
+- /usr/local/libexec/aktau-c2/c2projection and relayprobe: independently approved ELF bytes. Suggested executable root0555, metadata root0644 and ancestors root0755; operator can read/execute but not replace them. These are proposed fixed deployment paths, not inspected or installed production files.
+- /etc/aktau-c2/deployment.json: independently checked Owner/Frontend evidence, canonical JSON+LF; exact keys version, attemptId, stage (before/after), alias=aktau.market, deploymentId, frontendSha, ready=true, target=Production, confirmedAt (Unix milliseconds), optInInactive and legitimatePublication=true. Stage after must attest opt-in inactive and have confirmation at/after capture/AFTER completion. Identity must match the before deployment and SHA. Record age is bounded35minutes. Metadata is a trusted administrator attestation, not an autonomous Vercel API verifier.
+
+Both root records have strict field sets/framing and bounded sizes. Parents reject symlinks/non-root ownership/group-or-other write; files use no-follow, fstat ownership/type/link/size checks. Under Linux POSIX ACLs, named-user/group effective permissions are bounded by the group-class mask in st_mode: rejecting group/other write also rejects effective ACL write for non-owner identities. This assumes the reviewed conventional Linux filesystem permission model; no claim against privileged root/admin replacement. Executables are checked independently of labels or embedded sourceSHA. Root-protected paths prevent operator check-to-execution substitution; no new privilege or approval-write operation exists in Node.
+
+Credential input is a fixed temporary owner0600 reader.dsn under the private C2 state directory, supplied only in a later separately authorized context. Go retains APP_ENV=production, OpenProductionReadOnly, physical identity/ACL/RR checks and JSON v2. No real credential was read. CLI source SHA is checked against independent binary approval; frontend SHA comes from the per-attempt independent alias attestation, never main. Current actual alias/deployment ID remains NOT_VERIFIED by this source task.
+
+### Reader, clock and custody
+
+One persistent FIFO reader is opened and identity-checked before durable armed state. Readiness is the durable armed ledger state, not the mere existence of a FIFO. Immediate parent must be operator0700 and FIFO operator0600, separate from root-controlled executable storage. The supervisor expects the separately authorized operator to provision the per-attempt FIFO; it never modifies a drop-in or runs a service manager.
+
+The original short fixture receiver remains bounded10s. Production wait is bounded35minutes from reader arming and never closes/reopens the FD between polls. Async calibration refresh starts at30s age, retains the current valid calibration during refresh, fails closed beyond60s validity or on failure/reboot, and cancels outstanding refresh on exit. The root-approved clock helper is executed asynchronously; full binary hashing is not repeated on the intake thread during refresh. No zero clock offset is assumed.
+
+Actual event startMono/endMono/bootId and measured bounds anchor the original shared5s/20s window. Events with less than31s supervision budget remaining are INCONCLUSIVE before GET, reserving capture20s, AFTER child10s and a margin rather than extending the35-minute window. Non204 admits0 GET and preserves the safe receipt class/status. Lost/partial/duplicate/replayed/late events, missing evidence and failed consumption persistence do not trigger another POST.
+
+Production capture requires BOTH private provider custody and a private event token minted only by the checked persistent FIFO path. An approved BEFORE plus public createEventSource/accept204 cannot authorize public GET. Production disallows caller-supplied GET transport. Retrospective production AFTER also requires the production-bound private capture; imported JSON or synthetic transport cannot mint production evidence. BEFORE S0 / FIFO S1 / AFTER [S1,S0], one witness and source/frontend identities remain unchanged. AFTER is one-shot and bounded by existing60s event age.
+
+### Durable lifecycle and result finalization
+
+prepareObservation is an opt-in library with no CLI autorun, scheduler, shell, SSH or systemd calls. It generates a new random hex32 attempt, acquires an exclusive durable operator lock and records prepared before exposing the attempt for privileged opt-in coordination. The separately authorized operator provisions FIFO/drop-in and independent before identity before invoking observe.
+
+Ledger progression is prepared → armed → event_consumed → completed/inconclusive. All transitions retain chronological history; complete provisional capture/verdict is checkpointed before waiting for independent post-identity/cleanup attestation. File0600 writes handle partial writes, fsync file, atomic rename and fsync parent; a failed write/sync poisons the handle and cannot return a counted PASS. Lock contention, pending files, malformed/incomplete journals and restart after consumption fail closed. Crash interlocks are NOT automatically removed or resumed: operator must review recovery, not import evidence or restart the same event window.
+
+observe returns a provisional INCONCLUSIVE/pending identity outcome, never a counted PASS. finalize requires the independently provisioned after identity and opt-in cleanup attestation. Durable completed qualified PASS increments the series; qualified FAIL resets; INCONCLUSIVE remains recorded without increment/reset. Three qualified PASS meet the counter policy, not an assertion that this offline task performed them. Ledger capacity and JSON size are bounded; no automatic pruning or deletion of historical attempts. Same UID/root remain trusted operators, consistent with the FIFO custody model; the private ledger is crash/durability protection, not cryptographic protection against its own privileged operator.
+
+### Fail-first and actual verification
+
+Initial two new tests were executed before implementation: exit1,0 PASS/2 FAIL/0 SKIP. They establish missing factory/supervisor functionality (undefined export / missing module), not a newly reproduced exploit in the old fail-closed local implementation.
+
+Environment: Node24.10.0, Go1.27.2, existing dependencies only. Existing reviewed Go relayprobe was built in an owned local temporary directory and supplied via C2_LOCAL_PROBE. All HTTP/authority/credential examples were synthetic. New production-path positive/negative tests mock OS metadata and child execution in isolated Node processes, use an owned real local FIFO and virtual monotonic time; no root files or approvals are created. These are not real production CLI/database/permission installation proofs.
+
+| Command / check | Actual result |
+| --- | --- |
+| node --check for projection-provider, fifo-adapter, production-observer, c2-production-supervisor | exit0 each |
+| Initial fail-first focused tests | exit1;0/2 PASS,2 FAIL,0 SKIP |
+| New independent-authority OS-mock focused tests | exit0;9/9 PASS,0 SKIP |
+| Persistent FIFO virtual-clock focused tests (initial6 scenarios) | exit0;6/6 PASS; later consumption-fsync rejection included in full suite |
+| node --test scripts/revalidation/*.test.mjs scripts/ci/guard.test.mjs, with local relayprobe | exit0;254/254 PASS,0 FAIL,0 SKIP;22.817s |
+| node scripts/revalidation/verify-part16.mjs | exit0; static boundaries PASS |
+| node scripts/ci/run-checks.mjs security | exit0; workflow/source policy and1/1 synthetic backup guard PASS |
+| go test ./cmd/c2projection ./internal/revalidation ./internal/postgres | exit0; all3 packages PASS, no production connection |
+| git diff --check | exit0 |
+
+New tests exercise missing/unapproved/wrong digest/source/alias authority, effective ACL write mask, symlink/check-to-execution substitution, forged capabilities/receipts, persistent event after11s/70s with one FD, calibration renewal/failure, reboot,35-minute deadline, non204/consumption failure0 GET, journal locking/corruption/symlink/partial and zero writes/file+directory fsync failures, incomplete crash recovery, chronological unique attempts and PASS/INCONCLUSIVE/FAIL counting. Existing snapshot/witness/source/AFTER/clock/body-oracle/HTTP errors/cap21/sitemap2/fixture-only regressions are retained. No SKIP is claimed as PASS.
+
+Full real local joint PoC15/15 remains the accepted earlier evidence; it was not rerun or presented as a new production-path integration. New factory execution uses mocked approved binaries, not a claim that production custody or a newly installed restricted identity has been proven. Go source is unchanged; no full Go race/vet/staticcheck rerun is claimed or required by this task's mandatory Node/source gate.
+
+### Remaining production gates and review artifact
+
+No actual approval was issued, binary installed, DSN handed off, checkout updated, drop-in created, timer touched or live observer run. API438ecdfa, reported VPS checkout af2fb77 and the actual Vercel deployment were untouched. Later Owner/Backend2 authorization is still required for installation/ACL verification, per-attempt opt-in setup/cleanup, restricted credential handoff and real alias/deployment proof. Three consecutive qualified legitimate production measurements are still NOT RUN. Historical ~10–15s cause remains unverified; no cache/ISR change is proposed.
+
+New clean full-stack archive via unchanged scripts/create-clean-archive.mjs, unique copy: **artifacts/adilbaga-part18-c2-production-adapter-source-20261018.tar.gz**. Final verification checks safe unique regular members, all source/report byte-match, exact nine-path scope and unchanged historical report prefix. No .git, TODO, real env/credentials, dependencies, builds, test artifacts or database backups may be included. This is a source review artifact, not a runtime release.
+
+No production HTTP/SSH/SQL/Redis, ingest/publish, deployment, systemd, secrets access/rotation, commit/push/PR/merge or other-worktree changes. **STOP for independent Code Review.**
+
+## Part18 production adapter P1 — BEFORE identity drift correction, 2026-10-18
+
+**READY_FOR_EXTERNAL_REVIEW (source only); production acceptance remains BLOCKED.** Existing branch feat/part18-c2-production-adapter-source, unchanged HEAD/base70e6e24dbe149f353ce20f0f2ede0cdcb42b2a8e. Preserved the complete reviewed nine-path candidate. This correction changes only projection-provider.mjs, c2-production-supervisor.mjs, c2-projection-v2.test.mjs and this append-only report. The other five candidate paths are byte-identical to the reviewed archive.
+
+Review P1 reproduced: supervisor read trusted deployment identity A, then provider.before independently read identity B. Both records could individually validate while differing in frontendSha/deploymentId, with no full binding between them. The provider could execute Go BEFORE for B while supervisor retained A until finalization; later rejection was insufficient because FIFO/GET admission could already occur.
+
+### Fail-first evidence and narrow fix
+
+Extended the existing isolated OS-mock test harness, before touching implementation. Six focused cases: frontend drift, deployment-ID drift and confirmation-time drift between two valid BEFORE reads; stable identity; changed frontend/deployment at AFTER. Pre-fix focused command exited1: **1 PASS /5 FAIL /0 SKIP**. The Go mock deliberately emits the new frontend SHA so failure is not accidentally hidden by projection SHA validation. Records, projections and executable metadata are synthetic; no root file or live authority was used.
+
+The production provider now latches the first complete validated BEFORE attestation inside its private registry closure. Subsequent BEFORE reads must match the entire record. Drift poisons the identity binding rather than replacing it. The new read-only productionBeforeIdentity accessor requires the actual provider-owned BEFORE object; cloned/imported projections are rejected. It revalidates the record after Go BEFORE and returns the same immutable bound identity object.
+
+Supervisor checks that bound object is exactly its initial identity, before calibration and before openPersistentReceiver. Thus drift cannot open the FIFO reader or initiate GET and cannot count PASS. No caller approval argument, public authority toggle, fixtureOnly bypass or registry export was added.
+
+Before Go AFTER, the provider revalidates the currently supplied before/after attestation against the same bound identity. Finalize still requires a fresh independent after record and opt-in cleanup confirmation. After-stage verification preserves version, attemptId, alias, deploymentId, frontendSha, ready, target and legitimatePublication, while permitting the expected stage/confirmation-time/cleanup transition; confirmation cannot predate the bound BEFORE. Root-controlled binary approval and all original independent authority checks remain unchanged.
+
+### Actual verification
+
+Node24.10.0; Go1.27.2. Existing local relayprobe build identity independently checked with go version: go1.27.2. No installed production binary or credential was accessed.
+
+| Command/check | Actual result |
+| --- | --- |
+| Focused fail-first OS-mock regressions on pre-fix implementation | exit1;1 PASS/5 FAIL/0 SKIP |
+| Same6 focused regressions after identity binding | exit0;6/6 PASS/0 SKIP |
+| node --test scripts/revalidation/*.test.mjs scripts/ci/guard.test.mjs, C2_LOCAL_PROBE pointing to existing local Go1.27.2 relayprobe | exit0;260/260 PASS,0 FAIL,0 SKIP;22.798s; original254 retained plus6 cases |
+| node --check projection-provider.mjs, fifo-adapter.mjs, production-observer.mjs, c2-production-supervisor.mjs and c2-projection-v2.test.mjs under scripts/revalidation | exit0 each |
+| node scripts/revalidation/verify-part16.mjs | exit0; static boundaries PASS |
+| node scripts/ci/run-checks.mjs security | exit0; source/workflow policy and1/1 synthetic backup guard PASS |
+| go test ./cmd/c2projection ./internal/revalidation ./internal/postgres, Go1.27.2 | exit0; all3 packages PASS (cached results honestly retained) |
+| git diff --check; exact scope/history/privacy/archive checks | PASS at artifact handoff |
+
+Stable BEFORE and AFTER retains the expected deployment identity. Stable regression also proves private bound-object identity and rejects a cloned BEFORE. Existing FIFO, clock, custody, cap21/sitemap2, durability, snapshot-chain and verdict regressions remain intact. No Go, SQL, c2-manifest algorithm, Next/HMAC/systemd/SLA/credential change. No actual production observer or live acceptance is claimed.
+
+New archive via unchanged full-stack script: **artifacts/adilbaga-part18-c2-production-adapter-p1-identity-fix-20261018.tar.gz**. The previous uniquely named archive remains untouched. Verify all643 safe regular members against current source/report; preserve the entire previously reviewed report as an exact prefix. Production installation, alias evidence and three real qualified measurements still require separate authorization. No commit/push/PR/merge, production HTTP/SSH/SQL, binary installation, VPS change, ingest or deploy. **STOP for repeat independent Code Review.**
+
+## Supervisor-level P1 coverage and P2 post-AFTER deadline — 2026-10-18, append-only
+
+**READY_FOR_EXTERNAL_REVIEW (source-only). Production acceptance remains BLOCKED.** Continued the same branch and base70e6e24dbe149f353ce20f0f2ede0cdcb42b2a8e without reset/rebase/staging/publication. Read the complete approved source-only task, supplied Backend2 handoff and accumulated C2 report. Preserve the previous P1 identity implementation unchanged.
+
+### Supervisor-level coverage
+
+Added four isolated child-process regressions calling the actual prepareObservation → observe → finalize supervisor, actual private provider/capture registries and actual local durable ledger. Root authorization/deployment metadata, credential input, Go execution and HTTPS are mocked; only owned disposable local files/FIFO are created. No production resource or real credential is accessed.
+
+Three negative cases replace the independent trusted record between the supervisor's first BEFORE read and the provider's BEFORE read: frontendSha, deploymentId and confirmedAt. Each asserts both reads occurred, no Go BEFORE execution, **0 persistent FIFO reader opens /0 GET**, INCONCLUSIVE, zero qualified PASS and ledger progression exactly prepared→inconclusive. No provider-only result is substituted for a supervisor run.
+
+Stable control executes Go BEFORE mock → persistent local FIFO actual204 → six mock GET bodies → Go AFTER mock → independent post identity/cleanup → finalize PASS and qualified count1. It asserts one reader open, six GET and armed/event_consumed ledger states. This is offline operator-path evidence, not an installed production authority or genuine production measurement.
+
+The first test-harness run had a TypeError because its fs.openSync wrapper assumed every path argument was a string; Node's module loader also supplies URL objects. Corrected the wrapper's type guard, without changing production source. Those four harness failures are recorded as test-development errors, not evidence of runtime defects.
+
+### P2 fail-first and minimal correction
+
+The controlled monotonic case receives the event at2060s with sufficient budget before the original reader deadline2101s. Six responses are fresh inside the unchanged event5s window. During awaited Go AFTER, virtual time advances42s, crossing the original35-minute deadline while event age remains below60s. The OS-mocked process wait models delayed resumption; it does not assume that a child timeout alone guarantees timely supervisor continuation.
+
+Before the fix, the corrected focused command exited1: **4 PASS /1 FAIL /0 SKIP**. All supervisor cases already passed; late AFTER incorrectly returned PASS rather than INCONCLUSIVE. This directly isolates the missing post-await deadline check, not a marker/fixture error.
+
+Minimal runtime diff: save the result of await provider.after(capture,before), check the same original monotonic deadline again for the persistent receiver, return INCONCLUSIVE/supervision_expired if expired, otherwise return the result. Neither late PASS nor late FAIL can qualify. The existing pre-AFTER check remains. No new window, request, retry, publication or changed timeout; legacy short fixture receiver semantics remain intact.
+
+### Actual gates and exact correction scope
+
+| Check | Actual result |
+| --- | --- |
+| Corrected focused tests before P2 fix | exit1;4 PASS/1 FAIL/0 SKIP |
+| Same focused tests after P2 fix | exit0;5/5 PASS/0 SKIP |
+| Non-root id -u assertion | exit0;uid1000, not root |
+| C2_LOCAL_PROBE=<existing local Go1.27.2 relayprobe> node --test scripts/revalidation/*.test.mjs scripts/ci/guard.test.mjs | exit0;265/265 PASS,0 FAIL,0 SKIP;23.378s |
+| node --check all8 candidate JS source/test modules | exit0 each |
+| node scripts/revalidation/verify-part16.mjs | exit0; static boundaries PASS |
+| node scripts/ci/run-checks.mjs security | exit0; source/workflow policy and1/1 synthetic backup guard PASS |
+| Go1.27.2 go test ./cmd/c2projection ./internal/revalidation ./internal/postgres | exit0; all3 packages PASS, cached results disclosed |
+| git diff --check, nine-path scope, prior-prefix, links, bounded privacy scan and archive byte-match | PASS at final artifact verification |
+
+Relative to the previous reviewed P1 archive, correction scope is only fifo-adapter.mjs, fifo-adapter.test.mjs, c2-production-supervisor.test.mjs and this append-only report. The production-code change is the post-await check; other changes are tests/documentation. No Go/SQL/manifest algorithm/frontend/API/HMAC/systemd/SLA/credential or general-contract changes. Existing260 tests remain and5 regressions are added. No SKIP or mocked authority is claimed as real production proof.
+
+Fresh unique clean archive via unchanged scripts/create-clean-archive.mjs full-stack: **artifacts/adilbaga-part18-c2-supervisor-coverage-deadline-fix-20261018.tar.gz**. Preserve both older unique archives and the full prior report prefix. Verify643 safe unique regular members, all source/report byte-match, absence of Git/TODO/env credentials/dependencies/build/test artifacts/backups and exact correction scope. Current production Go438ecdfa and ingestion af2fb77 are not inspected or changed. No production HTTP/SSH/SQL, publish, deployment, credential action or Git publication. **STOP for independent Code Review.**
+
+## PR #43 Backend2 P1 — Supabase pooler username compatibility, 2026-10-18 (append-only)
+
+**READY_FOR_EXTERNAL_REVIEW (source only). Production C2 acceptance remains BLOCKED.** Reviewed HEAD e5fbd117ea5fe3240cc297b84766f02c6aaa98a5; branch feat/part18-c2-production-adapter-source. Fresh fetch/prune exit0; origin/main remains70e6e24dbe149f353ce20f0f2ede0cdcb42b2a8e. Initial working tree clean. Read the complete Backend2 PR43 review, original source-only task and approved production handoff. This correction does not implement optional P3 suggestions or update the existing PR.
+
+### Reproduction and minimal compatibility fix
+
+Added factory-boundary regressions first using the existing isolated child-process OS mocks: synthetic root authorization/deployment/binary metadata, mocked credential-file read and mocked Go execFile. No real DSN, root resource, credential, DB or network was used. The successful factory cases execute one mock Go BEFORE with APP_ENV=production and the original synthetic encoded DSN; rejection cases execute zero children. Existing manufactured-event tests still admit zero GET.
+
+Initial fail-first command: `node --test --test-name-pattern="production authority OS mock: credential_" scripts/revalidation/c2-projection-v2.test.mjs`. The shell initially selected Node20.20.2: exit1,16 PASS/3 FAIL,83 unrelated tests filtered/skipped. Direct username passed; pooler username and both valid URL-encoded forms failed. These filtered tests are not claimed executed. Subsequent checks explicitly select installed Node24.10.0. After the fix, those19 cases passed on Node24 (exit0,0 SKIP); two additional encoded line-separator cases are included in the final complete suite.
+
+Production-only username validation now decodes the URL username exactly once, rejects decode errors, and accepts only the complete exact role aktau_api_runtime or that role followed by a dot and exactly20 lowercase ASCII letters/digits. Full-match equality also rejects a trailing encoded line terminator despite JavaScript dollar-anchor semantics. The original encoded DSN is passed unchanged to Go, not reconstructed or double-decoded. Protocol, hostname, password, credential-file ownership/mode, independent root approval, executable authority, deployment identity and private custody checks are unchanged.
+
+The21 added cases cover direct/pooler and encoded direct/pooler success; ingest/postgres roles, extra suffix, SHORT,19/21-character refs, uppercase role/ref, punctuation, malformed/incomplete percent encoding, invalid UTF-8, double encoding, encoded suffix and LF/CR/Unicode line separator rejection. Go OpenProductionReadOnly still independently checks actual current_user/session_user and read-only authority. Local/synthetic factory behavior is untouched.
+
+### Actual verification
+
+| Command/check | Actual result |
+| --- | --- |
+| Non-root assertion, Node24.10.0; existing relayprobe built with GOTOOLCHAIN=go1.27.2 in an owned local temporary directory | exit0; uid1000; no production installation |
+| C2_LOCAL_PROBE=<owned-temp>/relayprobe node --test scripts/revalidation/*.test.mjs scripts/ci/guard.test.mjs | exit0;286/286 PASS,0 FAIL,0 SKIP;25.357s; existing265 retained plus21 cases |
+| GOTOOLCHAIN=go1.27.2 go test -count=1 ./cmd/c2projection ./internal/revalidation ./internal/postgres (backend-go) | exit0; all3 packages PASS, uncached |
+| node --check scripts/revalidation/projection-provider.mjs and scripts/revalidation/c2-projection-v2.test.mjs | exit0 each |
+| node scripts/revalidation/verify-part16.mjs | exit0; static boundaries PASS |
+| node scripts/ci/run-checks.mjs security | exit0; source/workflow policy and1/1 synthetic backup guard PASS |
+| git diff --check; exact three-path scope, historical-prefix preservation, local Markdown links, bounded privacy scan, archive safe members and all-file byte-match | PASS at final artifact verification |
+
+Exact correction paths: scripts/revalidation/projection-provider.mjs, scripts/revalidation/c2-projection-v2.test.mjs, and this append-only report. No Go/SQL/ingestion/frontend/API/HMAC/dependency/systemd/production configuration change. No production SSH/HTTP/SQL, credentials access, real observer, installation or deploy; no commit/push/PR update/merge. Hosted CI for this uncommitted correction is NOT RUN; earlier exact-SHA CI remains historical.
+
+New clean full-stack review artifact via unchanged scripts/create-clean-archive.mjs: **artifacts/adilbaga-part18-c2-pr43-dsn-compatibility-fix-20261018.tar.gz**. Preserve previous archives and the entire reviewed HEAD report prefix byte-for-byte. Production provisioning, independent alias/deployment evidence and three qualified legitimate publication measurements remain separate blocked gates. **STOP for independent Code Review.**
