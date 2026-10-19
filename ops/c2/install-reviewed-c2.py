@@ -42,6 +42,7 @@ class Installer:
         self.gid = os.getegid()
         self.root = sandbox
         self.fault = fault or (lambda point: None)
+        self._c2_identity = None
         if sandbox is None:
             require(self.uid == 0 and self.gid == 0)
             # Root must not execute an operator-writable installer checkout.
@@ -97,6 +98,65 @@ class Installer:
                 os.close(fd)
         finally:
             os.close(d)
+
+    def _operator(self, approval):
+        account = pwd.getpwnam('aktau-sync')
+        require(type(account.pw_uid) is int and account.pw_uid == approval['operatorUid']
+                and type(account.pw_gid) is int and 0 <= account.pw_gid < 2**32 - 1)
+        return account.pw_uid, account.pw_gid
+
+    def _check_c2_parent(self, fd, approval):
+        owner = self._operator(approval)
+        base = self.directory('/var/lib')  # general root-only walk unchanged
+        try:
+            linked = os.stat('aktau-sync', dir_fd=base, follow_symlinks=False)
+            st = os.fstat(fd)
+            require(stat.S_ISDIR(st.st_mode) and stat.S_ISDIR(linked.st_mode)
+                    and (st.st_dev, st.st_ino) == (linked.st_dev, linked.st_ino)
+                    and (st.st_uid, st.st_gid) == owner and stat.S_IMODE(st.st_mode) == 0o755
+                    and stat.S_IMODE(linked.st_mode) == 0o755)
+            identity = (st.st_dev, st.st_ino, *owner)
+            require(self._c2_identity is None or self._c2_identity == identity)
+            self._c2_identity = identity
+        finally:
+            os.close(base)
+
+    def _c2_parent(self, approval):
+        # Precisely the direct parent of TARGETS[2], never an exception for
+        # authority, bundle, receipt, /etc, /usr/local/libexec or arbitrary path.
+        self._operator(approval)
+        base = self.directory('/var/lib')
+        try:
+            fd = os.open('aktau-sync', os.O_RDONLY | os.O_DIRECTORY | NOFOLLOW, dir_fd=base)
+        finally:
+            os.close(base)
+        try:
+            self._check_c2_parent(fd, approval)
+            return fd
+        except BaseException:
+            os.close(fd)
+            raise
+
+    def _linked(self, fd, parent, name, record=None):
+        st = os.fstat(fd)
+        linked = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        require(stat.S_ISDIR(st.st_mode) and stat.S_ISDIR(linked.st_mode)
+                and (st.st_dev, st.st_ino) == (linked.st_dev, linked.st_ino))
+        if record is not None:
+            require((st.st_dev, st.st_ino) == (record['dev'], record['ino']))
+        return st
+
+    def _target_custody(self, st, index, approval, staging):
+        if index < 2:
+            require((st.st_uid, st.st_gid) == (self.uid, self.gid)
+                    and stat.S_IMODE(st.st_mode) in ((0o700, 0o755) if staging else (0o755,)))
+        else:
+            self._operator(approval)
+            # Same pre-existing sandbox mapping: do not chown host test data
+            # to the production account. Production uses only OS+approval IDs.
+            owner = (self.uid, self.gid) if self.root else self._operator(approval)
+            allowed = {owner, (self.uid, self.gid)} if staging else {owner}
+            require((st.st_uid, st.st_gid) in allowed and stat.S_IMODE(st.st_mode) == 0o700)
 
     def admission(self):
         raw = self.read(APPROVAL, mode=0o600)
@@ -193,22 +253,26 @@ class Installer:
         receipt_parent = self.directory(os.path.dirname(RECEIPT))
         receipt = None
         try:
-            for absolute in TARGETS:
-                parent = self.directory(os.path.dirname(absolute))
+            for index, absolute in enumerate(TARGETS):
+                parent = self._c2_parent(a) if index == 2 else self.directory(os.path.dirname(absolute))
                 parents.append(parent)
             # A missing receipt is not evidence that an earlier install left
             # no resources: inspect every parent before creating anything.
             self.inventory(parents, [])
+            self._check_c2_parent(parents[2], a)
             receipt = os.open(os.path.basename(RECEIPT), os.O_WRONLY | os.O_CREAT | os.O_EXCL | NOFOLLOW,
                               0o600, dir_fd=receipt_parent)
             self.append(receipt, {'version': 1, 'approvalHash': approval_hash})
             os.fsync(receipt_parent)
             for i, (absolute, parent) in enumerate(zip(TARGETS, parents)):
+                self._check_c2_parent(parents[2], a)
                 stage = '.aktau-c2-stage-' + secrets.token_hex(16)
                 os.mkdir(stage, 0o700, dir_fd=parent)
                 d = os.open(stage, os.O_RDONLY | os.O_DIRECTORY | NOFOLLOW, dir_fd=parent)
                 try:
-                    s = os.fstat(d)
+                    s = self._linked(d, parent, stage)
+                    require((s.st_uid, s.st_gid) == (self.uid, self.gid)
+                            and stat.S_IMODE(s.st_mode) == 0o700 and not os.listdir(d))
                     self.append(receipt, {'target': absolute, 'stage': stage, 'dev': s.st_dev, 'ino': s.st_ino})
                     os.fsync(parent)
                     if i == 0:
@@ -233,10 +297,15 @@ class Installer:
                         # Sandbox deliberately uses its own uid, never chowns
                         # local host resources to a production account.
                         owner = self.uid if self.root else a['operatorUid']
-                        group = self.gid if self.root else pwd.getpwnam('aktau-sync').pw_gid
-                        os.chown('ledger', owner, group, dir_fd=d, follow_symlinks=False)
+                        group = self.gid if self.root else self._operator(a)[1]
                         ledger = os.open('ledger', os.O_RDONLY | os.O_DIRECTORY | NOFOLLOW, dir_fd=d)
                         try:
+                            ledger_stat = self._linked(ledger, d, 'ledger')
+                            require((ledger_stat.st_uid, ledger_stat.st_gid) == (self.uid, self.gid)
+                                    and stat.S_IMODE(ledger_stat.st_mode) == 0o700 and not os.listdir(ledger))
+                            self._check_c2_parent(parent, a)
+                            self._linked(d, parent, stage)
+                            os.fchown(ledger, owner, group)
                             os.fsync(ledger)
                         finally:
                             os.close(ledger)
@@ -244,10 +313,15 @@ class Installer:
                     os.fsync(d)
                     os.fsync(parent)
                     self.fault('before_rename')
+                    self._check_c2_parent(parents[2], a)
+                    self._linked(d, parent, stage, {'dev': s.st_dev, 'ino': s.st_ino})
                     self.rename_new(parent, stage, os.path.basename(absolute))
+                    current = self._linked(d, parent, os.path.basename(absolute), {'dev': s.st_dev, 'ino': s.st_ino})
+                    self._target_custody(current, i, a, False)
                     self.fault('after_rename')
                 finally:
                     os.close(d)
+            self._check_c2_parent(parents[2], a)
             self.append(receipt, {'complete': True})
             return 'C2_PROVISIONED_INACTIVE'
         finally:
@@ -274,11 +348,12 @@ class Installer:
         if complete:
             intents = intents[:-1]
         verified = []
+        children = {}
         descriptors = contextlib.ExitStack()
         try:
             parents = []
-            for absolute in TARGETS:
-                parent = self.directory(os.path.dirname(absolute))
+            for index, absolute in enumerate(TARGETS):
+                parent = self._c2_parent(a) if index == 2 else self.directory(os.path.dirname(absolute))
                 descriptors.callback(os.close, parent)
                 parents.append(parent)
             # This MUST precede every deletion, including receipt unlink for
@@ -299,21 +374,24 @@ class Installer:
                 require(stat.S_ISDIR(s.st_mode) and s.st_dev == record['dev'] and s.st_ino == record['ino'])
                 d = os.open(name, os.O_RDONLY | os.O_DIRECTORY | NOFOLLOW, dir_fd=parent)
                 descriptors.callback(os.close, d)
+                st = self._linked(d, parent, name, record)
                 expected = contents if index == 0 else {'authorization.json': canonical(a['authorization'])} if index == 1 else {'ledger': None}
                 present_names = set(os.listdir(d))
                 # An inode-pinned private staging directory can contain only
                 # a prefix of the reviewed bytes after interrupted writes.
                 # Published trees require exact bytes and inventory.
                 staging = name == record['stage']
+                self._target_custody(st, index, a, staging)
                 require(present_names <= set(expected) if staging else present_names == set(expected))
                 expected = {k: v for k, v in expected.items() if k in present_names}
                 for filename, data in expected.items():
                     if data is None:
                         child = os.open(filename, os.O_RDONLY | os.O_DIRECTORY | NOFOLLOW, dir_fd=d)
-                        try:
-                            require(not os.listdir(child))
-                        finally:
-                            os.close(child)
+                        descriptors.callback(os.close, child)
+                        child_stat = self._linked(child, d, filename)
+                        self._target_custody(child_stat, 2, a, staging)
+                        require(not os.listdir(child))
+                        children[(d, filename)] = (child, {'dev': child_stat.st_dev, 'ino': child_stat.st_ino}, staging)
                     else:
                         fd = os.open(filename, os.O_RDONLY | os.O_NONBLOCK | NOFOLLOW, dir_fd=d)
                         try:
@@ -326,9 +404,20 @@ class Installer:
                             os.close(fd)
                 verified.append((parent, d, name, expected))
             self.inventory(parents, intents, complete)
+            self._check_c2_parent(parents[2], a)
+            for index, (parent, d, name, _) in enumerate(verified):
+                st = self._linked(d, parent, name, intents[index])
+                self._target_custody(st, index, a, name == intents[index]['stage'])
+            for (d, filename), (child, record, staging) in children.items():
+                child_stat = self._linked(child, d, filename, record)
+                self._target_custody(child_stat, 2, a, staging)
+                require(not os.listdir(child))
             for parent, d, name, expected in reversed(verified):
+                self._check_c2_parent(parents[2], a)
                 for filename, data in expected.items():
                     if data is None:
+                        child, record, _ = children[(d, filename)]
+                        self._linked(child, d, filename, record)
                         os.rmdir(filename, dir_fd=d)
                     else:
                         os.unlink(filename, dir_fd=d)
