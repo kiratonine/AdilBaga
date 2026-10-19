@@ -209,6 +209,118 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(OSError):
             self.installer.install()
 
+    def resources(self):
+        """Snapshot sandbox metadata/bytes without following links."""
+        result = {}
+        for p in self.root.rglob('*'):
+            s = p.lstat()
+            data = os.readlink(p) if p.is_symlink() else p.read_bytes() if p.is_file() else None
+            result[str(p.relative_to(self.root))] = (s.st_ino, s.st_mode, data)
+        return result
+
+    def assert_rollback_blocked_without_deletion(self):
+        before = self.resources()
+        with self.assertRaises(ValueError):
+            self.installer.rollback()
+        self.assertEqual(self.resources(), before, 'ambiguous resources and receipt must be preserved')
+
+    def crash_after_mkdir_before_intent(self, ordinal):
+        original = os.mkdir
+        seen = 0
+        def mkdir(name, *args, **kwargs):
+            nonlocal seen
+            original(name, *args, **kwargs)
+            if isinstance(name, str) and name.startswith('.aktau-c2-stage-'):
+                seen += 1
+                if seen == ordinal:
+                    raise RuntimeError('synthetic crash after mkdir before intent')
+        with patch.object(m.os, 'mkdir', side_effect=mkdir):
+            with self.assertRaises(RuntimeError):
+                self.installer.install()
+        self.assertEqual(seen, ordinal)
+        self.assert_rollback_blocked_without_deletion()
+        before = self.resources()
+        with self.assertRaises((ValueError, FileExistsError)):
+            self.installer.install()
+        self.assertEqual(self.resources(), before)
+
+    def test_crash_after_first_mkdir_before_intent_blocks_rollback(self):
+        self.crash_after_mkdir_before_intent(1)
+
+    def test_crash_after_second_mkdir_before_intent_blocks_rollback(self):
+        self.crash_after_mkdir_before_intent(2)
+
+    def test_crash_after_third_mkdir_before_intent_blocks_rollback(self):
+        self.crash_after_mkdir_before_intent(3)
+
+    def partial_receipt(self):
+        def fault(point):
+            if point == 'before_rename':
+                raise RuntimeError('synthetic recorded partial install')
+        with self.assertRaises(RuntimeError):
+            m.Installer(str(self.root), fault).install()
+
+    def test_orphan_in_unrecorded_parent_with_partial_receipt_blocks_all_deletion(self):
+        self.partial_receipt()
+        third_parent = self.root / pathlib.Path(m.TARGETS[2]).parent.as_posix().lstrip('/')
+        (third_parent / ('.aktau-c2-stage-' + 'f' * 32)).mkdir()
+        self.assert_rollback_blocked_without_deletion()
+
+    def test_unknown_target_in_unrecorded_parent_blocks_all_deletion(self):
+        self.partial_receipt()
+        (self.root / m.TARGETS[2].lstrip('/')).mkdir()
+        self.assert_rollback_blocked_without_deletion()
+
+    def test_install_rejects_orphan_without_receipt_in_each_parent(self):
+        for target in m.TARGETS:
+            with self.subTest(target=target):
+                parent = self.root / pathlib.Path(target).parent.as_posix().lstrip('/')
+                orphan = parent / ('.aktau-c2-stage-' + 'e' * 32)
+                orphan.mkdir()
+                before = self.resources()
+                with self.assertRaises(ValueError):
+                    self.installer.install()
+                self.assertEqual(self.resources(), before)
+                orphan.rmdir()
+
+    def test_unknown_stage_name_or_symlink_is_not_ignored(self):
+        self.installer.install()
+        parent = self.root / pathlib.Path(m.TARGETS[1]).parent.as_posix().lstrip('/')
+        orphan = parent / '.aktau-c2-stage-not-a-valid-token'
+        orphan.symlink_to('missing-target')
+        self.assert_rollback_blocked_without_deletion()
+
+    def test_duplicate_intent_and_incomplete_complete_marker_are_ambiguous(self):
+        self.partial_receipt()
+        p = self.root / m.RECEIPT.lstrip('/')
+        raw = p.read_bytes()
+        intent = raw.splitlines(keepends=True)[1]
+        p.write_bytes(raw + intent)
+        self.assert_rollback_blocked_without_deletion()
+        p.write_bytes(raw + m.canonical({'complete': True}))
+        self.assert_rollback_blocked_without_deletion()
+
+    def test_header_only_receipt_without_resources_rolls_back_normally(self):
+        _, _, digest = self.installer.admission()
+        receipt = self.root / m.RECEIPT.lstrip('/')
+        receipt.write_bytes(m.canonical({'version': 1, 'approvalHash': digest}))
+        receipt.chmod(0o600)
+        self.assertEqual(self.installer.rollback(), 'ROLLED_BACK_OWN_INACTIVE_RESOURCES')
+        self.assertFalse(receipt.exists())
+
+    def test_boolean_header_or_numeric_complete_marker_is_ambiguous(self):
+        self.installer.install()
+        receipt = self.root / m.RECEIPT.lstrip('/')
+        raw = receipt.read_bytes()
+        records = [json.loads(line) for line in raw.splitlines()]
+        records[0]['version'] = True
+        receipt.write_bytes(b''.join(m.canonical(record) for record in records))
+        self.assert_rollback_blocked_without_deletion()
+        records[0]['version'] = 1
+        records[-1]['complete'] = 1
+        receipt.write_bytes(b''.join(m.canonical(record) for record in records))
+        self.assert_rollback_blocked_without_deletion()
+
 
 if __name__ == '__main__':
     unittest.main()

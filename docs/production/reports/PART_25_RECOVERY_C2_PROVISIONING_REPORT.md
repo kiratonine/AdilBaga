@@ -176,3 +176,69 @@ credential, private path, raw data/log, key identifier or backup is in this repo
 
 Owner review target is source/installation safety, not production acceptance.
 STOP after Draft PR and clean source artifact; no merge/deploy/activation implied.
+
+## Append-only P1 correction — unregistered staging crash window
+
+2026-10-19 UTC / 2026-10-20 local. Reviewed starting commit
+`73dd2e34c158d57343da850b06b565f51d959dd5`, existing Draft PR #49. The previous
+results above are preserved as historical evidence; their crash coverage missed
+the interval after successful staging mkdir and before durable receipt intent.
+In that interval the former rollback could remove the receipt, report success
+and leave an orphan staging directory. The independent review finding was
+reproduced locally; it is not a production incident observation.
+
+**Fail-first:** eight new regression methods added before modifying installer
+logic produced exit1, **23 tests / 8 failures** on the reviewed implementation.
+Failures include crashes on targets one/two/three, orphan with partial receipt,
+unrecorded target, install over orphan without a receipt, malformed reserved
+stage names and ambiguous completion records. No assertion was weakened.
+
+**Correction:** one shared read-only inventory guard pins/checks **all three**
+fixed target parents, including parents absent from partial receipt intents.
+Install rejects every reserved staging entry or existing target before creating
+a receipt or staging resource. Rollback validates ordered, unique, exact typed
+intents and a consistent completion marker; requires each recorded resource to
+exist in exactly one final/stage location; rejects unknown reserved names,
+unregistered targets, duplicate/ambiguous records and incomplete completion.
+The entire inventory is checked before byte validation and again before the
+first deletion, including the header-only receipt case. Unknown stages are not
+adopted or removed based on their names. On uncertainty the operation is BLOCKED
+and preserves receipt/resources for manual reconciliation.
+
+Existing pinned directory descriptors, no-follow checks, root custody, approval
+and content digests, inode/device verification, no-clobber rename, short-write
+handling and file/directory fsync remain in place. A header-only receipt with
+**no** resources in any parent can still roll back normally. No automatic
+repair, orphan deletion, stale-lock bypass or overwrite path was added.
+
+Scope is exactly **three files** relative to the reviewed commit:
+`ops/c2/install-reviewed-c2.py`, `ops/c2/test_install_reviewed_c2.py`, and this
+append-only report. Tests snapshot all sandbox resources and verify that blocked
+rollback/install causes no deletion or byte/inode changes. Additional controls
+cover normal rollback, malformed typed markers and clean header-only rollback.
+
+| Repeated command / check | Actual result |
+| --- | --- |
+| `python3 -B -m unittest discover -s ops/c2 -p 'test_*.py'` | exit0; **25/25 PASS**, original 15 retained |
+| `node scripts/ci/run-checks.mjs ops` | exit0; **177/177 PASS**, 0 SKIP; invokes the complete Python sandbox suite |
+| `node --test scripts/revalidation/*.test.mjs scripts/ci/guard.test.mjs` with freshly built reviewed local relayprobe | exit0; **286/286 PASS**, 0 SKIP |
+| `node scripts/revalidation/joint-poc.mjs` | exit0; **15/15 PASS**, 0 SKIP; real local Go/FIFO/PG17, owned PG cleanup PASS |
+| `node scripts/ci/run-db-integration.mjs` | exit0; disposable PG17 migrations/C2/Go/restricted role regressions PASS; owned PG cleanup PASS |
+| `node scripts/ci/run-checks.mjs security` | exit0; source/workflow policy and backup guards PASS |
+| Focused Go `test -count=1`, `test -race -count=1`, `vet` on cmd/c2projection, internal/revalidation, internal/postgres | all exit0, all three packages PASS |
+| Deployment Node gate/Part15 tests; Python auto deploy tests | exit0; **52/52** and **39/39 PASS** respectively |
+| `node scripts/revalidation/verify-part16.mjs` | exit0; static boundaries only |
+| Python AST, unchanged JS syntax, exact scope, report-prefix/link/privacy checks, `git diff --check` | PASS |
+
+Local execution used Node24.10.0 / Go1.27.2, nonroot; all installation/crash tests
+used disposable owned sandbox trees. No source contract, Go, Frontend, Backend2,
+database, credential, workflow or deployment setting changed. No production
+access, provisioning, publish, restore or C2 observation occurred. Production
+Recovery remains RECOVERY_BLOCKED_INPUT and C2 remains C2_READY_FOR_APPROVAL,
+acceptance **0/3 NOT_RUN**. These statuses are not closed by local regression PASS.
+
+The correction is published to the same feature branch/PR only after local
+gates. Exact commit, full hosted CI outcome and freshly regenerated safe archive
+SHA256 are supplied in the final handoff; they are not inferred from an older
+run or recursively embedded into the archived report. No merge or production
+activation is authorized by this correction. STOP for independent repeat review.

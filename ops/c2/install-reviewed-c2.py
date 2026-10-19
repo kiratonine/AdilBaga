@@ -156,6 +156,37 @@ class Installer:
             raise OSError(ctypes.get_errno(), 'no_clobber')
         os.fsync(parent)
 
+    def inventory(self, parents, intents, complete=False):
+        """All fixed parents, including those missing from a partial receipt.
+
+        A staging name alone is never ownership proof. Unknown reserved names
+        (including links/files), unrecorded targets or contradictory records
+        preserve the entire receipt/resources for manual reconciliation.
+        """
+        require(len(parents) == len(TARGETS) and len(intents) <= len(TARGETS))
+        require(not complete or len(intents) == len(TARGETS))
+        stages = set()
+        for index, record in enumerate(intents):
+            require(type(record) is dict and set(record) == {'target', 'stage', 'dev', 'ino'}
+                    and record['target'] == TARGETS[index]
+                    and type(record['stage']) is str
+                    and re.fullmatch(r'\.aktau-c2-stage-[0-9a-f]{32}', record['stage'])
+                    and record['stage'] not in stages
+                    and type(record['dev']) is int and record['dev'] >= 0
+                    and type(record['ino']) is int and record['ino'] > 0)
+            stages.add(record['stage'])
+        for index, (absolute, parent) in enumerate(zip(TARGETS, parents)):
+            names = set(os.listdir(parent))
+            reserved = {name for name in names if name.startswith('.aktau-c2-stage-')}
+            final = os.path.basename(absolute)
+            if index >= len(intents):
+                require(not reserved and final not in names)
+                continue
+            stage = intents[index]['stage']
+            require(reserved <= {stage})
+            require((final in names) != (stage in names))
+            require(not complete or final in names)
+
     def install(self):
         a, contents, approval_hash = self.admission()
         parents = []
@@ -165,11 +196,9 @@ class Installer:
             for absolute in TARGETS:
                 parent = self.directory(os.path.dirname(absolute))
                 parents.append(parent)
-                try:
-                    os.stat(os.path.basename(absolute), dir_fd=parent, follow_symlinks=False)
-                except FileNotFoundError:
-                    continue
-                raise ValueError('existing_target')
+            # A missing receipt is not evidence that an earlier install left
+            # no resources: inspect every parent before creating anything.
+            self.inventory(parents, [])
             receipt = os.open(os.path.basename(RECEIPT), os.O_WRONLY | os.O_CREAT | os.O_EXCL | NOFOLLOW,
                               0o600, dir_fd=receipt_parent)
             self.append(receipt, {'version': 1, 'approvalHash': approval_hash})
@@ -237,19 +266,26 @@ class Installer:
         records = [json.loads(line) for line in lines]
         require(all(canonical(r) == line for r, line in zip(records, lines)))
         a, contents, digest = self.admission()
-        require(records[0] == {'version': 1, 'approvalHash': digest})
+        require(records and type(records[0]) is dict and type(records[0].get('version')) is int
+                and records[0] == {'version': 1, 'approvalHash': digest})
         intents = records[1:]
-        if intents and intents[-1] == {'complete': True}:
+        complete = bool(intents and type(intents[-1]) is dict and set(intents[-1]) == {'complete'}
+                        and intents[-1]['complete'] is True)
+        if complete:
             intents = intents[:-1]
-        require(len(intents) <= 3 and len({r.get('target') for r in intents}) == len(intents))
         verified = []
         descriptors = contextlib.ExitStack()
         try:
-            for index, record in enumerate(intents):
-                require(set(record) == {'target', 'stage', 'dev', 'ino'} and record['target'] == TARGETS[index]
-                        and re.fullmatch(r'\.aktau-c2-stage-[0-9a-f]{32}', record['stage']))
-                parent = self.directory(os.path.dirname(record['target']))
+            parents = []
+            for absolute in TARGETS:
+                parent = self.directory(os.path.dirname(absolute))
                 descriptors.callback(os.close, parent)
+                parents.append(parent)
+            # This MUST precede every deletion, including receipt unlink for
+            # a header-only receipt after mkdir-before-intent interruption.
+            self.inventory(parents, intents, complete)
+            for index, record in enumerate(intents):
+                parent = parents[index]
                 final = os.path.basename(record['target'])
                 present = []
                 for name in (final, record['stage']):
@@ -289,6 +325,7 @@ class Installer:
                         finally:
                             os.close(fd)
                 verified.append((parent, d, name, expected))
+            self.inventory(parents, intents, complete)
             for parent, d, name, expected in reversed(verified):
                 for filename, data in expected.items():
                     if data is None:
