@@ -1,7 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {eventCandidate,verifyCI,mandatory,repository} from './auto-gate.mjs';
-import {sshOptions,runtimeChanged} from './auto-transport.mjs';
+import * as transport from './auto-transport.mjs';
+import childProcess from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+const {sshOptions,runtimeChanged}=transport;
 const sha='a'.repeat(40);
 function fixture(){
   const r={id:42,workflow_id:7,event:'push',head_sha:sha,head_branch:'main',status:'completed',conclusion:'success',
@@ -64,3 +71,154 @@ test('documentation/frontend/integration-only changes do not rebuild runtime',()
   for(const path of ['backend-go/Dockerfile','backend-go/.dockerignore','backend-go/go.mod','backend-go/go.sum',
     'backend-go/cmd/api/main.go','backend-go/internal/voice/service.go'])assert.equal(runtimeChanged([path]),true);
 });
+
+const active='438ecdfa3d386a186dcd8b73c3c10aef5e79dc82';
+const reviewed='b75af8b2f290b96736d473c18e9aaf8746efe6d4';
+const tooling={
+  'contracts/package.json':['ee97d962531376e81a0b9175d8eef2aaa36a7c9c','48a7866b9084cbc25b2dafc1089713eb555e0a38'],
+  'contracts/pnpm-lock.yaml':['5ec3371eba46c18660421d89949aa0ebf890d534','4a631ef27450ce85b818e4fe02705b9bcd224c13'],
+};
+
+// All Git/SSH responses here are synthetic OS fixtures; no network, repository
+// writes or reliance on historical objects in a shallow CI checkout.
+function fixtureGit(args,{old=active,next=reviewed,paths=Object.keys(tooling),change={},fail=false,mode='100644'}={}) {
+  const a=args.filter(x=>x!=='--no-replace-objects');
+  const ok=stdout=>({status:0,stdout:Buffer.from(stdout),stderr:Buffer.alloc(0)});
+  if(fail)return {status:128,stdout:Buffer.alloc(0),stderr:Buffer.from('synthetic failure')};
+  if(a[0]==='rev-parse') {
+    const ref=a.at(-1).replace(/\^\{commit\}$/,'');
+    return [old,next].includes(ref)?ok(ref+'\n'):{status:128,stdout:Buffer.alloc(0)};
+  }
+  if(a[0]==='diff') {
+    if(a.at(-1)==='backend-go')return ok('backend-go/internal/httpapi/server.go\n');
+    return ok(paths.length?paths.join(a.includes('-z')?'\0':'\n')+(a.includes('-z')?'\0':'\n'):'');
+  }
+  if(a[0]==='ls-tree') {
+    const path=a.at(-1),ref=a[a.indexOf('--')-1],key=ref+':'+path;
+    if(change[key]==='missing')return ok('');
+    const hash=change[key]??tooling[path]?.[ref===old?0:1];
+    return hash?ok(mode+' blob '+hash+'\t'+path+'\0'):ok('');
+  }
+  throw Error('unexpected synthetic Git operation');
+}
+function withGit(options,run) {
+  const original=childProcess.spawnSync,calls=[];
+  childProcess.spawnSync=(command,args,limits)=>{
+    assert.equal(command,'git');assert.ok(args.includes('--no-replace-objects'));
+    assert.equal(limits.timeout,10000);assert.equal(limits.maxBuffer,1<<20);
+    calls.push(args);
+    if(options.failAt===calls.length)return {status:null,stdout:Buffer.alloc(0),error:Error('synthetic timeout')};
+    if(options.corruptAt===calls.length)return {status:0,stdout:Buffer.from('malformed Git output')};
+    return fixtureGit(args,options);
+  };
+  syncBuiltinESMExports();
+  try{return run(calls);}finally{childProcess.spawnSync=original;syncBuiltinESMExports();}
+}
+
+test('real transport plan accepts reviewed tooling pair after artifact/CI checks (synthetic OS)',()=>{
+  const dir=mkdtempSync(join(tmpdir(),'p1-transport-plan-'));
+  try {
+    const build=join(dir,'release-artifact');mkdirSync(build);
+    const raw=Buffer.from('synthetic archive; not a Docker image');
+    const m={sha:reviewed,size:raw.length,archive:createHash('sha256').update(raw).digest('hex'),
+      provenance:{repository,ciWorkflow:'.github/workflows/ci.yml',ciRunId:42,ciAttempt:2,
+        buildWorkflow:'.github/workflows/deploy-production.yml',buildRunId:43,buildAttempt:1}};
+    const f=fixture();f.run.head_sha=reviewed;f.jobs.forEach(j=>j.head_sha=reviewed);
+    const metadata={ci:{id:42,run_attempt:2,head_sha:reviewed},
+      run:{id:43,workflow_id:8,event:'workflow_dispatch',head_branch:'main',head_sha:reviewed,
+        status:'completed',conclusion:'success',run_attempt:1,repository:{full_name:repository},head_repository:{full_name:repository}},
+      workflow:{id:8,path:'.github/workflows/deploy-production.yml',state:'active'},
+      artifact:{id:99,name:`adilbaga-api-${reviewed}-43-1`,expired:false,workflow_run:{id:43,head_sha:reviewed}}};
+    writeFileSync(join(build,'image.tar'),raw);writeFileSync(join(build,'manifest.json'),JSON.stringify(m));
+    writeFileSync(join(dir,'artifact-metadata.json'),JSON.stringify(metadata));
+    writeFileSync(join(dir,'adilbaga-build-path'),build);
+    const replies={
+      'actions/runs/42':f.run,'actions/workflows/7':f.workflow,
+      'actions/runs/42/attempts/2/jobs?per_page=100':{total_count:f.jobs.length,jobs:f.jobs},
+      'git/ref/heads/main':{object:{sha:reviewed}},
+    };
+    const program=`
+import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';
+import assert from 'node:assert/strict';
+const active=${JSON.stringify(active)},reviewed=${JSON.stringify(reviewed)},tooling=${JSON.stringify(tooling)};
+const fixtureGit=${fixtureGit.toString()},replies=${JSON.stringify(replies)};
+let ssh=0;
+cp.spawnSync=(command,args)=>{
+  if(command==='git'){
+    const value=fixtureGit(args);
+    if(args.includes('diff')&&args.at(-1)!=='backend-go')console.log('SYNTHETIC_PROTECTED_DIFF_RETURNED');
+    return value;
+  }
+  assert.equal(command,'ssh');ssh++;assert.equal(ssh,1);
+  return {status:0,stdout:Buffer.from(JSON.stringify({active,available:true}))};
+};syncBuiltinESMExports();
+globalThis.fetch=async url=>{
+  const prefix='https://api.github.com/repos/kiratonine/AdilBaga/';
+  assert.ok(url.startsWith(prefix));const key=url.slice(prefix.length);
+  assert.ok(Object.hasOwn(replies,key));return {ok:true,json:async()=>replies[key]};
+};
+process.argv[1]=${JSON.stringify(new URL('./auto-transport.mjs',import.meta.url).pathname)};
+await import(${JSON.stringify(new URL('./auto-transport.mjs',import.meta.url).href)});
+process.on('exit',()=>console.log('SYNTHETIC_SSH_CALLS='+ssh));
+`;
+    const r=childProcess.spawnSync(process.execPath,['--input-type=module','-e',program],{timeout:15000,encoding:'utf8',
+      env:{PATH:process.env.PATH,HOME:process.env.HOME,RUNNER_TEMP:dir,GITHUB_OUTPUT:join(dir,'output'),
+        AUTO_DEPLOY_ENABLED:'true',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',
+        DEPLOY_MODE:'deploy',DEPLOY_PHASE:'plan',RELEASE_SHA:reviewed,CI_RUN:'42',GITHUB_TOKEN:'synthetic',
+        DEPLOY_HOST:'unit.invalid',DEPLOY_USER:'deploy_ci',DEPLOY_PORT:'22',DEPLOY_SSH_KEY:'synthetic',DEPLOY_KNOWN_HOSTS:'synthetic'}});
+    assert.match(r.stdout,/SYNTHETIC_PROTECTED_DIFF_RETURNED/);
+    assert.equal(r.status,0,r.stdout+r.stderr);
+    assert.match(r.stdout,/PLAN_VERIFIED/);assert.match(r.stdout,/SYNTHETIC_SSH_CALLS=1/);
+    assert.equal(readFileSync(join(dir,'output'),'utf8'),'changed=true\n');
+  } finally {rmSync(dir,{recursive:true,force:true});}
+});
+
+test('compatibility guard validates all four Git blobs and uses no-renames/NUL paths',()=>withGit({},calls=>{
+  transport.verifyCompatibility(active,reviewed);
+  const diff=calls.find(a=>a.includes('diff'));
+  assert.ok(diff.includes('--no-renames')&&diff.includes('-z'));
+  assert.deepEqual(diff.slice(diff.indexOf('--')+1),['backend/prisma','contracts','deploy/compose.production.yml']);
+  assert.equal(calls.filter(a=>a.includes('ls-tree')).length,4);
+}));
+test('future verified main with identical tooling blobs is not pinned to an obsolete candidate SHA',()=>{
+  const next='c'.repeat(40);
+  withGit({next},()=>transport.verifyCompatibility(active,next));
+  assert.equal(runtimeChanged(['backend-go/internal/httpapi/server.go','docs/report.md']),true);
+});
+test('unchanged protected objects remain admissible without any tooling exception',()=>withGit({paths:[]},calls=>{
+  transport.verifyCompatibility(active,reviewed);
+  assert.equal(calls.filter(a=>a.includes('ls-tree')).length,0);
+}));
+for(const path of ['contracts/openapi.yaml','contracts/examples/products.json','contracts/other.json',
+  'contracts/package.json.extra','backend/prisma/schema.prisma','backend/prisma/migrations/new.sql','deploy/compose.production.yml'])
+  test(`compatibility rejects extra protected change ${path}`,()=>withGit({paths:[...Object.keys(tooling),path]},()=>{
+    assert.throws(()=>transport.verifyCompatibility(active,reviewed));
+  }));
+for(const path of Object.keys(tooling))for(const ref of [active,reviewed])for(const hash of ['0'.repeat(40),'missing'])
+  test(`compatibility rejects ${path} ${ref===active?'old':'new'} ${hash==='missing'?'missing':'modified'} blob`,()=>{
+    withGit({change:{[ref+':'+path]:hash}},()=>assert.throws(()=>transport.verifyCompatibility(active,reviewed)));
+  });
+for(const paths of [['contracts/package.json'],['contracts/pnpm-lock.yaml'],
+  ['contracts/package.json','contracts/package.json'],['contracts/package.json','contracts/renamed-lock.yaml']])
+  test(`compatibility rejects incomplete/duplicate/rename path set ${paths.join(',')}`,()=>withGit({paths},()=>{
+    assert.throws(()=>transport.verifyCompatibility(active,reviewed));
+  }));
+test('same tooling pair with a different active commit is not an approved exception',()=>{
+  const old='d'.repeat(40);withGit({old},()=>assert.throws(()=>transport.verifyCompatibility(old,reviewed)));
+});
+for(const ref of ['main','--all','abc','A'.repeat(40),'f'.repeat(40)])
+  test(`compatibility rejects malformed/unknown candidate ${ref}`,()=>withGit({},()=>{
+    assert.throws(()=>transport.verifyCompatibility(active,ref));
+  }));
+test('Git failure is fail-closed even if there appear to be no changed protected files',()=>withGit({fail:true,paths:[]},()=>{
+  assert.throws(()=>transport.verifyCompatibility(active,reviewed));
+}));
+for(let failAt=1;failAt<=7;failAt++)test(`Git timeout/failure at operation ${failAt} blocks`,()=>withGit({failAt},()=>{
+  assert.throws(()=>transport.verifyCompatibility(active,reviewed));
+}));
+for(const corruptAt of [1,3,4])test(`malformed Git output at operation ${corruptAt} blocks`,()=>withGit({corruptAt},()=>{
+  assert.throws(()=>transport.verifyCompatibility(active,reviewed));
+}));
+for(const mode of ['120000','100755','160000'])test(`tooling Git mode ${mode} is not the reviewed regular file`,()=>withGit({mode},()=>{
+  assert.throws(()=>transport.verifyCompatibility(active,reviewed));
+}));

@@ -36,6 +36,32 @@ Do not add arbitrary downloads, remote commands, caller-controlled paths,
 shell interpolation, PR caches or broader token permissions.
 See [GitHub workflow-run guidance](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).
 
+## Exact historical tooling compatibility (source-only P1 follow-up)
+
+Transport still blocks every protected change under `backend/prisma`, `contracts`
+and `deploy/compose.production.yml` by default. There is exactly one source-pinned
+exception, not a blanket exclusion of package files or the contracts directory:
+
+- active release must be `438ecdfa3d386a186dcd8b73c3c10aef5e79dc82`;
+- the complete protected diff must contain **both and only** the following paths;
+- runtime Git-object checks must match all four regular-file (`100644 blob`)
+  identities below; no working-tree, artifact-supplied or environment override.
+
+| Path | Active blob | Candidate blob |
+| --- | --- | --- |
+| contracts/package.json | ee97d962531376e81a0b9175d8eef2aaa36a7c9c | 48a7866b9084cbc25b2dafc1089713eb555e0a38 |
+| contracts/pnpm-lock.yaml | 5ec3371eba46c18660421d89949aa0ebf890d534 | 4a631ef27450ce85b818e4fe02705b9bcd224c13 |
+
+These blobs identify only the reviewed ajv/yaml tooling dependency update. The
+candidate is the **fresh main commit verified by CI and immutable artifact
+checks**, not a fixed future merge SHA. Missing/unknown objects, Git failures,
+renames/deletes, additional paths, changed pins or a different active release
+fail closed for this exception. Ordinary releases with no protected diff retain
+their existing behavior. This gate proves neither API/DB runtime compatibility
+nor actual VPS readiness; independent approval, rollback, broker and deployment
+activation prerequisites are unchanged. No production setup is authorized by
+this source exception.
+
 ## Owner-only GitHub setup — NOT executed
 
 1. External review of source, root broker, failure tests and privileges first.
