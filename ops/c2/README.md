@@ -116,7 +116,8 @@ grant is part of this kit. Installer invocation uses the existing admin channel.
 
 Approval is canonical JSON + LF with exact keys `version`, `authorization`,
 `files`, `operatorUid`, `recipe`, `nodeMajor`. Version1/Node24; positive existing
-operator UID >=1000; recipe exactly `BUILD_RECIPE`. `files` maps the two ELF,
+operator UID >0, exactly matching the existing literal OS account `aktau-sync`
+(system UIDs below1000 are allowed); recipe exactly `BUILD_RECIPE`. `files` maps the two ELF,
 five Node filenames and `source-manifest.json` to SHA256. `authorization` is
 the **independently supplied** existing provider record, exact fields: version1,
 Owner-approved boolean, sourceSha40, binarySha25664, clockSha25664, safe buildId,
@@ -185,6 +186,22 @@ accounts or permissions. After independent source review/merge, a separate
 authorized preflight must prepare missing root parents/stage the independently
 reviewed artifacts, validate approval and all interlocks, then permit one
 inactive install. No actual production installation is part of this source fix.
+
+### Part29 — existing service UID compatibility
+
+Admission accepts only a positive integer UID of that existing literal account,
+not UID0, negative values, booleans, unknown accounts or a different account's
+UID. Admission uses the same private OS-account helper in production and the
+disposable sandbox, including the unchanged primary-GID type/range checks.
+Parent ownership must still match both UID and primary GID with exact0755,
+no-follow traversal and pinned device/inode checks. No configurable UID, path,
+account or env override is introduced; all other root-only custody remains.
+
+This is source-only compatibility, not permission to modify the existing
+account/parent or to install. Part28 staging remains an unapproved candidate;
+it must not be overwritten by this work. A future installation requires a
+new exact-SHA build/independent artifact review and separate Owner permission.
+No production approval file, install, rollback or activation is performed here.
 
 ## Rollback and crash handling
 

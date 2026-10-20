@@ -329,11 +329,11 @@ class InstallTests(unittest.TestCase):
         self.assert_rollback_blocked_without_deletion()
 
     @contextlib.contextmanager
-    def delegated(self):
+    def delegated(self, uid=42001, gid=42002):
         parent = self.root / 'var/lib/aktau-sync'
-        self.a['operatorUid'] = 42001
+        self.a['operatorUid'] = uid
         self.save()
-        virtual = {parent.stat().st_ino: (42001, 42002)}
+        virtual = {parent.stat().st_ino: (uid, gid)}
         original = os.fstat
         def fstat(fd):
             st = original(fd)
@@ -342,10 +342,89 @@ class InstallTests(unittest.TestCase):
                 values[4], values[5] = virtual[st.st_ino]
                 return os.stat_result(values)
             return st
-        with patch.object(m.pwd, 'getpwnam', return_value=SimpleNamespace(pw_uid=42001, pw_gid=42002)) as account:
+        with patch.object(m.pwd, 'getpwnam', return_value=SimpleNamespace(pw_uid=uid, pw_gid=gid)) as account:
             with patch.object(m.os, 'fstat', side_effect=fstat):
                 yield parent, virtual
             self.assertTrue(all(call.args == ('aktau-sync',) for call in account.call_args_list))
+
+    def test_service_uid_below_1000_admission(self):
+        with self.delegated(uid=999, gid=998):
+            approved, _, _ = self.installer.admission()
+            self.assertEqual(approved['operatorUid'], 999)
+
+    def test_service_uid_sandbox_install_rollback_preserves_parent(self):
+        with self.delegated(uid=999, gid=998) as (parent, _):
+            sibling = parent / 'unrelated-state'
+            sibling.write_bytes(b'synthetic preserved state')
+            before = parent.stat()
+            self.assertEqual(self.installer.install(), 'C2_PROVISIONED_INACTIVE')
+            self.assertEqual(self.installer.rollback(), 'ROLLED_BACK_OWN_INACTIVE_RESOURCES')
+            after = parent.stat()
+            self.assertEqual((before.st_ino, before.st_uid, before.st_gid, before.st_mode),
+                             (after.st_ino, after.st_uid, after.st_gid, after.st_mode))
+            self.assertEqual(list(parent.iterdir()), [sibling])
+            self.assertEqual(sibling.read_bytes(), b'synthetic preserved state')
+
+    def test_regular_uid_admission_compatibility(self):
+        with self.delegated():
+            self.assertEqual(self.installer.admission()[0]['operatorUid'], 42001)
+
+    def test_uid_zero_negative_bool_and_noninteger_rejected_before_writes(self):
+        for uid in (0, -1, True, False, 999.0, '999'):
+            with self.subTest(uid=uid):
+                self.a['operatorUid'] = uid
+                self.save()
+                before = self.resources()
+                with self.assertRaises(ValueError):
+                    self.installer.install()
+                self.assertEqual(self.resources(), before)
+
+    def test_unknown_account_rejected_at_admission(self):
+        with patch.object(m.pwd, 'getpwnam', side_effect=KeyError('synthetic absent account')):
+            before = self.resources()
+            with self.assertRaises(KeyError):
+                self.installer.admission()
+            self.assertEqual(self.resources(), before)
+
+    def test_foreign_uid_rejected_at_admission(self):
+        with self.delegated():
+            self.a['operatorUid'] = 42003
+            self.save()
+            before = self.resources()
+            with self.assertRaises(ValueError):
+                self.installer.admission()
+            self.assertEqual(self.resources(), before)
+
+    def test_service_uid_invalid_os_gid_rejected_at_admission(self):
+        with self.delegated(uid=999, gid=998):
+            for gid in (-1, True, '998', 2**32 - 1):
+                with self.subTest(gid=gid):
+                    with patch.object(m.pwd, 'getpwnam', return_value=SimpleNamespace(pw_uid=999, pw_gid=gid)):
+                        before = self.resources()
+                        with self.assertRaises(ValueError):
+                            self.installer.admission()
+                        self.assertEqual(self.resources(), before)
+
+    def test_service_uid_parent_wrong_gid_rejected_before_writes(self):
+        with self.delegated(uid=999, gid=998) as (parent, virtual):
+            virtual[parent.stat().st_ino] = (999, 997)
+            before = self.resources()
+            with self.assertRaises(ValueError):
+                self.installer.install()
+            self.assertEqual(self.resources(), before)
+
+    def test_service_uid_crash_orphan_protection_all_three_parents(self):
+        for ordinal in (1, 2, 3):
+            with self.subTest(ordinal=ordinal):
+                # Independent disposable sandbox for each crash/interlock.
+                case = InstallTests('test_actual_install_then_exact_rollback')
+                case.setUp()
+                try:
+                    with case.delegated(uid=999, gid=998):
+                        case.crash_after_mkdir_before_intent(ordinal)
+                finally:
+                    case.doCleanups()
+                    case.tearDown()
 
     def test_delegated_parent_install_rollback_preserves_parent_and_sibling(self):
         with self.delegated() as (parent, _):
