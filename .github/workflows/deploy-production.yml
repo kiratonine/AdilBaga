@@ -8,7 +8,7 @@ on:
     inputs:
       mode:
         type: choice
-        options: [dry-run, build, deploy]
+        options: [dry-run, build, deploy, plan]
         default: dry-run
       sha:
         description: Exact main SHA (build/deploy)
@@ -160,3 +160,45 @@ jobs:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: node scripts/deploy/auto-transport.mjs
+  # Separately reviewed diagnostic only: exact main/CI/artifact and the same
+  # Production identity, but immutable CLI selection cannot invoke submit.
+  plan_only:
+    needs: offline
+    if: github.repository == 'kiratonine/AdilBaga' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'plan' && vars.AUTO_DEPLOY_ENABLED != 'true'
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: main, fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: {node-version: '24.10.0', package-manager-cache: false}
+      - name: Verify exact main CI and immutable producer
+        id: artifact
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          CI_RUN: ${{ inputs.ci_run }}
+          RELEASE_ARTIFACT_ID: ${{ inputs.artifact_id }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/deploy/auto-build.mjs artifact
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ steps.artifact.outputs.artifact_id }}
+          run-id: ${{ steps.artifact.outputs.build_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/release-artifact
+          merge-multiple: true
+      - run: node scripts/deploy/auto-build.mjs verify-download
+      - name: Read-only planning diagnostics; no submit capability
+        env:
+          DEPLOY_MODE: plan
+          AUTO_DEPLOY_ENABLED: ${{ vars.AUTO_DEPLOY_ENABLED }}
+          RELEASE_SHA: ${{ inputs.sha }}
+          CI_RUN: ${{ inputs.ci_run }}
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: node scripts/deploy/auto-transport.mjs plan

@@ -101,6 +101,45 @@ class FakeHost:
 
 
 class BrokerTests(unittest.TestCase):
+    def test_github_main_hsts_is_metadata_not_api_hsts_activation(self):
+        response = io.BytesIO(json.dumps({'object': {'sha': SHA}}).encode())
+        response.status = 200
+        response.headers = {'Content-Type': 'application/json',
+                            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'}
+        calls = []
+        def open_request(request, timeout):
+            calls.append((request.full_url, request.get_method(), request.data, timeout))
+            return response
+        with patch('auto_broker.urllib.request.build_opener', return_value=types.SimpleNamespace(open=open_request)):
+            self.assertTrue(Host().fresh_main(SHA))
+        self.assertEqual(calls, [('https://api.github.com/repos/kiratonine/AdilBaga/git/ref/heads/main', 'GET', None, 18)])
+
+    def test_api_and_lookalike_urls_still_reject_hsts(self):
+        for url in ['https://api.aktau.market/health/ready', 'http://127.0.0.1:8080/health/ready',
+                    'https://api.github.com/repos/kiratonine/AdilBaga/git/ref/heads/main?extra=1',
+                    'https://api.github.com.invalid/repos/kiratonine/AdilBaga/git/ref/heads/main']:
+            with self.subTest(url=url):
+                response = io.BytesIO(b'{}'); response.status = 200
+                response.headers = {'Content-Type': 'application/json', 'Strict-Transport-Security': 'max-age=1'}
+                with patch('auto_broker.urllib.request.build_opener', return_value=types.SimpleNamespace(open=lambda *a, **k: response)):
+                    with self.assertRaisesRegex(Blocked, '^unexpected_hsts$'): http(url)
+
+    def test_github_hsts_exception_does_not_authorize_post_or_bad_metadata(self):
+        url = 'https://api.github.com/repos/kiratonine/AdilBaga/git/ref/heads/main'
+        for method, body, status, extra, reason in [
+                ('POST', {}, 200, {}, 'unexpected_hsts'),
+                ('GET', {}, 200, {}, 'unexpected_hsts'),
+                ('GET', None, 302, {}, 'http_status'),
+                ('GET', None, 503, {}, 'http_status'),
+                ('GET', None, 200, {'CF-Cache-Status': 'STALE'}, 'edge_cache'),
+                ('GET', None, 200, {'Content-Type': 'text/html'}, 'http_content_type')]:
+            with self.subTest(method=method, status=status, reason=reason):
+                response = io.BytesIO(b'{}'); response.status = status
+                response.headers = {'Content-Type': 'application/json',
+                                    'Strict-Transport-Security': 'max-age=1', **extra}
+                with patch('auto_broker.urllib.request.build_opener', return_value=types.SimpleNamespace(open=lambda *a, **k: response)):
+                    with self.assertRaisesRegex(Blocked, '^' + reason + '$'): http(url, method=method, body=body)
+
     def test_unapproved_self_consistent_archive_never_reaches_docker(self):
         # The compromised restricted principal controls BOTH these matching values.
         with tempfile.TemporaryDirectory() as d:

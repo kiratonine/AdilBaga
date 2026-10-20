@@ -27,7 +27,39 @@ If only docs/tests/frontend changed and
 Go runtime inputs did not, return `NO_RUNTIME_CHANGE`, preserving Part15's
 documentation-only/no-rebuild rule. Runtime diff uses Dockerfile, go.mod/go.sum,
 cmd and internal, not an invented historical baseline. Planning is not dry-run:
-it belongs only to the authorized deploy job and may read VPS status.
+it may read VPS status through the restricted deployment identity.
+
+### Reviewed read-only runner diagnosis
+
+After source review/merge, an explicit main-only `mode=plan` dispatch is available
+with activation disabled. It uses the same Production Environment, exact current
+main CI and immutable producer/download validators. It never builds an image,
+enables the flag, issues approval or submits an archive. The immutable command
+`node scripts/deploy/auto-transport.mjs plan` stops before submit regardless of
+DEPLOY_PHASE. It rejects an enabled activation flag, non-main/nonmanual context
+or an event not selecting plan. It is a real bounded SSH status request, not an
+offline dry-run, and needs separately authorized read-only production access.
+Missing/invalid release evidence still blocks. Source/main changes require a
+new exact-main build before this diagnostic can pass artifact admission; old
+artifact identity cannot be relabeled. No workflow dispatch is a generic retry
+authorization for a mutating release.
+
+Transport failures retain BLOCKED_TRANSPORT_OR_ROLLOUT and additionally emit only
+a source-defined stage and finite category. SSH stderr is classified in memory,
+never printed; unrecognized errors become UNKNOWN. Categories are diagnostic
+evidence, not proof of a particular network/host cause without correlation.
+No arbitrary exception message, provider body, key, hostname or traceback is
+logged. The existing deploy/approval/rollback semantics are unchanged.
+
+The API's deferred HSTS gate still rejects HSTS on application/health responses.
+It does not impose that policy on the sole fixed GitHub main metadata GET used
+by the root broker: GitHub may advertise HSTS for its own HTTPS service. Only
+that exact URL with GET/no body is exempt; HTTP status, bounded JSON, edge-cache
+and redirect checks remain. A source merge alone does not update the installed
+root broker. Independently review its exact bytes and separately authorize the
+controlled broker update before any release; old/new hashes and root custody
+must be read back. Do not treat a successful runner plan as broker compatibility
+or approval to overwrite installed code.
 
 `workflow_run` can access privileged context, so this workflow checks out trusted
 main only for guards, then the API-verified exact candidate for a manual build.

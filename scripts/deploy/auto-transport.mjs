@@ -5,6 +5,12 @@ import {spawnSync} from 'node:child_process';
 import {check,shaPattern} from './auto-gate.mjs';
 import {verifyDownloaded} from './auto-build.mjs';
 
+// Only source-defined stage/category constants may reach logs. Never serialize
+// an exception, provider response, SSH stderr or caller-supplied value.
+let stage='P1_PLAN_ADMISSION';
+let failure='INVALID_INPUT';
+function at(next,category) { stage=next;failure=category; }
+
 export function manualRelease(env) {
   assert.equal(env.AUTO_DEPLOY_ENABLED,'true','deployment disabled');
   assert.equal(env.GITHUB_EVENT_NAME,'workflow_dispatch','explicit release required');
@@ -63,15 +69,28 @@ export function sshOptions(env,key,hosts) {
     `${env.DEPLOY_USER}@${env.DEPLOY_HOST}`,'sudo -n /usr/local/sbin/adilbaga-deploy'];
 }
 async function main() {
-  manualRelease(process.env);
+  // Immutable CLI selection, not DEPLOY_PHASE, prevents a diagnostic invocation
+  // from falling through to submit even if its environment is malformed.
+  const readOnly=process.argv[2]==='plan';
+  assert.ok(process.argv.length===2 || (process.argv.length===3 && readOnly));
+  if(readOnly) {
+    assert.equal(process.env.GITHUB_EVENT_NAME,'workflow_dispatch');
+    assert.equal(process.env.GITHUB_REF,'refs/heads/main');
+    assert.equal(process.env.DEPLOY_MODE,'plan');
+    assert.notEqual(process.env.AUTO_DEPLOY_ENABLED,'true');
+    assert.equal(JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8')).inputs?.mode,'plan');
+  } else manualRelease(process.env);
   const sha=process.env.RELEASE_SHA; assert.match(sha,shaPattern);
+  at('P1_PLAN_CI','CI_INELIGIBLE');
   const result=await check({sha,run:Number(process.env.CI_RUN)});
   if(result.status!=='ELIGIBLE'){console.log(result.status);return;}
+  at('P1_PLAN_ARTIFACT','ARTIFACT_INVALID');
   const build=readFileSync(join(process.env.RUNNER_TEMP,'adilbaga-build-path'),'utf8');
   assert.equal(build,join(process.env.RUNNER_TEMP,'release-artifact'),'fixed downloaded artifact path');
   const metadata=JSON.parse(readFileSync(join(process.env.RUNNER_TEMP,'artifact-metadata.json'),'utf8'));
   const manifest=verifyDownloaded(build,metadata);assert.equal(manifest.sha,sha);
   assert.equal(manifest.provenance.ciRunId,Number(process.env.CI_RUN));
+  at('P1_PLAN_SSH_CONFIG','INVALID_INPUT');
   const dir=mkdtempSync(join(process.env.RUNNER_TEMP,'adilbaga-ssh-'));
   try {
     assert.ok(process.env.DEPLOY_SSH_KEY && process.env.DEPLOY_KNOWN_HOSTS,'missing SSH configuration');
@@ -82,24 +101,40 @@ async function main() {
     const childEnv={PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8'};
     const call=(input,timeout=30000)=>{
       const r=spawnSync('ssh',args,{input,env:childEnv,timeout,maxBuffer:1<<20});
+      if(r.status!==0) {
+        // Classify in memory only. Unrecognized/private stderr is never emitted.
+        const stderr=Buffer.isBuffer(r.stderr)?r.stderr.toString('utf8'):'';
+        failure=r.error?.code==='ETIMEDOUT'?'SSH_CONNECT_FAILED':
+          /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/.test(stderr)?'HOST_KEY_REJECTED':
+          /Permission denied \(publickey/.test(stderr)?'SSH_AUTH_FAILED':
+          /Connection (?:timed out|refused)|No route to host|Could not resolve hostname/.test(stderr)?'SSH_CONNECT_FAILED':
+          'UNKNOWN';
+      }
       assert.equal(r.status,0,'SSH_OR_BROKER_FAILED'); return JSON.parse(r.stdout);
     };
+    at('P1_PLAN_SSH_STATUS','BROKER_STATUS_REJECTED');
     const pre=call(JSON.stringify({operation:'status'})+'\n');
     if(pre.active===sha){console.log('NO_OP');return;}
     assert.match(pre.active,shaPattern); assert.equal(pre.available,true);
+    at('P1_PLAN_COMPATIBILITY','PROTECTED_DELTA');
     verifyCompatibility(pre.active,sha);
+    at('P1_PLAN_RUNTIME_DIFF','GIT_OBJECT_UNAVAILABLE');
     const runtime=spawnSync('git',['diff','--name-only',pre.active,sha,'--','backend-go'],{timeout:10000,maxBuffer:1<<20});
     assert.equal(runtime.status,0);
     if(!runtimeChanged(runtime.stdout.toString().trim().split('\n'))){console.log('NO_RUNTIME_CHANGE');return;}
-    if(process.env.DEPLOY_PHASE==='plan'){
+    if(readOnly || process.env.DEPLOY_PHASE==='plan'){
+      at('P1_PLAN_OUTPUT','OUTPUT_WRITE_FAILED');
       assert.ok(process.env.GITHUB_OUTPUT);
       appendFileSync(process.env.GITHUB_OUTPUT,'changed=true\n');console.log('PLAN_VERIFIED');return;
     }
+    at('P1_RELEASE_CI','CI_INELIGIBLE');
     const fresh=await check({sha,run:Number(process.env.CI_RUN)});
     if(fresh.status!=='ELIGIBLE'){console.log(fresh.status);return;}
+    at('P1_RELEASE_SUBMIT','BROKER_STATUS_REJECTED');
     const receipt=call(Buffer.concat([Buffer.from(JSON.stringify({operation:'submit',manifest})+'\n'),readFileSync(join(build,'image.tar'))]),180000);
     assert.ok(['ACCEPTED','NO_OP','SKIPPED_STALE'].includes(receipt.status));
     if(receipt.status!=='ACCEPTED'){console.log(receipt.status);return;}
+    at('P1_RELEASE_RESULT','BROKER_STATUS_REJECTED');
     const end=Date.now()+1200000;
     while(Date.now()<end){
       await new Promise(r=>setTimeout(r,10000));
@@ -112,4 +147,7 @@ async function main() {
     throw Error('bounded receipt wait expired');
   } finally {rmSync(dir,{recursive:true,force:true});}
 }
-if(process.argv[1]?.endsWith('/auto-transport.mjs')) main().catch(()=>{console.error('BLOCKED_TRANSPORT_OR_ROLLOUT');process.exitCode=1;});
+if(process.argv[1]?.endsWith('/auto-transport.mjs')) main().catch(()=>{
+  console.error(stage+' '+failure);
+  console.error('BLOCKED_TRANSPORT_OR_ROLLOUT');process.exitCode=1;
+});
