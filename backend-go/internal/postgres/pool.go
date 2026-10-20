@@ -33,7 +33,9 @@ func openReadOnly(ctx context.Context, databaseURL string, production bool) (*pg
 	}
 	c.MaxConns = 4
 	c.MinConns = 0
-	c.ConnConfig.ConnectTimeout = 2 * time.Second
+	// Physical connection budget only. Callers still bound the complete acquire,
+	// AfterConnect policy checks and Ping with their own end-to-end context.
+	c.ConnConfig.ConnectTimeout = 5 * time.Second
 	c.ConnConfig.Tracer = queryMetrics{registry: observability.Default}
 	c.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
 	c.ConnConfig.RuntimeParams["statement_timeout"] = "5000"
