@@ -155,9 +155,16 @@ def http(url, method='GET', body=None, headers=None, expected=200, timeout=18):
 def ready(now=time.monotonic, pause=time.sleep, probe=None):
     end = now() + 30
     while now() < end:
+        remaining = end-now()
+        if remaining <= 0:
+            break
         try:
-            (probe or (lambda: http('http://127.0.0.1:8080/health/ready', timeout=min(3, max(.1, end-now())))))()
-            return
+            # Allow the Go handler's 5s budget plus 2s loopback/response margin,
+            # never extending this readiness operation's original 30s window.
+            (probe or (lambda: http('http://127.0.0.1:8080/health/ready', timeout=min(7, remaining))))()
+            if now() < end:
+                return
+            break
         except Blocked:
             pause(min(.5, max(0, end-now())))
     raise Blocked('persistent_readiness')

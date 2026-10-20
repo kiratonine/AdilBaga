@@ -3,7 +3,9 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,7 +24,8 @@ const (
 	IdleTimeout       = 60 * time.Second
 	MaxHeaderBytes    = 64 << 10
 	ShutdownTimeout   = 10 * time.Second
-	ReadinessTimeout  = 2 * time.Second
+	// End-to-end acquire/initialization/Ping budget; below the monitor's 8s GET cap.
+	ReadinessTimeout = 5 * time.Second
 )
 
 type Pinger interface{ Ping(context.Context) error }
@@ -42,9 +45,15 @@ func Router(c config.Config, logger *slog.Logger, d Dependencies) http.Handler {
 	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) { middleware.WriteError(w, 405) })
 	r.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { health(w, 200, "ok") })
 	r.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 		ctx, cancel := context.WithTimeout(r.Context(), ReadinessTimeout)
 		defer cancel()
 		if err := d.DB.Ping(ctx); err != nil {
+			// Driver errors can contain DSNs, SQL or hostnames. Never log the error.
+			if ctx.Err() != nil {
+				err = ctx.Err()
+			}
+			logger.WarnContext(r.Context(), "readiness_failed", "error_class", readinessErrorClass(err), "duration_ms", time.Since(start).Milliseconds())
 			health(w, 503, "not_ready")
 			return
 		}
@@ -71,6 +80,20 @@ func Router(c config.Config, logger *slog.Logger, d Dependencies) http.Handler {
 		r.Post("/api/voice/continue", d.voiceContinue)
 	})
 	return r
+}
+
+func readinessErrorClass(err error) string {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context_deadline"
+	case errors.Is(err, context.Canceled):
+		return "context_cancelled"
+	}
+	var network net.Error
+	if errors.As(err, &network) {
+		return "connection_unavailable"
+	}
+	return "readiness_failed"
 }
 
 func health(w http.ResponseWriter, status int, value string) {

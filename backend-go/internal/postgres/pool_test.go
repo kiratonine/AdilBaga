@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -30,7 +31,7 @@ func TestValidURLWithoutNetwork(t *testing.T) {
 		t.Fatal("best-effort startup parameters missing (not connected policy proof)")
 	}
 	c := pool.Config()
-	if c.AfterConnect == nil || c.MinConns != 0 || c.MaxConns != 4 || c.ConnConfig.ConnectTimeout != 2*time.Second {
+	if c.AfterConnect == nil || c.MinConns != 0 || c.MaxConns != 4 || c.ConnConfig.ConnectTimeout != 5*time.Second || c.HealthCheckPeriod != time.Minute || c.MaxConnIdleTime != 30*time.Minute {
 		t.Fatal("physical initializer or lazy/bounded connection config missing")
 	}
 	// MinConns=0: creating/closing a valid pool does not connect or call Ping.
@@ -116,5 +117,45 @@ func TestOutageDoesNotPreventPoolCreation(t *testing.T) {
 	defer cancel()
 	if err := pool.Ping(ctx); err == nil {
 		t.Fatal("unexpected database on loopback port 1")
+	}
+}
+
+// A real loopback TCP peer that never completes the PostgreSQL handshake.
+// Proves lazy startup and caller cancellation, not production TLS/SCRAM latency.
+func TestLocalStalledHandshake(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	pool, err := OpenReadOnly(context.Background(), "postgres://test:test@"+listener.Addr().String()+"/test?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if pool.Stat().TotalConns() != 0 || pool.Stat().ConstructingConns() != 0 {
+		t.Fatal("startup must not require a physical connection")
+	}
+	release, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		<-release
+	}()
+	defer func() { close(release); listener.Close(); <-done }()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	if err := pool.Ping(ctx); err == nil || ctx.Err() != context.DeadlineExceeded {
+		t.Fatal("stalled handshake must not become ready")
+	}
+	elapsed := time.Since(start)
+	t.Logf("stalled_handshake_caller_duration_ms=%d", elapsed.Milliseconds())
+	if elapsed >= time.Second {
+		t.Fatal("caller deadline ignored")
 	}
 }
