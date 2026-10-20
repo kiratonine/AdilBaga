@@ -115,7 +115,7 @@ function withGit(options,run) {
   try{return run(calls);}finally{childProcess.spawnSync=original;syncBuiltinESMExports();}
 }
 
-test('real transport plan accepts reviewed tooling pair after artifact/CI checks (synthetic OS)',()=>{
+function plannerFixture(problem='none') {
   const dir=mkdtempSync(join(tmpdir(),'p1-transport-plan-'));
   try {
     const build=join(dir,'release-artifact');mkdirSync(build);
@@ -130,8 +130,10 @@ test('real transport plan accepts reviewed tooling pair after artifact/CI checks
       workflow:{id:8,path:'.github/workflows/deploy-production.yml',state:'active'},
       artifact:{id:99,name:`adilbaga-api-${reviewed}-43-1`,expired:false,workflow_run:{id:43,head_sha:reviewed}}};
     writeFileSync(join(build,'image.tar'),raw);writeFileSync(join(build,'manifest.json'),JSON.stringify(m));
+    if(problem==='artifact-corrupt')writeFileSync(join(build,'image.tar'),Buffer.from('corrupt'));
     writeFileSync(join(dir,'artifact-metadata.json'),JSON.stringify(metadata));
     writeFileSync(join(dir,'adilbaga-build-path'),build);
+    writeFileSync(join(dir,'event.json'),JSON.stringify({inputs:{mode:problem==='read-only-event-mismatch'?'deploy':'plan'}}));
     const replies={
       'actions/runs/42':f.run,'actions/workflows/7':f.workflow,
       'actions/runs/42/attempts/2/jobs?per_page=100':{total_count:f.jobs.length,jobs:f.jobs},
@@ -143,34 +145,85 @@ import assert from 'node:assert/strict';
 const active=${JSON.stringify(active)},reviewed=${JSON.stringify(reviewed)},tooling=${JSON.stringify(tooling)};
 const fixtureGit=${fixtureGit.toString()},replies=${JSON.stringify(replies)};
 let ssh=0;
+const problem=${JSON.stringify(problem)};
 cp.spawnSync=(command,args)=>{
   if(command==='git'){
+    if(problem==='git-missing')return {status:128,stdout:Buffer.alloc(0),stderr:Buffer.from('private-canary.invalid')};
+    if(problem==='protected-delta'&&args.includes('diff')&&args.at(-1)!=='backend-go')
+      return fixtureGit(args,{paths:[...Object.keys(tooling),'contracts/openapi.yaml']});
     const value=fixtureGit(args);
     if(args.includes('diff')&&args.at(-1)!=='backend-go')console.log('SYNTHETIC_PROTECTED_DIFF_RETURNED');
     return value;
   }
   assert.equal(command,'ssh');ssh++;assert.equal(ssh,1);
+  if(problem==='ssh-auth')return {status:255,stdout:Buffer.alloc(0),stderr:Buffer.from('Permission denied (publickey). private-canary.invalid')};
+  if(problem==='ssh-host-key')return {status:255,stdout:Buffer.alloc(0),stderr:Buffer.from('Host key verification failed. private-canary.invalid')};
+  if(problem==='ssh-timeout')return {status:null,error:Object.assign(Error('private-canary.invalid'),{code:'ETIMEDOUT'}),stdout:Buffer.alloc(0),stderr:Buffer.alloc(0)};
+  if(problem==='broker-json')return {status:0,stdout:Buffer.from('private-canary.invalid'),stderr:Buffer.alloc(0)};
+  if(problem==='ssh-unknown')return {status:255,stdout:Buffer.alloc(0),stderr:Buffer.from('private-canary.invalid')};
   return {status:0,stdout:Buffer.from(JSON.stringify({active,available:true}))};
 };syncBuiltinESMExports();
 globalThis.fetch=async url=>{
   const prefix='https://api.github.com/repos/kiratonine/AdilBaga/';
   assert.ok(url.startsWith(prefix));const key=url.slice(prefix.length);
+  if(problem==='ci-error')throw Error('private-canary.invalid');
   assert.ok(Object.hasOwn(replies,key));return {ok:true,json:async()=>replies[key]};
 };
 process.argv[1]=${JSON.stringify(new URL('./auto-transport.mjs',import.meta.url).pathname)};
+if(problem.startsWith('read-only'))process.argv[2]='plan';
 await import(${JSON.stringify(new URL('./auto-transport.mjs',import.meta.url).href)});
 process.on('exit',()=>console.log('SYNTHETIC_SSH_CALLS='+ssh));
 `;
     const r=childProcess.spawnSync(process.execPath,['--input-type=module','-e',program],{timeout:15000,encoding:'utf8',
-      env:{PATH:process.env.PATH,HOME:process.env.HOME,RUNNER_TEMP:dir,GITHUB_OUTPUT:join(dir,'output'),
-        AUTO_DEPLOY_ENABLED:'true',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',
-        DEPLOY_MODE:'deploy',DEPLOY_PHASE:'plan',RELEASE_SHA:reviewed,CI_RUN:'42',GITHUB_TOKEN:'synthetic',
-        DEPLOY_HOST:'unit.invalid',DEPLOY_USER:'deploy_ci',DEPLOY_PORT:'22',DEPLOY_SSH_KEY:'synthetic',DEPLOY_KNOWN_HOSTS:'synthetic'}});
+      env:{PATH:process.env.PATH,HOME:process.env.HOME,RUNNER_TEMP:dir,GITHUB_OUTPUT:problem==='output-error'?dir:join(dir,'output'),
+        GITHUB_EVENT_PATH:join(dir,'event.json'),
+        AUTO_DEPLOY_ENABLED:problem.startsWith('read-only')&&problem!=='read-only-flag-true'?'false':'true',
+        GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',
+        DEPLOY_MODE:problem.startsWith('read-only')?'plan':'deploy',
+        DEPLOY_PHASE:problem.startsWith('read-only')?'submit':'plan',RELEASE_SHA:reviewed,CI_RUN:'42',GITHUB_TOKEN:'synthetic',
+        DEPLOY_HOST:'unit.invalid',DEPLOY_USER:'deploy_ci',DEPLOY_PORT:'22',
+        DEPLOY_SSH_KEY:problem==='ssh-config-missing'?'':'synthetic',DEPLOY_KNOWN_HOSTS:'synthetic'}});
+    if(problem!=='none'&&problem!=='read-only') {
+      assert.equal(r.status,1);
+      const expected={'ssh-auth':'SSH_STATUS SSH_AUTH_FAILED','ssh-host-key':'SSH_STATUS HOST_KEY_REJECTED',
+        'ssh-timeout':'SSH_STATUS SSH_CONNECT_FAILED','broker-json':'SSH_STATUS BROKER_STATUS_REJECTED',
+        'ssh-unknown':'SSH_STATUS UNKNOWN','git-missing':'COMPATIBILITY PROTECTED_DELTA',
+        'ci-error':'CI CI_INELIGIBLE','output-error':'OUTPUT OUTPUT_WRITE_FAILED',
+        'artifact-corrupt':'ARTIFACT ARTIFACT_INVALID','ssh-config-missing':'SSH_CONFIG INVALID_INPUT',
+        'protected-delta':'COMPATIBILITY PROTECTED_DELTA',
+        'read-only-event-mismatch':'ADMISSION INVALID_INPUT','read-only-flag-true':'ADMISSION INVALID_INPUT'}[problem];
+      assert.match(r.stderr,new RegExp('P1_PLAN_'+expected));
+      assert.match(r.stderr,/BLOCKED_TRANSPORT_OR_ROLLOUT/);
+      assert.ok(!r.stderr.includes('private-canary.invalid')&&!r.stdout.includes('private-canary.invalid'));
+      assert.match(r.stdout,new RegExp('SYNTHETIC_SSH_CALLS='+(['ci-error','artifact-corrupt','ssh-config-missing','read-only-event-mismatch','read-only-flag-true'].includes(problem)?0:1)));
+      return;
+    }
     assert.match(r.stdout,/SYNTHETIC_PROTECTED_DIFF_RETURNED/);
     assert.equal(r.status,0,r.stdout+r.stderr);
     assert.match(r.stdout,/PLAN_VERIFIED/);assert.match(r.stdout,/SYNTHETIC_SSH_CALLS=1/);
     assert.equal(readFileSync(join(dir,'output'),'utf8'),'changed=true\n');
   } finally {rmSync(dir,{recursive:true,force:true});}
+}
+test('real transport plan accepts reviewed tooling pair after artifact/CI checks (synthetic OS)',()=>plannerFixture());
+for(const problem of ['ssh-auth','ssh-host-key','ssh-timeout','broker-json','ssh-unknown','git-missing','ci-error','output-error',
+  'artifact-corrupt','ssh-config-missing','protected-delta','read-only-event-mismatch','read-only-flag-true'])
+  test(`planner emits finite redacted ${problem} stage without retry/submit`,()=>plannerFixture(problem));
+test('read-only CLI stays nonmutating even with DEPLOY_PHASE=submit and activation false',()=>plannerFixture('read-only'));
+test('runner diagnostic job is main-only, Environment-controlled and cannot run submit/build',()=>{
+  const workflow=readFileSync(new URL('../../.github/workflows/deploy-production.yml',import.meta.url),'utf8');
+  const job=workflow.split('\n  plan_only:\n')[1];assert.ok(job);
+  assert.match(job,/needs: offline/);
+  assert.match(job,/github\.ref == 'refs\/heads\/main'/);
+  assert.match(job,/inputs\.mode == 'plan'/);
+  assert.match(job,/vars\.AUTO_DEPLOY_ENABLED != 'true'/);
+  assert.match(job,/environment: production/);
+  assert.match(job,/with: \{ref: main, fetch-depth: 0, persist-credentials: false\}/);
+  assert.equal([...job.matchAll(/run: node scripts\/deploy\/auto-transport\.mjs(.*)/g)].length,1);
+  assert.match(job,/run: node scripts\/deploy\/auto-transport\.mjs plan\n/);
+  assert.ok(!/DEPLOY_MODE: deploy|operation.*submit|auto-build\.mjs build|docker|variable set/.test(job));
+  const rollout=workflow.split('\n  rollout:\n')[1].split('\n  # Separately reviewed')[0];
+  assert.match(rollout,/if: steps\.plan\.outputs\.changed == 'true'/);
+  assert.match(rollout,/name: Approved broker transport and bounded rollout/);
 });
 
 test('compatibility guard validates all four Git blobs and uses no-renames/NUL paths',()=>withGit({},calls=>{

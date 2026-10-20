@@ -141,7 +141,12 @@ def http(url, method='GET', body=None, headers=None, expected=200, timeout=18):
             require(len(raw) <= 2 << 20, 'http_body_limit')
             h = response.headers
             require(h.get('CF-Cache-Status', '').upper() not in ['HIT', 'STALE', 'UPDATING'], 'edge_cache')
-            require(not h.get('Strict-Transport-Security'), 'unexpected_hsts')
+            # The API's deferred HSTS policy does not control GitHub. This sole
+            # fixed read-only metadata URL may advertise its own HTTPS policy;
+            # redirects, lookalikes and all application targets stay rejected.
+            github_main = (url == 'https://api.github.com/repos/kiratonine/AdilBaga/git/ref/heads/main'
+                           and method == 'GET' and body is None)
+            require(not h.get('Strict-Transport-Security') or github_main, 'unexpected_hsts')
             if expected == 204:
                 return None, h
             require('application/json' in h.get('Content-Type', ''), 'http_content_type')
