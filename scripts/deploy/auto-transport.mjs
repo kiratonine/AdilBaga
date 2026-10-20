@@ -11,6 +11,25 @@ let stage='P1_PLAN_ADMISSION';
 let failure='INVALID_INPUT';
 function at(next,category) { stage=next;failure=category; }
 
+function sshFailure(result) {
+  const code=result.error?.code;
+  if(code==='ETIMEDOUT')return 'SSH_CONNECT_FAILED';
+  if(code==='ENOENT'||code==='EACCES')return 'SSH_CLIENT_UNAVAILABLE';
+  if(code==='ENOBUFS')return 'SSH_OUTPUT_LIMIT';
+  const stderr=Buffer.isBuffer(result.stderr)?result.stderr.toString('utf8'):'';
+  if(/Load key [^\r\n]*: (?:error in libcrypto|invalid format)|UNPROTECTED PRIVATE KEY FILE/.test(stderr))return 'SSH_KEY_REJECTED';
+  if(/Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/.test(stderr))return 'HOST_KEY_REJECTED';
+  if(/Permission denied \(publickey/.test(stderr))return 'SSH_AUTH_FAILED';
+  if(/Connection (?:timed out|refused)|No route to host|Could not resolve hostname/.test(stderr))return 'SSH_CONNECT_FAILED';
+  if(/Connection (?:closed|reset)|kex_exchange_identification:.*(?:closed|reset)/.test(stderr))return 'SSH_PEER_CLOSED';
+  if(/no matching (?:host key type|key exchange method|cipher|MAC) found/.test(stderr))return 'SSH_NEGOTIATION_FAILED';
+  if(Buffer.isBuffer(result.stdout)&&result.stdout.length<=1024)try {
+    const value=JSON.parse(result.stdout);
+    if(value&&Object.keys(value).length===1&&value.status==='BLOCKED_BROKER')return 'BROKER_STATUS_REJECTED';
+  } catch { /* Untrusted output is never logged or treated as authorization. */ }
+  return 'UNKNOWN';
+}
+
 export function manualRelease(env) {
   assert.equal(env.AUTO_DEPLOY_ENABLED,'true','deployment disabled');
   assert.equal(env.GITHUB_EVENT_NAME,'workflow_dispatch','explicit release required');
@@ -103,12 +122,8 @@ async function main() {
       const r=spawnSync('ssh',args,{input,env:childEnv,timeout,maxBuffer:1<<20});
       if(r.status!==0) {
         // Classify in memory only. Unrecognized/private stderr is never emitted.
-        const stderr=Buffer.isBuffer(r.stderr)?r.stderr.toString('utf8'):'';
-        failure=r.error?.code==='ETIMEDOUT'?'SSH_CONNECT_FAILED':
-          /Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/.test(stderr)?'HOST_KEY_REJECTED':
-          /Permission denied \(publickey/.test(stderr)?'SSH_AUTH_FAILED':
-          /Connection (?:timed out|refused)|No route to host|Could not resolve hostname/.test(stderr)?'SSH_CONNECT_FAILED':
-          'UNKNOWN';
+        failure=sshFailure(r);
+        console.error('P1_SSH_EXIT '+(Number.isInteger(r.status)&&r.status>=0&&r.status<=255?r.status:'UNAVAILABLE'));
       }
       assert.equal(r.status,0,'SSH_OR_BROKER_FAILED'); return JSON.parse(r.stdout);
     };

@@ -161,6 +161,14 @@ cp.spawnSync=(command,args)=>{
   if(problem==='ssh-timeout')return {status:null,error:Object.assign(Error('private-canary.invalid'),{code:'ETIMEDOUT'}),stdout:Buffer.alloc(0),stderr:Buffer.alloc(0)};
   if(problem==='broker-json')return {status:0,stdout:Buffer.from('private-canary.invalid'),stderr:Buffer.alloc(0)};
   if(problem==='ssh-unknown')return {status:255,stdout:Buffer.alloc(0),stderr:Buffer.from('private-canary.invalid')};
+  if(problem==='ssh-key-parse')return {status:255,stdout:Buffer.alloc(0),stderr:Buffer.from('Load key "private-canary.invalid": error in libcrypto; Permission denied (publickey).')};
+  if(problem==='ssh-peer-close')return {status:255,stdout:Buffer.alloc(0),stderr:Buffer.from('Connection closed by private-canary.invalid port 22')};
+  if(problem==='ssh-client-missing')return {status:null,error:Object.assign(Error('private-canary.invalid'),{code:'ENOENT'}),stdout:Buffer.alloc(0),stderr:Buffer.alloc(0)};
+  if(problem==='ssh-output-limit')return {status:null,error:Object.assign(Error('private-canary.invalid'),{code:'ENOBUFS'}),stdout:Buffer.alloc(0),stderr:Buffer.alloc(0)};
+  if(problem==='ssh-negotiation')return {status:255,stdout:Buffer.alloc(0),stderr:Buffer.from('Unable to negotiate with private-canary.invalid: no matching host key type found')};
+  if(problem==='broker-blocked')return {status:1,stdout:Buffer.from(JSON.stringify({status:'BLOCKED_BROKER'})),stderr:Buffer.alloc(0)};
+  if(problem==='broker-extra')return {status:1,stdout:Buffer.from(JSON.stringify({status:'BLOCKED_BROKER',secret:'private-canary.invalid'})),stderr:Buffer.alloc(0)};
+  if(problem==='ssh-status-canary')return {status:'private-canary.invalid',stdout:Buffer.alloc(0),stderr:Buffer.alloc(0)};
   return {status:0,stdout:Buffer.from(JSON.stringify({active,available:true}))};
 };syncBuiltinESMExports();
 globalThis.fetch=async url=>{
@@ -191,10 +199,16 @@ process.on('exit',()=>console.log('SYNTHETIC_SSH_CALLS='+ssh));
         'ci-error':'CI CI_INELIGIBLE','output-error':'OUTPUT OUTPUT_WRITE_FAILED',
         'artifact-corrupt':'ARTIFACT ARTIFACT_INVALID','ssh-config-missing':'SSH_CONFIG INVALID_INPUT',
         'protected-delta':'COMPATIBILITY PROTECTED_DELTA',
+        'ssh-key-parse':'SSH_STATUS SSH_KEY_REJECTED','ssh-peer-close':'SSH_STATUS SSH_PEER_CLOSED',
+        'ssh-client-missing':'SSH_STATUS SSH_CLIENT_UNAVAILABLE','ssh-output-limit':'SSH_STATUS SSH_OUTPUT_LIMIT',
+        'ssh-negotiation':'SSH_STATUS SSH_NEGOTIATION_FAILED','broker-blocked':'SSH_STATUS BROKER_STATUS_REJECTED',
+        'broker-extra':'SSH_STATUS UNKNOWN','ssh-status-canary':'SSH_STATUS UNKNOWN',
         'read-only-event-mismatch':'ADMISSION INVALID_INPUT','read-only-flag-true':'ADMISSION INVALID_INPUT'}[problem];
       assert.match(r.stderr,new RegExp('P1_PLAN_'+expected));
       assert.match(r.stderr,/BLOCKED_TRANSPORT_OR_ROLLOUT/);
       assert.ok(!r.stderr.includes('private-canary.invalid')&&!r.stdout.includes('private-canary.invalid'));
+      if(problem==='broker-blocked')assert.match(r.stderr,/P1_SSH_EXIT 1\n/);
+      if(problem==='ssh-status-canary')assert.match(r.stderr,/P1_SSH_EXIT UNAVAILABLE\n/);
       assert.match(r.stdout,new RegExp('SYNTHETIC_SSH_CALLS='+(['ci-error','artifact-corrupt','ssh-config-missing','read-only-event-mismatch','read-only-flag-true'].includes(problem)?0:1)));
       return;
     }
@@ -206,7 +220,9 @@ process.on('exit',()=>console.log('SYNTHETIC_SSH_CALLS='+ssh));
 }
 test('real transport plan accepts reviewed tooling pair after artifact/CI checks (synthetic OS)',()=>plannerFixture());
 for(const problem of ['ssh-auth','ssh-host-key','ssh-timeout','broker-json','ssh-unknown','git-missing','ci-error','output-error',
-  'artifact-corrupt','ssh-config-missing','protected-delta','read-only-event-mismatch','read-only-flag-true'])
+  'artifact-corrupt','ssh-config-missing','protected-delta','read-only-event-mismatch','read-only-flag-true',
+  'ssh-key-parse','ssh-peer-close','ssh-client-missing','ssh-output-limit','ssh-negotiation','broker-blocked',
+  'broker-extra','ssh-status-canary'])
   test(`planner emits finite redacted ${problem} stage without retry/submit`,()=>plannerFixture(problem));
 test('read-only CLI stays nonmutating even with DEPLOY_PHASE=submit and activation false',()=>plannerFixture('read-only'));
 test('runner diagnostic job is main-only, Environment-controlled and cannot run submit/build',()=>{
