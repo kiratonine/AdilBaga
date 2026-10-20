@@ -12,8 +12,10 @@ import time
 import types
 import contextlib
 import subprocess
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
-from auto_broker import Blocked, Host, rollout, ready, validate_manifest, verify_image, replace_release, receive_archive, write_result, authorization, approved_archive
+from auto_broker import Blocked, Host, rollout, ready, http, validate_manifest, verify_image, replace_release, receive_archive, write_result, authorization, approved_archive
 
 SHA = 'a' * 40
 
@@ -196,6 +198,124 @@ class BrokerTests(unittest.TestCase):
         with self.assertRaisesRegex(Blocked, 'persistent_readiness'):
             ready(lambda:clock[0], pause, unavailable)
         self.assertLessEqual(clock[0], 31)
+
+    def test_real_probe_timeout_allows_healthy_cold_handler(self):
+        # Exercise ready's real HTTP call boundary, not its no-argument probe seam.
+        for latency in [4.5, 5.0]:
+            with self.subTest(latency=latency):
+                clock, calls = [0.0], []
+                def pause(value): clock[0] += value
+                def get(url, *, timeout):
+                    self.assertEqual(url, 'http://127.0.0.1:8080/health/ready')
+                    calls.append(timeout)
+                    clock[0] += min(latency, timeout)
+                    if timeout < latency:
+                        raise Blocked('http_transport_or_json')
+                    return {'status': 'ready'}, {}
+                with patch('auto_broker.http', get):
+                    ready(lambda: clock[0], pause)
+                self.assertEqual(calls, [7])
+                self.assertEqual(clock[0], latency)
+
+    def test_readiness_total_budget_and_persistent_failures(self):
+        for reason, latency in [('http_status', 0.0), ('http_transport_or_json', 10.0)]:
+            with self.subTest(reason=reason):
+                clock, calls = [0.0], []
+                def pause(value):
+                    self.assertGreaterEqual(value, 0)
+                    self.assertLessEqual(value, min(0.5, 30-clock[0]))
+                    clock[0] += value
+                def get(url, *, timeout):
+                    self.assertGreater(timeout, 0)
+                    self.assertLessEqual(timeout, min(7, 30-clock[0]))
+                    calls.append(timeout)
+                    clock[0] += min(latency, timeout)
+                    raise Blocked(reason)
+                with patch('auto_broker.http', get), self.assertRaisesRegex(Blocked, '^persistent_readiness$'):
+                    ready(lambda: clock[0], pause)
+                self.assertTrue(calls)
+                self.assertEqual(clock[0], 30)
+
+    def test_last_probe_never_exceeds_remaining_fraction(self):
+        clock, calls = [0.0], []
+        def now():
+            value = clock[0]
+            if value == 0: clock[0] = 29.95
+            return value
+        def get(url, *, timeout):
+            calls.append(timeout)
+            self.assertLessEqual(timeout, 30-clock[0])
+            clock[0] += timeout
+            raise Blocked('http_transport_or_json')
+        with patch('auto_broker.http', get), self.assertRaisesRegex(Blocked, '^persistent_readiness$'):
+            ready(now, lambda value: None)
+        self.assertEqual(len(calls), 1)
+        self.assertAlmostEqual(calls[0], 0.05)
+        self.assertEqual(clock[0], 30)
+
+    def test_late_success_is_not_readiness(self):
+        clock = [0.0]
+        def get(*_, **kwargs):
+            clock[0] = 30.001
+            return {'status': 'ready'}, {}
+        with patch('auto_broker.http', get), self.assertRaisesRegex(Blocked, '^persistent_readiness$'):
+            ready(lambda: clock[0], lambda _: None)
+
+    def test_no_probe_starts_after_deadline(self):
+        with patch('auto_broker.http') as get, self.assertRaisesRegex(Blocked, '^persistent_readiness$'):
+            ready(iter([0.0, 29.9, 30.1]).__next__, lambda _: None)
+        get.assert_not_called()
+
+    def test_readiness_interrupt_does_not_retry_and_compensates_once(self):
+        host = FakeHost()
+        host.activate = lambda *_: ready(lambda: 0.0, lambda _: self.fail('cancelled probe retried'))
+        with patch('auto_broker.http', side_effect=KeyboardInterrupt()) as get:
+            self.assertEqual(rollout(host, manifest(), None), 'BLOCKED_ROLLED_BACK')
+        self.assertEqual(get.call_count, 1)
+        self.assertEqual(host.calls.count('rollback'), 1)
+
+    def test_persistent_readiness_retains_single_compensation(self):
+        clock = [0.0]
+        host = FakeHost()
+        def pause(value): clock[0] += value
+        host.activate = lambda *_: ready(lambda: clock[0], pause)
+        with patch('auto_broker.http', side_effect=Blocked('http_status')):
+            self.assertEqual(rollout(host, manifest(), None), 'BLOCKED_ROLLED_BACK')
+        self.assertEqual(clock[0], 30)
+        self.assertEqual(host.calls.count('rollback'), 1)
+        self.assertNotIn('open', host.calls)
+
+    def test_local_loopback_cold_http(self):
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_): pass
+            def do_GET(self):
+                time.sleep(4.5)
+                body = b'{"status":"ready"}'
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+        with HTTPServer(('127.0.0.1', 0), Handler) as server:
+            thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': 0.05})
+            thread.start()
+            calls = []
+            def get(url, *, timeout):
+                calls.append(timeout)
+                return http('http://127.0.0.1:' + str(server.server_port) + '/health/ready', timeout=timeout)
+            try:
+                start = time.monotonic()
+                with patch('auto_broker.http', get), patch('auto_broker.urllib.request.getproxies', return_value={}):
+                    ready()
+                elapsed = time.monotonic()-start
+                print('local_cold_http_duration_ms=' + str(round(elapsed*1000)))
+                self.assertGreaterEqual(elapsed, 4.5)
+                self.assertLess(elapsed, 7)
+                self.assertEqual(calls, [7])
+            finally:
+                server.shutdown()
+                thread.join(timeout=2)
+                self.assertFalse(thread.is_alive())
 
     def test_atomic_release_preserves_exact_reference_and_mode(self):
         with tempfile.TemporaryDirectory() as d:

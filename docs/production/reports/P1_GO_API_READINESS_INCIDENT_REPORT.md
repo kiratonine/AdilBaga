@@ -82,3 +82,43 @@ New tests are confined to the two existing test files. They preserve all prior a
 Publication is authorized by this TASK: commit only these five paths, ordinary push of this feature branch, Draft PR to main, no merge. Hosted checks must be evaluated for the exact resulting commit SHA. **At report freeze hosted CI is pending publication, not PASS**; final handoff supplies actual PR/head/check results without rewriting test history. A clean full-stack archive is generated using the existing archive script; exact path/SHA256 and byte-match result accompany the handoff.
 
 **One Owner action after independent source review:** separately authorize an exact-SHA release/cutover only after reviewing the3s broker versus5s handler limitation, immutable artifact approval and compatible rollback image, approved live/ready/catalog checks, and the missing restricted diagnostic context if a proven cold-connect RCA is required. Until then **PENDING_PRODUCTION_DEPLOY**; no restart, reboot, credential transfer, production build/load, service update, ingest, C2/HMAC execution or settings change was performed. Production incident is not declared fixed.
+
+## Follow-up — PR #52 broker/readiness compatibility, 2026-10-20
+
+**READY_FOR_EXTERNAL_REVIEW, source-only.** This section supersedes the earlier **source** 3s-versus5s broker limitation, not the historical evidence or remaining production gates. Previous reviewed head `b163bb4fb71bc9e0d3dbd8b6dac75304902d3f67` and its [9/9 SUCCESS run](https://github.com/kiratonine/AdilBaga/actions/runs/39421811900) are prior evidence, not CI evidence for this correction. Fresh main remains `0095d9951f79d64c7ef9145344b0a1dd6a78867b`; same branch and existing Draft [PR #52](https://github.com/kiratonine/AdilBaga/pull/52). Preflight found a clean tree and matching local/remote/reviewed head before editing.
+
+### Exact correction and compatibility proof
+
+Only [auto_broker.py](../../../scripts/deploy/auto_broker.py), [auto_broker_test.py](../../../scripts/deploy/auto_broker_test.py) and this append-only report change relative to the reviewed head. The four reviewed Go files remain byte-identical. No new source files, dependency, environment flag or runbook change: `deploy/README.md` already says approximately30s readiness polling and remains accurate.
+
+- `ready()` now passes **min(7s, remaining)** to its fixed loopback HTTP probe: the existing5s Go handler budget plus **2s selected response/scheduling headroom**. Actual local4.5s HTTP responses completed at4523/4524ms (about23/24ms above the synthetic server delay); this supports compatibility in the tested local environment, not a bound on production tail latency. The2s margin is an explicit bounded allowance, not a claim that production overhead was measured.
+- The shared monotonic deadline is still **start+30s**, never reset between attempts. Remove the100ms minimum that could exceed the last remaining fraction; never start with a nonpositive remainder; accept success only if it completes before the original deadline. Existing maximum0.5s pause and existing retry loop remain; no additional loop/retry policy was introduced.
+- Default `http()` timeout18s, response/redirect/cache validations, all callers of `ready()` (preflight/activation/rollback), release authorization, sealed artifact, cutover ordering, public gates, worker alarms and exactly-one compensation remain unchanged. A persistently failing probe still blocks; cancellation through KeyboardInterrupt is not retried and follows existing rollback compensation.
+- Source audit found other readiness HTTP calls in Smoke/public observation using the unchanged18s helper default, monitor GET cap8s, middleware15s and server write20s; none has the former3s-versus5s conflict. The3s TCP-only peer check and3s Docker live-only healthcheck are different checks and were not changed. Installed proxy/monitor/broker settings were not accessed or attested by this source-only follow-up.
+- Timing boundary: the shared30s admission/verdict window is preserved and late success is rejected. The existing urllib timeout is a socket/I/O timeout, **not a new hard process-level interruption of an arbitrarily trickling response**; no such broader HTTP/watchdog rewrite is claimed. The transport's existing30s status-call timeout also covers complete broker preflight, not just readiness; do not infer guaranteed full-window preflight completion plus metadata overhead. Worker/transport safety remains unchanged and actual installation/cutover needs separate exact-SHA review.
+
+### Fail-first and actual repeated checks
+
+RTK wrappers; Node24.10.0, Go1.27.2, `GOTOOLCHAIN=local`. Python commands run from root with `PYTHONPATH=scripts/deploy` to resolve the existing broker import convention. No production network or credentials; real HTTP testing bound to owned loopback and inherited proxy discovery disabled in that test only.
+
+| Check / command | Actual result |
+| --- | --- |
+| Before fix: focused unittest methods `test_real_probe_timeout_allows_healthy_cold_handler`, `test_last_probe_never_exceeds_remaining_fraction`, `test_late_success_is_not_readiness` | **exit1**, expected fail-first: healthy4.5s and5s responses exhausted old3s attempts;100ms floor exceeded50ms remaining; old code accepted success at30.001s. |
+| `python3 -B -m unittest -v scripts/deploy/auto_broker_test.py` | **exit0, 42/42 PASS, 0 SKIP**, including eight added regression methods. Real local cold HTTP4523ms; fake4.5s/5s responses accepted on first7s-budget probe. |
+| `python3 -B -m unittest discover -s scripts/deploy -p 'auto_*_test.py'` | **exit0, 47/47 PASS, 0 SKIP**. Repeated real local HTTP4524ms. |
+| `node --test scripts/deploy/auto-gate.test.mjs scripts/deploy/verify-part15.test.mjs` | **exit0, 52/52 PASS, 0 SKIP** (21 gate +31 Part15). |
+| `node scripts/deploy/verify-auto-deploy.mjs` / `node scripts/deploy/verify-part15.mjs` | **exit0 each**, static deployment guards, not rollout acceptance. |
+| `cd backend-go && go test -count=1 ./internal/httpapi ./internal/postgres ./cmd/api` | **exit0**, all three packages PASS. |
+| `node scripts/ci/run-checks.mjs go` | **exit0**, full unit/race/vet, default/integration-tag staticcheck, module/format checks, govulncheck (no vulnerabilities), API/ingest builds. No local integration-tagged DB execution claimed by this command. |
+| `node scripts/ci/run-checks.mjs ops` | **exit0, 177/177 PASS, 0 SKIP**. |
+| `node scripts/ci/run-checks.mjs security` | **exit0**, source/workflow bounded privacy checks and synthetic backup guard. |
+| `node scripts/revalidation/verify-part16.mjs` | **exit0**, static C2 boundaries unchanged. |
+| Python AST syntax / `git diff --check` / scope and history checks | **exit0**; only the three correction paths, exact historical report prefix, reviewed Go/DB/frontend/C2/ops bytes preserved. |
+
+New regressions cover healthy cold4.5s/5s, persistent503 and transport-failure full30s fake-clock exhaustion, sub100ms remainder, no probe after deadline, late-success rejection, cancellation without retry/one compensation, persistent failure/one compensation and real4.5s HTTP with clean server/thread shutdown. Existing authorization and rollback failures remain exercised, including keeping the tunnel closed when compensation fails.
+
+### Handoff / remaining gates
+
+Publish one narrow commit and ordinary push to the same Draft PR; exact-new-head hosted nine-job CI must complete before final handoff. CI was not yet executed for the new commit at this report freeze; the final handoff supplies its actual SHA/run/results. Generate a **new** clean full-stack archive, verify safe members and all-file Git-tree byte equality, and return its SHA256. No old archive is reused.
+
+Cold-Supabase RCA remains **LIKELY_NOT_PROVEN / COLD_CONNECT_UNMEASURED_INPUT_BLOCKED**. Production remains **PENDING_PRODUCTION_DEPLOY**: separate review/Owner exact-SHA cutover authorization, independently approved immutable artifact and retained compatible rollback image, installed broker/proxy identity/timeouts and controlled health/application checks still required. No SSH, production HTTP/DB, broker installation, deployment, service operation, reboot, Backend2/C2 action, secrets or settings change occurred during this follow-up. Part32 is not resumed by this correction.
