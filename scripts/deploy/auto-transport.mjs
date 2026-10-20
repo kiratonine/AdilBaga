@@ -17,6 +17,42 @@ export function runtimeChanged(paths) {
     || p.startsWith('backend-go/cmd/') || p.startsWith('backend-go/internal/'));
 }
 
+const protectedPaths=['backend/prisma','contracts','deploy/compose.production.yml'];
+const toolingActive='438ecdfa3d386a186dcd8b73c3c10aef5e79dc82';
+const toolingBlobs=[
+  ['contracts/package.json','ee97d962531376e81a0b9175d8eef2aaa36a7c9c','48a7866b9084cbc25b2dafc1089713eb555e0a38'],
+  ['contracts/pnpm-lock.yaml','5ec3371eba46c18660421d89949aa0ebf890d534','4a631ef27450ce85b818e4fe02705b9bcd224c13'],
+];
+function compatibilityGit(args) {
+  const r=spawnSync('git',['--no-replace-objects',...args],{timeout:10000,maxBuffer:1<<20,
+    env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8',
+      GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_LAZY_FETCH:'1'},
+    stdio:['ignore','pipe','pipe']});
+  assert.equal(r.status,0,'compatibility Git failed');
+  assert.ok(Buffer.isBuffer(r.stdout),'compatibility Git output missing');
+  return r.stdout.toString('utf8');
+}
+// Call only with the broker-read active SHA and the CI/artifact-verified main SHA.
+// No working-tree proof, caller-controlled exception or fixed future main SHA.
+export function verifyCompatibility(active,candidate) {
+  for(const ref of [active,candidate]) {
+    assert.match(ref,shaPattern);
+    assert.equal(compatibilityGit(['rev-parse','--verify',`${ref}^{commit}`]),ref+'\n','unverified commit');
+  }
+  const diff=compatibilityGit(['diff','--name-only','--no-renames','--no-ext-diff','--no-textconv','-z',
+    active,candidate,'--',...protectedPaths]);
+  if(diff==='')return;
+  assert.equal(active,toolingActive,'incompatible active release');
+  assert.equal(diff.split('\0').sort().join('\0'),['',...toolingBlobs.map(([path])=>path)].sort().join('\0'),
+    'incompatible DB/compose/contract delta');
+  for(const [path,oldBlob,newBlob] of toolingBlobs) {
+    for(const [ref,blob] of [[active,oldBlob],[candidate,newBlob]]) {
+      assert.equal(compatibilityGit(['ls-tree','-z',ref,'--',path]),`100644 blob ${blob}\t${path}\0`,
+        'unreviewed tooling object');
+    }
+  }
+}
+
 export function sshOptions(env,key,hosts) {
   assert.match(env.DEPLOY_HOST,/^[a-zA-Z0-9][a-zA-Z0-9.-]{0,252}$/);
   assert.match(env.DEPLOY_USER,/^[a-z_][a-z0-9_-]{0,31}$/); assert.notEqual(env.DEPLOY_USER,'root');
@@ -51,9 +87,7 @@ async function main() {
     const pre=call(JSON.stringify({operation:'status'})+'\n');
     if(pre.active===sha){console.log('NO_OP');return;}
     assert.match(pre.active,shaPattern); assert.equal(pre.available,true);
-    // No DB/API/compose contract change may be bundled into an automatic release.
-    const diff=spawnSync('git',['diff','--name-only',pre.active,sha,'--','backend/prisma','contracts','deploy/compose.production.yml'],{timeout:10000,maxBuffer:1<<20});
-    assert.equal(diff.status,0); assert.equal(diff.stdout.length,0,'incompatible DB/compose/contract delta');
+    verifyCompatibility(pre.active,sha);
     const runtime=spawnSync('git',['diff','--name-only',pre.active,sha,'--','backend-go'],{timeout:10000,maxBuffer:1<<20});
     assert.equal(runtime.status,0);
     if(!runtimeChanged(runtime.stdout.toString().trim().split('\n'))){console.log('NO_RUNTIME_CHANGE');return;}
