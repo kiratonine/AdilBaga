@@ -47,7 +47,7 @@ export async function postgres(task) {
       run(`Prisma migrate deploy ${db}`, 'pnpm', ['exec', 'prisma', 'migrate', 'deploy'],
         { cwd: join(root, 'backend'), env: { ...env, DATABASE_URL: target, DIRECT_URL: target } });
       const applied = sql(db, 'SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name;');
-      if (applied !== '20260923000000_init\n20261004000000_rls_runtime_access\n20261005000000_snapshot_history\n20261006000000_catalog_taxonomy') throw new Error('migration chain mismatch');
+      if (applied !== '20260923000000_init\n20261004000000_rls_runtime_access\n20261005000000_snapshot_history\n20261006000000_catalog_taxonomy\n20261021000000_scrum19_milk_taxonomy') throw new Error('migration chain mismatch');
     }
     const login = (user, parent) => sql('part04_fixture', `CREATE ROLE ${user} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'ci-local-only'; GRANT ${parent} TO ${user} WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;`);
     login('part04_api_login', 'aktau_api_reader');
