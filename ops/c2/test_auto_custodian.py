@@ -111,6 +111,9 @@ class CycleTests(unittest.TestCase):
     def test_malformed_or_forged_terminal_evidence_is_not_repaired(self):
         for e in [[],[{'attemptId':'a'*32,'state':'completed','verdict':'PASS'}],[{'attemptId':'a'*32,'state':'armed','verdict':'PASS','transitions':['prepared','armed'],'history':[]}]]:
             with self.assertRaises(ValueError): m.abandon_after_boot(e,'a'*32,'old','new',3)
+    def test_ledger_parser_still_rejects_duplicates_nonfinite_trailing_data_and_invalid_utf8(self):
+        for raw in [b'[{"state":"completed","state":"inconclusive"}]\n',b'[NaN]\n',b'[Infinity]\n',b'[1e999]\n',b'[]\n[]\n',b'["\xff"]\n',b'{}\n']:
+            with self.assertRaises((ValueError,UnicodeError)):m.node_ledger_json(raw)
 
 
 class RootFileTests(unittest.TestCase):
@@ -250,6 +253,11 @@ class BootFilesystemTests(unittest.TestCase):
             self.io.preflight_namespace()
             self.run.mkdir(mode=0o700)
             with self.assertRaises(ValueError):self.io.preflight_namespace()
+    def test_actual_node_decimal_ledger_is_not_rejected_by_python_float_formatting(self):
+        entry={'attemptId':self.attempt,'state':'inconclusive','transitions':['prepared','inconclusive'],'history':[{'state':'prepared','atUTC':1},{'state':'inconclusive','atUTC':2}],'verdict':'INCONCLUSIVE','evidence':{'acceptance':'INCONCLUSIVE','clock_uncertainty_ms':0.00001}}
+        raw=m.canonical([entry]).replace(b'1e-05',b'0.00001') # valid JSON.stringify form
+        self.save(self.state/'ledger/attempts.json',raw)
+        self.assertEqual(m.ledger_verdict(self.io.read_ledger(),self.attempt),('INCONCLUSIVE',0))
     def test_live_cgroup_cannot_be_treated_as_a_dead_old_invocation(self):
         self.io.exclusive_cgroup=lambda:(_ for _ in ()).throw(ValueError('previous_actor_still_live'))
         before=self.snapshot()

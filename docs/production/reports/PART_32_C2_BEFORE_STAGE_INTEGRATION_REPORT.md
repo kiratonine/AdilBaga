@@ -2521,3 +2521,13 @@ PR+CI Gate and zero mandatory approving reviewers; legacy branch-protection
 endpoint404 is NOT treated as permission to bypass rules. Fresh remote main
 still d3a9cc5. Protected source publication and real deployment follow, not a
 source-only final result.
+
+Pre-deployment review additionally reproduced a new custodian compatibility edge:
+Python re-encoding of a valid JSON.stringify decimal ledger (`0.00001` vs
+`1e-05`) falsely raised ledger_canonical. Fail-first command exit1,29 PASS/1 error;
+no production installation had occurred. Fixed the Node-ledger parser only:
+bounded single UTF-8 JSON document, duplicate/nonfinite/trailing data rejection,
+no Python serialization equality assumption. Root authority/config canonical
+checks remain unchanged; original forensic bytes are preserved. Focused suite
+now31/31; combined installer/custodian84/84 exit0. New positive/negative regression
+guards number compatibility without weakening verdict/custody verification.

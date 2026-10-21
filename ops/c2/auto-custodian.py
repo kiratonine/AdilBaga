@@ -10,6 +10,7 @@ import datetime
 import fcntl
 import hashlib
 import json
+import math
 import os
 import pathlib
 import pwd
@@ -91,6 +92,26 @@ def root_json(path):
     raw=root_bytes(path); value=json.loads(raw)
     if canonical(value)!=raw: raise ValueError('noncanonical_root_record')
     return value
+
+
+def node_ledger_json(raw):
+    # JSON.stringify and Python use different valid decimal/exponent cutoffs.
+    # Validate the original single UTF-8 JSON document, not Python's re-encoding.
+    if not raw.endswith(b'\n') or b'\n' in raw[:-1] or raw[:1]!=b'[': raise ValueError('ledger_framing')
+    def pairs(values):
+        obj={}
+        for key,value in values:
+            if key in obj: raise ValueError('ledger_duplicate_key')
+            obj[key]=value
+        return obj
+    def constant(value): raise ValueError('ledger_nonfinite')
+    def number(value):
+        v=float(value)
+        if not math.isfinite(v): raise ValueError('ledger_nonfinite')
+        return v
+    entries=json.loads(raw.decode('utf8','strict'),object_pairs_hook=pairs,parse_constant=constant,parse_float=number)
+    if type(entries) is not list: raise ValueError('ledger_shape')
+    return entries
 
 
 def bounded_command(argv, timeout=5, cap=4096):
@@ -296,9 +317,7 @@ class Custodian:
                 if not stat.S_ISREG(st.st_mode) or (st.st_uid,st.st_gid,stat.S_IMODE(st.st_mode),st.st_nlink)!=(self.uid,self.gid,0o600,1) or st.st_size>4<<20: raise ValueError('ledger_custody')
                 with os.fdopen(os.dup(fd),'rb') as f: raw=f.read((4<<20)+1)
                 if len(raw)>4<<20: raise ValueError('ledger_capacity')
-                entries=json.loads(raw)
-                if canonical(entries)!=raw or type(entries) is not list: raise ValueError('ledger_canonical')
-                return entries
+                return node_ledger_json(raw)
             finally: os.close(fd)
         finally: os.close(directory)
 
@@ -334,8 +353,7 @@ class Custodian:
             if not stat.S_ISREG(st.st_mode) or (st.st_uid,st.st_gid,stat.S_IMODE(st.st_mode),st.st_nlink)!=(self.uid,self.gid,0o600,1) or st.st_size>4<<20: raise ValueError('recovery_ledger_custody')
             with os.fdopen(os.dup(fd),'rb') as f: raw=f.read((4<<20)+1)
         finally: os.close(fd)
-        entries=json.loads(raw)
-        if canonical(entries)!=raw or type(entries) is not list: raise ValueError('recovery_ledger_shape')
+        entries=node_ledger_json(raw)
         if old.get('attemptId') is None and (not entries or entries[-1].get('state') in ['completed','inconclusive']):
             if entries: ledger_verdict(entries,entries[-1].get('attemptId'))
             self.recover_unarmed_start(old,entries); return
