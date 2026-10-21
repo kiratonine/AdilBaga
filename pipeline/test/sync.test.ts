@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { buildBundle } from '../src/agent/bundle.js'
 import { buildDictionary } from '../src/mapping/dictionary.js'
+import { refineCategory } from '../src/mapping/milk.js'
+import { publishCategories } from '../src/mapping/scope.js'
 import { assertFresh, buildSyncBundle } from '../src/sync/sync.js'
 import type { SourceFile } from '../src/types.js'
 import { cp } from './helpers.js'
@@ -83,6 +85,49 @@ describe('sync', () => {
       const src = readFileSync(new URL(file, import.meta.url), 'utf8')
       expect(src).not.toMatch(/gemini|classifyBatch|matchBlock|GEMINI_API_KEY/)
     }
+  })
+})
+
+describe('SCRUM-19 milk refinement', () => {
+  const at = '2026-10-07T06:00:00.000Z'
+  const filesOf = (...ps: ReturnType<typeof cp>[]): SourceFile[] => {
+    const by = (s: SourceFile['storeCode']) => ps.filter((p) => p.storeCode === s).map((p) => p.product)
+    return (['DINA', 'DANA', 'FIX_PRICE'] as const).map((s) => ({ ...meta(s), products: by(s) }))
+  }
+  const dictOf = (...groups: ReturnType<typeof cp>[][]) => buildDictionary(buildBundle(
+    groups.map((members) => ({ members, method: 'ai' as const, confidence: 0.97, review: 'approved' as const })),
+    (['DINA', 'DANA', 'FIX_PRICE'] as const).map(meta), day0))
+
+  it('known card named "Сливки …" in milk is published as dairy', () => {
+    const cream = cp('DINA', 'c1', 'Сливки Домик в деревне 20% 200 г', { weightGrams: 200, fatPercent: 20 })
+    const { bundle } = buildSyncBundle(filesOf(cream), dictOf([cream]), at)
+    expect(bundle.canonicalProducts).toHaveLength(1)
+    expect(bundle.canonicalProducts[0]!.category).toBe('dairy')
+  })
+  it('all members of a known card get the same refined category', () => {
+    const dina = cp('DINA', 'm1', 'Сливки Савушкин 10% 1 л', { volumeMl: 1000, fatPercent: 10 })
+    const dana = cp('DANA', 'm2', 'Молоко Савушкин 3.1% 1 л', { volumeMl: 1000, fatPercent: 3.1 })
+    const d = dictOf([dina, dana])
+    const card = Object.values(d.canonicals)[0]!
+    const { bundle } = buildSyncBundle(filesOf(dina, dana), d, at)
+    expect(bundle.canonicalProducts).toHaveLength(1)
+    const g = bundle.canonicalProducts[0]!
+    expect(g.members).toHaveLength(2)
+    expect(g.category).toBe(refineCategory('milk', card.name, card.attributes.fatPercent))
+    expect(g.members.map((m) => m.rawProduct.storeCode).sort()).toEqual(['DANA', 'DINA'])
+  })
+  it('unmapped cream from a milk store section is published as dairy', () => {
+    const fresh = { ...a.product, sourceProductId: '99', name: 'Сливки Килегей 10% 320 г', sourceCategoryPath: ['Молоко'] }
+    const { bundle, unmapped } = buildSyncBundle(today([fresh]), dict, at)
+    expect(unmapped).toEqual([expect.objectContaining({ sourceProductId: '99', guessedCategory: 'dairy' })])
+    const g = bundle.canonicalProducts.find((x) => x.members.some((m) => m.rawProduct.sourceProductId === '99'))!
+    expect(g.category).toBe('dairy')
+  })
+  it('plant drink is dropped by publish scope', () => {
+    const oat = cp('DINA', 'o1', 'Напиток овсяный Nemoloko 1 л', { volumeMl: 1000 })
+    const { bundle } = buildSyncBundle(filesOf(oat), dictOf([oat]), at, publishCategories(''))
+    expect(bundle.canonicalProducts.some((g) => g.canonicalName.includes('Nemoloko'))).toBe(false)
+    expect(bundle.canonicalProducts.some((g) => g.category === 'drinks')).toBe(false)
   })
 })
 
