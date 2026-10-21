@@ -125,3 +125,182 @@ SetUnlinkOnClose(false), kernel peer credentials and inode-checked own cleanup.
 It is not a new daemon/privilege/HTTP service. Replacement/orphan resources must
 remain untouched. Actual Go/Node/PG17 joint integration is still outstanding.
 
+## 2026-10-21 — completed local implementation and source review
+
+**SOURCE_IMPLEMENTED_LOCAL_GATES_VERIFIED; publication gates recorded below.**
+This continuation supersedes the historical blocked/in-progress assessments,
+without rewriting their evidence. Production C2 remains **0/3 NOT_RUN** and
+deployment is **PENDING / NOT_AUTHORIZED by this source task**. The Owner's
+attachment explicitly forbids GitHub Release: no release or tag will be created.
+Ordinary protected PR/main integration, not a GitHub Release, is the requested
+source milestone. Physical Siri, Frontend and current production API are accepted
+Owner context, not retested or modified here.
+
+### Exact source inventory and preserved boundaries
+
+30 scoped files, based on exact main6a4b4c7a91ec471db54987b689c3c87a785523a3:
+
+- Go ingest main/test: one bounded opt-in check immediately before Stage; trace
+  admission only after binding the actual locked Stage baseline.
+- Go ingestion ingestor/baseline_test: value-only accessor, no query/lock change.
+- Go c2projection main/test and internal/postgres/c2projection: private
+  ready-before envelope with actual publishedAt from the existing RR row;
+  unchanged legacy v2 output, query literals, selection and SQL privileges.
+- Go revalidation ready, ready_linux, ready_other, ready_peer,
+  ready_peer_linux, ready_server_linux and their tests; real publication
+  integration test; existing relayprobe gains narrow ready-server/operator modes.
+- Existing Node projection-provider, c2-production-supervisor and its tests,
+  fifo-adapter; ready-ipc/ready-launch tests; two explicit local fixture parents.
+  No sixth runtime Node module or changed installer inventory.
+- joint-poc source pins: original provider SELECT literals preserved; other
+  PostgreSQL repository files compared to the accepted6a baseline (includes
+  earlier reviewed P1 pool mitigation, not the obsolete pre-P1 tree).
+- CI run-checks Go profile includes real-relay Node regressions; existing DB
+  runner retains every old test and adds a second isolated PG17 cluster for
+  Part32, because immutable writer bootstrap forbids pre-existing role members.
+- Existing ops/c2 README freezes wire, process/peer authority, lifecycle and
+  future provisioning. This single Part32 report preserves its original prefix.
+
+Zero changes to frontend, public contracts, Prisma/schema/migrations, SQL query
+literals, matching/parsers, existing HMAC client/body, Relay wire, runtime API,
+deploy workflow/broker/compose, systemd/timers or PR55. The Stage/Publish methods
+retain signatures/transaction semantics; no extra database query is introduced.
+
+### Authority, arming and fail-open boundary
+
+The complete private contract is in [C2 README](../../../ops/c2/README.md#part32-private-ready-v1-source-contract-no-production-provisioning).
+One canonical4096-byte-max request/response on an operator-private per-attempt
+Unix socket;1500ms total ingest admission+IPC budget, no retry/poll/sleep. The
+private1500ms context never replaces the original context passed to Stage.
+Canonical strict Go decoding+remarshal and Node framing reject duplicate/unknown
+keys, extra frames, wrong types, malformed values and oversized input.
+
+Only independent root-controlled ready.json can bind source/frontend/deployment,
+actual protected Node process birth/command, approved executable/module/ingest/
+relay hashes, UID/GID, boot and expiry. Same UID, JSON, env, caller flags or
+fixtureOnly cannot issue this authority. Root bootstrap is a later admin action:
+clean immutable command, permanent in-process privilege drop to the literal
+existing aktau-sync account, non-dumpable process, no capabilities. No such
+record/bootstrap was created/executed against production by this task.
+
+Node qualifies BEFORE/witness, opens the existing persistent FIFO and fsyncs
+armed ledger before serving READY. The Go-owned child listener uses kernel
+SO_PEERCRED, pinned-parent/no-follow/inode checks, atomically0600 socket and
+SetUnlinkOnClose(false). It is non-dumpable; same-UID access to its private
+/proc/fd pipe is actually denied in a native non-root regression. One nonce is
+durably consumed before responding. After Stage, a one-use ticket checks exact
+S0 ID/UTC millisecond publishedAt; intervening publication excludes C2 only.
+
+Lost/forged/expired/replayed READY, death, bad peers/custody, mismatched baseline
+or unavailable C2 never becomes an ingest failure or new notification attempt.
+Stage/Publish failure never notifies. Successful COMMIT with notifier failure
+keeps original degraded semantics. Existing204/FIFO/AFTER/private capture custody
+are preserved. Live helper/unchanged root authority and frontend identity are
+rechecked before GET and qualification/finalize. Unverified cleanup retains safe
+HTTP evidence and operator.lock, returns INCONCLUSIVE, never deletes a foreign
+resource or silently retries. Exclusive coordinated operator namespace custody
+is required; inode checks do not claim atomic unlink against malicious same-UID
+concurrent writers. Crash/orphan state requires independent reconciliation.
+
+Existing35-minute supervision/calibration refresh, actual204-based5s acceptance,
+20s diagnostics,21GET/2sitemap, frozen witness selection and series semantics
+remain: FAIL resets, INCONCLUSIVE does not count; three genuine qualified PASS
+are still required. No local fixture can satisfy production acceptance.
+
+### Actual tests and error/fix ledger
+
+Non-root WSL; Node24.10.0, Go1.27.2/GOTOOLCHAIN=local. Logs/builds in an owned
+temporary directory outside Git. All PostgreSQL is harness-created disposable
+PG17/loopback, fixed local credentials and restricted roles, never production.
+
+| Command / check | Actual result |
+| --- | --- |
+| New ordering/private-S0 tests before implementation | exit1, two meaningful missing-behavior failures; not fixture syntax errors |
+| Focused5 Go packages, count1 | exit0, PASS |
+| Focused5 Go packages, race/count1 | exit0, PASS |
+| Real Go/Node Unix round-trip | PASS, measured27–51ms in local synthetic authority profile; not a privileged production attestation |
+| Node full revalidation+guard with built local relayprobe | exit0,321/321 PASS,0 SKIP |
+| Original joint-poc.mjs | exit0,15/15 PASS,0 SKIP; real Go CLI/FIFO, old fixture publication semantics retained |
+| Full run-db-integration.mjs | exit0, all original checks plus real new pre-Stage chain; both owned PG17 clusters cleaned |
+| New PG17 healthy chain | real Go BEFORE/Unix READY/Stage/Publish COMMIT/HMAC204/FIFO/6 HTTP loopback bodies/real CLI AFTER, local PASS,fixtureOnly=true |
+| New PG17 intervening publication, Stage failure, Publish failure, notifier401 | all4 INCONCLUSIVE,0 GET; normal business/error/degraded outcomes preserved; canonical/mapping/offer no-mutation assertions before Publish and failed Publish |
+| Ops profile | exit0,177/177 PASS,0 SKIP; sandbox installer/no-clobber/orphan regressions preserved |
+| Security profile | exit0, source/workflow/backup guards PASS; not a complete repository security audit |
+| Contracts profile | exit0,12 PASS/10 explicitly skipped live-fixture cases; NOT claimed22/22 executed; full fixture execution recorded separately below |
+| Pipeline profile | exit0, existing tests/typecheck PASS; intentional error-injection logs not real failures |
+| Part16 verifier, changed JS syntax | exit0, PASS; static evidence only |
+
+Ordinary failures were diagnosed and corrected, not hidden or called PASS:
+prepared synthetic bundle used int instead of permitted float64 volume scalar;
+added bundle-shape regression and fixed fixture. Publish-failure injection
+violated existing status/publishedAt CHECK; fixed the injection, not schema.
+Reusing writer bootstrap across test databases violated the unchanged no-members
+guard; use a second fresh cluster, not weakened roles/SQL. Native experiment
+proved Node net.Server.close can unlink a substituted path; replaced that narrow
+listener with the approved Go child's explicit known-own cleanup. Protected
+process metadata uses /proc/PID/status owner, not the user-owned top PID directory.
+Added real parent EOF, foreign replacement and orphan-retention tests. One added
+test initially exceeded Unix pathname length; shortened only its owned temporary
+path and made server output close on exit to avoid a hung assertion. Cleanup
+verification then exposed Go race test helper's default1s post-exit sleep;
+GORACE=atexit_sleep_ms=0 applies ONLY to test subprocesses, retains race detection
+and production timeouts. The subsequent full PG17/race run passed.
+
+### Source review and remaining runtime inputs
+
+Self-review inspected source-to-sink trust, opt-in ordering, canonical wire,
+timeout/cancellation, real peer credentials, no-follow filesystem custody,
+durable nonce/interlocks and unchanged HMAC/publication/HTTP budgets. This is not
+an independent GitHub reviewer approval. Effective GitHub rules were read:
+PR and CI Gate required, force/deletion forbidden, required reviewer count0;
+no settings changed or admin-bypass requested. Merge still requires actual full
+green hosted CI and ordinary GitHub admission, recorded below when completed.
+
+Future separately authorized operator work, NOT performed here:
+
+1. Build from exact merged source using documented trimpath/linux-amd64 recipe;
+   independently approve c2projection/relayprobe/ingest and five Node modules.
+   Preserve existing API/Backend2/DB/timers and older staging; do not reuse an
+   obsolete Part31 approval as authorization for new bytes.
+2. Genuine independent root installer approval, source-manifest/receipt and
+   inactive --verify/--install under unchanged orphan/no-clobber rules. Separate
+   authorization.json, restricted reader.dsn and independently verified Vercel
+   alias/deployment/frontend SHA are mandatory; never API/ingest/owner DSN reuse.
+3. Root-controlled clean Node bootstrap with private protected child stdio,
+   drop privileges without exec, inspect actual birth/command/executable and
+   independently create one bounded ready.json for its unique ledger attempt.
+   Own private FIFO namespace prepared by the authorized operator; no new service,
+   sudo/SSH privilege, global sysctl/permission change or self-issued approval.
+4. Arm before a legitimate publication. Go compares READY S0 with locked Stage
+   baseline; actual post-COMMIT signed204/FIFO, trusted AFTER and independent post
+   identity/inactive opt-in/cleanup attestation complete provisional evidence.
+   Retain all safe samples/failed/inconclusive histories. No artificial sync.
+5. Three genuine qualified production PASS within unchanged5s SLA; publish-source
+   rollout/rollback requires its own deployment authorization and exact hashes.
+   Current source completion alone neither activates C2 nor changes live API6a.
+
+### Final local mandatory gates before PR publication
+
+All commands completed, exit0 (no production resources):
+
+- `node scripts/ci/run-checks.mjs go`: gofmt, tidy/verify/no module drift,
+  full Go unit/race, vet, staticcheck default+integration, govulncheck (no
+  vulnerabilities), API/ingest/relay local builds and321/321 Node PASS,0 SKIP.
+- `node scripts/ci/run-ephemeral-staging.mjs`: real disposable PG17, full
+  selected fixture-backed GET contract checks, local TLS, Docker runtime/hardening,
+  DB outage/recovery without API restart and all owned-resource cleanup PASS.
+  Two contract runs each18 PASS/4 Voice-only SKIP; source-defined automatic
+  Playwright HTTP selection14 PASS/6 fixture-conditional SKIP. The six GET cases
+  skipped by standalone Contracts execute here; four fixture Voice cases do not.
+  These pre-existing profile exclusions are not claimed as executed PASS; no
+  production API or manual Frontend/Siri test was performed.
+- `node scripts/revalidation/joint-poc.mjs`:15/15 PASS; separate new actual
+  Stage/Publish/READY integration passes in full DB runner as detailed above.
+- Ops, security, contracts, pipeline and Part16 static verifier passed as listed.
+- Changed JS syntax PASS. Final protected-path zero-diff, report historical
+  prefix, Markdown file links and bounded privacy checks are required at the
+  publication checkpoint; they are not substituted by these tests.
+
+No SKIP is represented as executed PASS. GitHub hosted/main results are still
+pending at this checkpoint. AUTO_DEPLOY_ENABLED read back false, unchanged;
+no Actions plan/deploy, production SSH/HTTP/SQL, root approval or installation.
