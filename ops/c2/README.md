@@ -602,6 +602,16 @@ INCONCLUSIVE; earlier PASS/FAIL history and count policy are retained. Unknown
 names, corrupt/ambiguous state, same invocation, live actor or failed cleanup
 remain BLOCKED, never deleted or auto-replayed. Ordinary sync still proceeds.
 
+Systemd writable-path bind mounts can make recovery renames fail with EXDEV
+even when the underlying disk is the same. For that error only, recovery writes
+an exclusive root-private archive and fsyncs it and its parent before removing
+the revalidated owned original. Regular-file bytes are preserved unchanged;
+an attempt directory crossing mounts becomes a bounded metadata-v1 JSON archive
+of FIFO/socket identity and any bounded claim bytes, not a fabricated live
+socket. Same-mount renames retain the original inode. Copy/fsync errors, changed
+sources, existing destinations or a crash during archival remain interlocked;
+keep both original and incomplete archive for independent reconciliation.
+
 ### Activation, diagnosis and rollback
 
 Source/CI merge and exact reviewed artifact admission precede VPS changes. Stage
