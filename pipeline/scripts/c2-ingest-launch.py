@@ -7,11 +7,13 @@ state selects the original publication path with C2 stripped, never a fake PASS.
 """
 import contextlib
 import datetime as dt
+import errno
 import hashlib
 import json
 import os
 import re
 import selectors
+import signal
 import stat
 import subprocess
 import sys
@@ -206,6 +208,45 @@ def admit(stack):
     return c
 
 
+class PreExecUnavailable(Exception):
+    """Only a known Popen construction/exec failure, never a child outcome."""
+
+
+class Cancelled(BaseException):
+    def __init__(self, signum):
+        self.signum = signum
+
+
+def execute(argv, *, env, pass_fds=()):
+    child = None
+    try:
+        try:
+            child = subprocess.Popen(argv, env=env, pass_fds=pass_fds)
+        except OSError as error:
+            # With fixed argv/no shell/no preexec_fn, these constructor errors
+            # are reported before the program ran. Never classify a wait error
+            # or an unclassified error (including EBADF) as permission to retry.
+            if error.errno in (errno.ENOENT, errno.EACCES, errno.EPERM, errno.ENOEXEC,
+                               errno.ENOTDIR, errno.ELOOP, errno.ETXTBSY):
+                raise PreExecUnavailable() from None
+            raise
+        return child.wait()
+    except BaseException:
+        # No retry after an uncertain wait/cancellation: apply may have committed.
+        if child is not None and child.poll() is None:
+            child.terminate()
+            try:
+                child.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait(timeout=1)
+        raise
+
+
+def exit_status(code):
+    return code if code >= 0 else 128-code
+
+
 def run_pair(bundle):
     env = {k: v for k, v in os.environ.items() if not k.startswith('C2_')}
     env['GOTOOLCHAIN'] = 'local'  # no unnoticed toolchain download on a sync host
@@ -215,26 +256,47 @@ def run_pair(bundle):
         except Exception:
             candidate = None
         print(json.dumps({'message': 'c2_launch', 'outcome_class': 'immutable_candidate' if candidate else 'not_armed'}), file=sys.stderr)
-        for apply in (False, True):
-            variables = {}
-            try:
-                if candidate:
+        if candidate:
+            for apply in (False, True):
+                try:
                     variables = candidate.variables()
-            except Exception:
-                candidate = None
-            argv = ['go', 'run', './cmd/ingest'] if candidate is None else ['/proc/self/fd/'+str(candidate.fd)]
-            argv += ['-bundle', bundle] + (['-apply'] if apply else [])
-            child_env = {**env, **(variables if apply else {})}
-            p = subprocess.run(argv, env=child_env, pass_fds=(candidate.fd,) if candidate else (), check=False)
-            if p.returncode:
-                return p.returncode if p.returncode > 0 else 128-p.returncode
+                except Exception:
+                    print('{"message":"c2_launch","outcome_class":"authority_lost"}', file=sys.stderr)
+                    break
+                argv = ['/proc/self/fd/'+str(candidate.fd), '-bundle', bundle] + (['-apply'] if apply else [])
+                try:
+                    code = execute(argv, env={**env, **(variables if apply else {})}, pass_fds=(candidate.fd,))
+                except PreExecUnavailable:
+                    print('{"message":"c2_launch","outcome_class":"preexec_unavailable"}', file=sys.stderr)
+                    break
+                if code:
+                    return exit_status(code)
+            else:
+                return 0
+        # Ordinary-only state: always validate AND apply with this implementation.
+        # At this point no apply program has started. Never readmit/retry C2.
+        for apply in (False, True):
+            code = execute(['go', 'run', './cmd/ingest', '-bundle', bundle] + (['-apply'] if apply else []), env=env)
+            if code:
+                return exit_status(code)
     return 0
 
 
-if __name__ == '__main__':
+def main():
+    def cancel(signum, frame):
+        raise Cancelled(signum)
+    signal.signal(signal.SIGTERM, cancel)
     try:
         require(len(sys.argv) == 2 and sys.platform == 'linux')
-        sys.exit(run_pair(sys.argv[1]))
+        return run_pair(sys.argv[1])
+    except Cancelled as error:
+        return 128+error.signum
+    except KeyboardInterrupt:
+        return 130
     except Exception:
         print('{"message":"ingest_launch_failed"}', file=sys.stderr)
-        sys.exit(1)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

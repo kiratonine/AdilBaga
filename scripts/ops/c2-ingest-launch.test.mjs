@@ -20,6 +20,7 @@ test('actual scheduled shell preserves success/stale/all-failed/dry-run/apply fa
     fs.writeFileSync(path.join(dir,'go'),'#!/bin/sh\nprintf "%s|%s|%s\\n" "$*" "${C2_EVENT_FIFO-unset}" "${C2_EVENT_ATTEMPT_ID-unset}" >> "$TEST_GO_LOG"\ncase " $* " in *" -apply "*) exit "$TEST_APPLY_EXIT";; *) exit "$TEST_DRY_EXIT";; esac\n',{mode:0o700});
     for(const [name,failed,dry,apply,expected,count] of [
       ['success','',0,0,0,2],['stale','scrape:dana',0,0,3,2],
+      ['two-stale','scrape:dina,scrape:dana',0,0,3,2],
       ['all-failed','scrape:dina,scrape:dana,scrape:fixprice',0,0,1,0],
       ['sync-failed','sync',0,0,1,0],['dry-failed','',23,0,1,1],['apply-failed','',0,17,1,2],
     ]){

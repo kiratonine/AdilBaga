@@ -742,3 +742,273 @@ reviewer count0 does NOT replace this task's independent launcher-review gate.
 Migration file SHA256 on main matches the observed host file exactly; this still
 does not prove applied DB state. New source PR/CI and artifact readback follow
 below; no stale main CI is substituted for new candidate CI.
+
+### Published source candidate and non-authorizing local artifact packet
+
+Own normal commit **5cbec01928cc81a6e2aeaedf4fa3ebba3d059519**,8 paths, pushed
+without force to `feat/part32-c2-production-wiring`.
+PR [58](https://github.com/kiratonine/AdilBaga/pull/58), base mainb5f9c1b; no
+merge or production activation. Exact-head hosted
+[39594654889](https://github.com/kiratonine/AdilBaga/actions/runs/39594654889)
+was running at this checkpoint; final result appended below, not presumed PASS.
+
+An additional unmodified frontend E2E invocation with JSON reporter was made
+solely to recover accurate skip accounting (the CI helper truncates output):
+`pnpm test:e2e --reporter=json`, clean loopback env, exit0, **51 expected PASS,
+11 SKIP,0 unexpected,0 flaky**. The8 analytics dummy-ID/canonical-specific cases
+were not enabled, plus3 device-specific skips. No real tracking hits. This is
+separate from local HTTP staging14 PASS/6 SKIP and does not test live Frontend.
+
+Exact-feature source was exported via `git archive 5cbec019...` into a new
+owned temporary directory. No mutable checkout/VPS source was substituted.
+Go1.27.3,CGO_ENABLED=0,GOOS=linux,GOARCH=amd64; documented trimpath kit recipe
+and `-X main.sourceSHA=5cbec01928cc81a6e2aeaedf4fa3ebba3d059519` for projection;
+separate `go build -trimpath ./cmd/ingest`. All3 builds exit0. `go version -m`
+confirms actual ingest go1.27.3,linux/amd64,CGO0,trimpath. This is a local
+review candidate, NOT an approved or deployed exact-main artifact. Rebuild
+after accepted protected integration; do not reuse its feature source SHA as main.
+
+`node scripts/ops/c2-provisioning-plan.mjs --review-bundle
+/tmp/aktau-part32-wiring-build-YBmWNU/bundle
+5cbec01928cc81a6e2aeaedf4fa3ebba3d059519`: exit0,
+**REVIEW_REQUIRED_NOT_APPROVAL**. No upload or remote binary execution.
+
+| Candidate artifact | Local SHA256 |
+| --- | --- |
+| c2projection | `e3c1300ad7801ec77631ca3a1c622bd74fa4b1f4ad0047ecd277604a646b11a1` |
+| relayprobe | `dda6075cbc5a0001dcc0b5a7a447e9e9553b63549ed6eadc8b5795636cfc8281` |
+| ingest | `d06f99b3be0e8aee62b169121fc9917c29160726985249a3bd6cabdb32045183` |
+| supervisor | `72b5dc46c1bc705caa839c58b5f3f3e0c71de30121869e45536662152642279e` |
+| provider | `be64de92f206493d5698e442b6882296439a262f17147b2804db0c0dc0b41bb9` |
+| fifo | `bfea914d48fb312753fb39c6546cefa148f1e4c948a393ac3a8eb684f3f7ed5c` |
+| observer | `8e52f34b82fe15d552140270c8b56c292bf99f6d87b41021aa9f6e2d742b30f2` |
+| manifest | `e5ed6854f2182b3f8a108e2525585224337d0e3fb4a9eb587450b7213ac3978a` |
+| public source-manifest.json | `ffc9ba34b51c8f10531326e50d07b9ba920506a2e0dcf363e9f089bb0cbafa6d` |
+| unchanged installer | `b9b2a80a037efcc115d29eb592f353ab785b058bbd0341548c42942344d9eb98` |
+| new launcher | `7a441769b7b59006bd16f65f277b801838e8c825c063f6f55be0e6054a882194` |
+
+Additional read-only GitHub metadata disclosed6 open Dependabot alerts, not
+hidden by green CI or `pnpm audit --prod`:2 high/4 medium, GHSA-587h-7wmj-h5pm,
+GHSA-698v-4r3x-3vcv,GHSA-r825-w8mm-5pxw, each for Vite in frontend8.3.2 and
+pipeline7.3.6 dev-tool lockfiles; patched versions8.3.3/7.3.7. Actual lockfiles
+match the reported versions. Production exploitability was NOT investigated
+or asserted. No out-of-scope Frontend/dependency edit or alert dismissal was made;
+separate scoped maintenance is required before claiming zero release blockers.
+The automatic Vercel Preview status on this PR is not proof of the production
+alias identity and is not substituted for independent deployment attestation.
+
+This post-commit operational appendix is deliberately local, not misrepresented
+as content already inside its own source commit. The archive includes it; all
+non-report source bytes must match5cbec019 exactly. The prior committed report
+and independently reviewed historical prefix remain immutable prefixes.
+
+The historical production convergence delay is still ROOT_CAUSE_NOT_VERIFIED.
+This candidate fixes executable admission/wiring, not Next/Vercel caching; local
+fixture PASS cannot resolve the historical production SLA failure. Weekly full
+scrape remains explicitly no-publish and unchanged. No attempted C2 result was
+discarded: there were **zero production observer attempts**, not3 failed tests.
+
+Future deployment of the separate ingest ELF must itself be a reviewed root
+no-clobber operation: absent fixed destination, verified exact bytes/owner/mode,
+protected ancestry, preserved previous source/toolchain/command rollback and
+independent readback before issuing READY. The unchanged eight-file installer
+does not magically install that ninth executable or this checkout launcher.
+No generic overwrite command or permission expansion is authorized by the
+source candidate. The full immutable process/import closure remains a root-admin
+inspection prerequisite; the measured standalone Node hash is insufficient.
+
+### Final authoritative checkpoint — source candidate ready, production BLOCKED
+
+Exact candidate **5cbec01928cc81a6e2aeaedf4fa3ebba3d059519**,
+[PR58](https://github.com/kiratonine/AdilBaga/pull/58), hosted
+[CI39594654889](https://github.com/kiratonine/AdilBaga/actions/runs/39594654889)
+**completed SUCCESS,9/9 SUCCESS**: Contracts, Frontend, Go Quality, Security,
+Nest Reference, Pipeline Quality, PostgreSQL Integration, Ephemeral Staging,
+CI Gate. No pending/skipped job counted as successful. `gh run watch
+39594654889 --exit-status --interval15` exited0. Fresh PR readback OPEN,
+MERGEABLE/CLEAN; not merged because the new launcher needs independent review.
+
+Fresh origin/main remains **b5f9c1b1c473ffd8f53364d350168c37acb5193a**,
+its separate CI39580274959 also verified completed9/9 SUCCESS. No new merged-main
+candidate CI exists because this candidate has not been merged. No direct-main
+push or branch/rules bypass. Initial GitHub CLI metadata queries rejected
+unsupported baseRefOid/url fields (exit1); supported PR/REST readbacks succeeded,
+not inferred from those rejected commands. Release REST list is empty.
+
+Exact commit paths:
+
+```text
+pipeline/scripts/c2-ingest-launch.py
+pipeline/scripts/test_c2_ingest_launch.py
+pipeline/scripts/daily-sync.sh
+scripts/ops/c2-ingest-launch.test.mjs
+scripts/ci/run-checks.mjs
+ops/c2/README.md
+ops/sync/README.md
+docs/production/reports/PART_32_C2_BEFORE_STAGE_INTEGRATION_REPORT.md
+```
+
+Final Git source integrity: all non-report files match the published commit;
+only this append-only post-commit operational report differs locally. Both
+committed report and full earlier reviewed report are preserved as byte prefixes.
+Other reports/runtime/contracts/migrations/Go/Frontend/SQL/systemd remain
+unchanged. Source scope8 paths, Markdown targets, JS/Python/Bash syntax,
+bounded privacy scan and `git diff --check` exit0. No skipped production check
+is promoted to PASS. Node's observed real ELF path is
+`/usr/local/lib/nodejs/node-v24.18.0-linux-x64/bin/node`; its hash alone is not
+process/closure approval.
+
+Single clean review artifact is built by the unchanged
+`node scripts/create-clean-archive.mjs full-stack`, renamed no-clobber to
+`artifacts/adilbaga-part32-c2-production-wiring-review-20261021.tar.gz`.
+Archive verification requires regular safe tracked members only, no .git/TODO/
+.env/credentials/node_modules/build/test/cache/binary/backup files, all member
+bytes equal disk, all non-report bytes equal5cbec019, both report prefixes
+preserved. SHA256 is supplied beside the archive, not recursively embedded in
+its own report. The archive is source review material, not installer approval.
+
+**BLOCKED_INDEPENDENT_LAUNCHER_REVIEW** is the immediate hard stop. Remaining
+external gates also include Go1.27.3 host maintenance, independently approved
+exact-main artifacts/root closure/READY, restricted reader and actual Vercel
+alias/deployment attestation, demonstrated fresh recovery/rollout rollback,
+then3 genuine scheduled qualified publications and final release checks. Open
+dev-tool advisories above are disclosed, not waived by this source PR.
+
+Production status remains the timestamped healthy API6a4b4c7 / clean SCRUM-19
+sync28cc3fc readback above. **No VPS writes/install/checkout update, no timer or
+service change, no new approval/credential, no publish/SQL/HMAC/Voice POST,
+no live observer and no dataset change by this task.** Exactly2 read-only SSH
+sessions and4 public GET. AUTO_DEPLOY_ENABLED stayedfalse. Actual production
+C2 **0/3 NOT_RUN**; stable Release/tag/URL **NOT_CREATED**, correctly gated.
+
+Resume this same task only after independent source review and real external
+trust evidence; do not replace absent authority with this report or local tests.
+**STOP for independent Code Review.**
+
+## 2026-10-21 — PR58 independent review: P1-01/P1-02 launcher correction
+
+**Current source status: READY_FOR_EXTERNAL_REVIEW after final exact-head CI
+readback below. Production status remains BLOCKED, C2 acceptance0/3.** This is
+the Owner-approved SOURCE fix, not a continuation of VPS activation. All prior
+text, including the earlier incorrect source candidate and historical evidence,
+is preserved. Full previous archive report prefix:63125 bytes, SHA256
+`d0b91e5261544166d448b7e2b95e53be8741fbd125ba0ea9c9de34de80f14091`.
+The earlier9/9 CI did not detect these defects and is not reused as fix evidence.
+
+### Preflight and fail-first reproduction
+
+Existing native worktree/branch unchanged:
+`/home/denis/tmp/aktau-part32-c2-production-wiring`,
+`feat/part32-c2-production-wiring`. Fresh fetch exit0; previous HEAD and actual
+PR58 head **5cbec01928cc81a6e2aeaedf4fa3ebba3d059519**, main
+**b5f9c1b1c473ffd8f53364d350168c37acb5193a**, old CI39594654889 verified
+completed SUCCESS. The only initial local change was the disclosed previous
+append-only operational report; it matched the old archive report exactly.
+No reset/rebase/stash/force or other worktree/deploy-branch change.
+
+Before runtime edits, added2 isolated regression methods. A first test-double
+attempt lacked Popen.args; that harness error was fixed BEFORE changing runtime.
+The valid fail-first command
+`python3 -B -m unittest discover -s pipeline/scripts -p test_c2_ingest_launch.py
+-k test_p1 -v` then exited**1**:3 assertion failures for expiry/replacement/auth
+loss (ELF dry-run followed directly by ordinary-only apply), plus2 errors from
+unhandled actual Popen-constructor ENOENT/EACCES (dry/apply). These were the
+independently reported defects, not a TypeError or missing fixture. Final green
+tests retain the complete-pair assertion; its expectation was not weakened.
+
+Go source confirms default `-apply=false` sets default_transaction_read_only=on
+and calls engine.DryRun, not Stage/Publish. A second ordinary dry-run is therefore
+read-only; no extra publication, SQL change or canonical mutation was introduced.
+
+### Finite-state correction and unchanged trust boundary
+
+One admitted immutable pair is attempted, then at most one complete ordinary
+pair. Stable authority executes the same pinned descriptor for dry-run and apply,
+same bundle and corresponding flags; only apply gets the derived C2 values.
+Authority loss before apply discards the C2 candidate and restarts ordinary
+**dry-run then apply**, not ordinary apply alone. The ordinary pair always has
+all inherited C2 values stripped and GOTOOLCHAIN=local. No readmission, new claim,
+claim deletion or retry loop; partial/orphan evidence remains preserved.
+
+The dedicated child boundary separates Popen construction from waiting for an
+already-started process. Only known constructor/exec errors ENOENT,EACCES,EPERM,
+ENOEXEC,ENOTDIR,ELOOP,ETXTBSY can become `preexec_unavailable`. With fixed argv,
+no shell/preexec_fn and Popen's exec-error channel, the program has not executed;
+a complete ordinary pair is safe even when that failed exec was the apply phase.
+Unknown errno/exception, EBADF or any wait error is not evidence of pre-exec and
+does NOT retry. In particular ENOENT raised by wait is not classified as spawn
+failure. Any child nonzero/committed-degraded outcome propagates unchanged.
+**At most one apply program starts**; a failed exec attempt is not a publication.
+
+SIGTERM/SIGINT return143/130. Cancellation/uncertain wait terminates the owned
+child, waits up to1s, then kills/reaps with another bounded wait when required;
+no fallback after cancellation or a possible commit. Added logs are enum-only
+authority_lost/preexec_unavailable, never exception strings, raw authority,
+attempt values, DSNs or child payloads. Failure does not print false success.
+
+Root ancestry,0555/single-link immutable fixed ELF, digest/source/boot/expiry/
+canonical JSON/version checks, publisher.claim/fsync and descriptor pinning are
+unchanged. Go READY1500ms, Stage/S0, HMAC/FIFO/AFTER, Node custody,35min supervision,
+5s SLA,21 GET/2 sitemap/20s diagnostics and3-PASS policy remain unchanged.
+Normal SCRUM-19 source/category/migration behavior and0/1/3 scheduled outcomes
+are preserved. No default Go path, executable env override or dependency added.
+
+### Actual regression coverage and local command results
+
+Native WSL **UID1000 nonroot**, Node24.10.0, Go1.27.3, pnpm10.32.1;
+existing `cc` Ubuntu13.3.0, no compiler/dependency installation. Native tests
+compile a tiny fixture-only C ELF in a private temporary directory, use actual
+Popen/pass_fds and `/proc/self/fd`, and verify both process argv/env and distinct
+child PIDs. Synthetic admission mocks explicitly do NOT prove root approval.
+Native ENOEXEC before dry-run / EACCES before apply each prove complete ordinary
+fallback, with one started apply. Real SIGTERM/SIGINT during both dry-run and apply
+verify143/130, no retry and reaped child. All generated executable/fixture data
+stays outside Git and is cleaned by the owning tests.
+
+Original11 Python tests remain, with their subprocess doubles moved to the new
+explicit execution boundary, assertions retained. Final22 methods cover16 root
+admission negative subcases, real pinned READY expiry/replacement/auth drift,
+ambiguous spawn/wait errors, terminate/KILL/reap, immutable business errors and
+signals, fallback dry-run/apply failure, claim conflict/partial evidence, native
+exec/cancellation and stable identity positive controls. The scheduled Bash
+fixture now covers7 scenarios including two stale scrapers (exit3), with no real
+scraper/API/DB invocation.
+
+| Actual command in this fix stage | Exit/result |
+| --- | --- |
+| Python unittest discover above, full `-v` |0,22 PASS/0 SKIP |
+| `node --test scripts/ops/c2-ingest-launch.test.mjs` |0,3 PASS/0 SKIP, actual Python/native-ELF and scheduled shell tests |
+| `bash -n pipeline/scripts/daily-sync.sh` |0 |
+| `python3 -m py_compile pipeline/scripts/c2-ingest-launch.py pipeline/scripts/test_c2_ingest_launch.py` with external PYTHONPYCACHEPREFIX |0; own bytecode outside Git removed before archive |
+| `node --check scripts/ops/c2-ingest-launch.test.mjs` |0 |
+| `node scripts/ci/run-checks.mjs ops` |0,180 PASS/0 SKIP; repeated after final source/test changes |
+| `node scripts/ci/run-checks.mjs security` |0, source/workflow/backup guards PASS |
+| `node scripts/ci/run-checks.mjs pipeline` |0, frozen install/unit/typecheck PASS |
+| `node scripts/ci/run-checks.mjs go` |0, full Go/race/vet/staticcheck/integration-tag analysis/govulncheck/build; C2 Node321 PASS/0 SKIP with local relay |
+| `node scripts/ci/run-db-integration.mjs` |0, fresh two-cluster disposable PG17, all existing C2/READY/ACL/migration/integration profiles and owned cleanup PASS |
+| `node scripts/revalidation/joint-poc.mjs` |0,15 PASS/0 SKIP, real Go CLI/PG17/FIFO chain |
+| `node scripts/ci/run-checks.mjs contracts` |0,12 PASS/10 conditional SKIP |
+| `node scripts/ci/run-ephemeral-staging.mjs` |0, actual local HTTP/Docker/PG17, outage/recovery/cleanup PASS |
+| `node scripts/revalidation/verify-part16.mjs` |0, static boundaries PASS, not production evidence |
+| `git diff --check`; exact scope/history/Markdown/privacy checks |0, checked again for final packet |
+
+Staging's contract invocations retain18 PASS/4 conditional Voice SKIP each;
+HTTP Playwright14 PASS/6 conditional SKIP. Default unit runs do not activate
+production/live opt-in profiles. No SKIP is called PASS. Local Nest/Frontend
+profiles were not separately repeated: no affected runtime/contracts/dependency
+paths changed; hosted CI must still pass both jobs at the new exact head.
+
+Correction scope6 paths relative to5cbec019: launcher, its existing Python test,
+existing Node launcher test, ops/c2/README.md, ops/sync/README.md, same Part32
+report. Daily script and CI wiring need no further change. Total PR scope remains
+the original8 paths. No Go/SQL/Frontend/observer/API/HMAC/systemd/schema change.
+
+**Production still BLOCKED,0/3, no fresh observation.** This correction made
+**zero SSH and zero production HTTP/SQL/Redis requests**, no VPS source/toolchain/
+service/permission change, provisioning, deployment, publication, merge or tag/
+Release. All earlier host observations remain historical with their original
+timestamps. No external authority was generated or inferred from tests. The
+earlier feature build packet is historical, not approval for the new source.
+After independent re-review, resume the existing rollout task with its real
+root/reader/frontend/Go1.27.3/recovery gates; do not ask Backend2 again or bypass
+them. New exact-head publication/CI and final clean packet readback follow below.

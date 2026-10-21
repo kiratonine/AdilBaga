@@ -436,3 +436,14 @@ unknown/partial claims exclude C2. This operator-owned claim is not independent
 root authorization and does not replace Node's durable one-time ledger. The
 existing exclusive operator-custody assumption still applies. No new env/path
 override or approval format is introduced. Tests use synthetic OS authority only.
+
+The runner makes one immutable-pair attempt, then at most one **complete ordinary
+pair**. Authority loss between phases or a proven pre-exec failure never switches
+only apply: ordinary dry-run must succeed first. The prior immutable dry-run is
+read-only and does not substitute for it. A known `Popen` constructor exec error
+may downgrade; a child nonzero status, signal, wait error or unclassified spawn
+error cannot. At most one apply **program starts**, even if an earlier exec
+attempt failed before startup. No C2 readmission/claim deletion occurs on fallback;
+both ordinary phases are C2-free. Cancellation terminates/reaps the owned child,
+escalates to KILL after a bounded grace if needed, and exits128+signal with no
+retry. Generic errors fail safely, without raw exception/authority output.

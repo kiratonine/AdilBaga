@@ -112,3 +112,11 @@ approval. Do not replace the deployed SCRUM-19 branch with the old local main:
 first prove that the selected main retains every SCRUM-19 pipeline/migration
 byte, record the current branch/SHA and preserve its known rollback. This source
 change does not authorize checkout, toolchain, namespace or systemd changes.
+
+On C2 authority loss after an immutable dry-run, the launcher repeats the
+**complete ordinary read-only dry-run/apply pair**, never ordinary apply alone.
+Only a proven pre-exec failure can also select that fallback. Once any apply
+program starts, no fallback or second apply is allowed, including nonzero,
+uncertain wait or cancellation. SIGTERM/SIGINT preserve143/130 CLI status;
+the existing scheduled script still maps publish-step failure to1. SCRUM-19,
+source-stale exit3, bundle arguments and the root trust/Go1.27.3 gates are unchanged.

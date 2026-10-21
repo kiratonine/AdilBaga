@@ -1,14 +1,18 @@
 import contextlib
 import datetime as dt
+import errno
 import hashlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
+import signal
 import sys
 import tempfile
-from types import SimpleNamespace
+import time
 import unittest
 from unittest.mock import patch
 
@@ -18,6 +22,141 @@ spec.loader.exec_module(m)
 
 
 class LaunchTests(unittest.TestCase):
+    def simulated_children(self, fault=None):
+        calls, started = [], []
+        class Child:
+            def __init__(child, argv, **kw):
+                child.args = argv
+                calls.append((argv, kw))
+                if fault:
+                    fault(len(calls), argv)
+                started.append((argv, kw))
+                child.returncode = 0
+            def __enter__(child): return child
+            def __exit__(child, *args): return False
+            def communicate(child, *args, **kw): return None, None
+            def poll(child): return child.returncode
+            def wait(child, *args, **kw): return child.returncode
+        return Child, calls, started
+
+    def test_p1_authority_loss_after_immutable_dry_run_requires_complete_ordinary_pair(self):
+        for change in ('expiry', 'replacement', 'auth_drift'):
+            with self.subTest(change=change):
+                values = iter(({'C2_EVENT_FIFO':'fixture','C2_EVENT_ATTEMPT_ID':'fixture'}, ValueError(change)))
+                class C:
+                    fd = 19
+                    def variables(self):
+                        v = next(values)
+                        if isinstance(v, Exception): raise v
+                        return v
+                Child, calls, started = self.simulated_children()
+                with patch.object(m,'admit',return_value=C()), patch.object(m.subprocess,'Popen',Child):
+                    self.assertEqual(m.run_pair('fixture-bundle'),0)
+                self.assertEqual([a for a,k in calls], [
+                    ['/proc/self/fd/19','-bundle','fixture-bundle'],
+                    ['go','run','./cmd/ingest','-bundle','fixture-bundle'],
+                    ['go','run','./cmd/ingest','-bundle','fixture-bundle','-apply']])
+                self.assertEqual(sum('-apply' in a for a,k in started),1)
+                self.assertTrue(all(not any(k.startswith('C2_') for k in kw['env']) for a,kw in calls))
+
+    def test_p1_proven_preexec_failure_at_either_phase_revalidates_full_ordinary_pair(self):
+        for phase,error_number in ((1,errno.ENOENT),(2,errno.EACCES),(1,errno.EPERM),(2,errno.ENOEXEC)):
+            with self.subTest(phase=phase,errno=error_number):
+                class C:
+                    fd = 19
+                    def variables(self):return {'C2_EVENT_FIFO':'fixture','C2_EVENT_ATTEMPT_ID':'fixture'}
+                def fault(n, argv):
+                    if n==phase:raise OSError(error_number,'synthetic pre-exec')
+                Child,calls,started=self.simulated_children(fault)
+                with patch.object(m,'admit',return_value=C()),patch.object(m.subprocess,'Popen',Child):
+                    self.assertEqual(m.run_pair('fixture-bundle'),0)
+                self.assertEqual([a for a,k in started][-2:], [
+                    ['go','run','./cmd/ingest','-bundle','fixture-bundle'],
+                    ['go','run','./cmd/ingest','-bundle','fixture-bundle','-apply']])
+                self.assertEqual(sum('-apply' in a for a,k in started),1)
+                self.assertTrue(all(not any(k.startswith('C2_') for k in kw['env']) for a,kw in started))
+
+    def test_immutable_child_errors_and_signals_never_retry_or_start_second_apply(self):
+        for codes,expected in (([23],23),([0,17],17),([-15],143),([0,-2],130)):
+            class C:
+                fd=19
+                def variables(self):return {'C2_EVENT_FIFO':'fixture','C2_EVENT_ATTEMPT_ID':'fixture'}
+            with patch.object(m,'admit',return_value=C()),patch.object(m,'execute',side_effect=codes) as child:
+                self.assertEqual(m.run_pair('fixture-bundle'),expected)
+                self.assertEqual(child.call_count,len(codes))
+                self.assertTrue(all(v.args[0][0]=='/proc/self/fd/19' for v in child.call_args_list))
+
+    def test_ambiguous_spawn_or_post_start_wait_error_is_not_retried(self):
+        class C:
+            fd=19
+            def variables(self):return {}
+        for error in (OSError(errno.EBADF,'ambiguous'),OSError(),RuntimeError('unknown')):
+            with patch.object(m,'admit',return_value=C()),patch.object(m.subprocess,'Popen',side_effect=error) as child:
+                with self.assertRaises(type(error)):m.run_pair('fixture')
+                self.assertEqual(child.call_count,1)
+        child=unittest.mock.Mock()
+        child.wait.side_effect=FileNotFoundError(errno.ENOENT,'after start; not pre-exec')
+        child.poll.return_value=0
+        with patch.object(m,'admit',return_value=C()),patch.object(m.subprocess,'Popen',return_value=child) as spawn:
+            with self.assertRaises(FileNotFoundError):m.run_pair('fixture')
+            self.assertEqual(spawn.call_count,1)
+
+    def test_fallback_pair_stops_on_ordinary_error_or_ambiguous_apply(self):
+        for fail_at, code in ((2,23),(3,17)):
+            class C:
+                fd=19
+                n=0
+                def variables(self):
+                    self.n+=1
+                    if self.n==2:raise ValueError('expired')
+                    return {}
+            calls=[]
+            def execute(argv,**kwargs):
+                calls.append(argv)
+                return code if len(calls)==fail_at else 0
+            with patch.object(m,'admit',return_value=C()),patch.object(m,'execute',side_effect=execute):
+                self.assertEqual(m.run_pair('fixture'),code)
+            self.assertEqual(len(calls),fail_at)
+            self.assertEqual(sum('-apply' in a for a in calls),0 if fail_at==2 else 1)
+
+    def test_partial_claim_failure_uses_ordinary_pair_without_readmission(self):
+        calls=[]
+        with patch.object(m,'admit',side_effect=FileExistsError('retained partial claim')) as admit,patch.object(m,'execute',side_effect=lambda a,**k:(calls.append((a,k)) or 0)):
+            self.assertEqual(m.run_pair('fixture'),0)
+            admit.assert_called_once()
+        self.assertEqual(len(calls),2)
+        self.assertTrue(all(a[:3]==['go','run','./cmd/ingest'] and not any(x.startswith('C2_') for x in k['env']) for a,k in calls))
+
+    def test_wait_failure_terminates_kills_reaps_and_never_retries(self):
+        class C:
+            fd=19
+            def variables(self):return {}
+        child=unittest.mock.Mock()
+        child.poll.return_value=None
+        child.wait.side_effect=[OSError(errno.ENOENT,'after start'),subprocess.TimeoutExpired('fixture',1),-9]
+        with patch.object(m,'admit',return_value=C()),patch.object(m.subprocess,'Popen',return_value=child) as spawn:
+            with self.assertRaises(OSError):m.run_pair('fixture')
+            spawn.assert_called_once();child.terminate.assert_called_once();child.kill.assert_called_once()
+            self.assertEqual(child.wait.call_count,3)
+
+    def test_actual_candidate_record_drift_after_dry_run_restarts_ordinary_pair(self):
+        for change in ('expired','replaced','authorization'):
+            with self.subTest(change=change), self.files() as (paths,scope):
+                def mutate(n,argv):
+                    if n!=1:return
+                    if change=='authorization':paths[m.AUTH].write_bytes(m.canonical({**self.auth,'sourceSha':'f'*40}))
+                    elif change=='expired':paths[m.READY].write_bytes(m.canonical({**self.a,'expiresAt':'2020-01-01T00:00:00.000Z'}))
+                    else:
+                        paths[m.READY].rename(self.root/'old-record')
+                        paths[m.READY].write_bytes(m.canonical({**self.a,'frontendSha':'a'*40}))
+                Child,calls,started=self.simulated_children(mutate)
+                with patch.object(m.subprocess,'Popen',Child):self.assertEqual(m.run_pair('fixture'),0)
+                self.assertEqual(len(started),3)
+                self.assertTrue(started[0][0][0].startswith('/proc/self/fd/'))
+                self.assertEqual([a for a,k in started][-2:],[['go','run','./cmd/ingest','-bundle','fixture'],['go','run','./cmd/ingest','-bundle','fixture','-apply']])
+                self.assertTrue(all(not any(k.startswith('C2_') for k in kw['env']) for a,kw in started))
+                scope.assert_called_once()
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='aktau-c2-launch-test-')
         self.addCleanup(self.tmp.cleanup)
@@ -66,7 +205,7 @@ class LaunchTests(unittest.TestCase):
             self.assertEqual(len(self.inspections),2)
 
     def test_admission_negatives_never_claim_or_execute_candidate(self):
-        for kind in ('wrong_digest','wrong_source','missing_binary','old_go','old_binary','go_timeout','go_failed','oversized_version','expired','wrong_boot','invalid_json','unapproved','extra_key','bool_uid'):
+        for kind in ('wrong_digest','wrong_source','missing_binary','old_go','old_binary','go_timeout','go_failed','oversized_version','expired','wrong_boot','invalid_json','unapproved','extra_key','bool_uid','wrong_uid','wrong_gid'):
             with self.subTest(kind=kind):
                 original = self.blobs.copy()
                 if kind=='wrong_digest': self.blobs[m.INGEST] += b'changed'
@@ -78,6 +217,8 @@ class LaunchTests(unittest.TestCase):
                 if kind=='unapproved': self.blobs[m.AUTH]=m.canonical({**self.auth,'approved':False})
                 if kind=='extra_key': self.blobs[m.READY]=m.canonical({**self.a,'extra':True})
                 if kind=='bool_uid': self.blobs[m.READY]=m.canonical({**self.a,'operatorUid':True})
+                if kind=='wrong_uid': self.blobs[m.READY]=m.canonical({**self.a,'operatorUid':os.geteuid()+1})
+                if kind=='wrong_gid': self.blobs[m.READY]=m.canonical({**self.a,'operatorGid':os.getegid()+1})
                 with self.files() as (_,scope), contextlib.ExitStack() as stack:
                     if kind=='go_timeout': m.inspect_output.side_effect=subprocess.TimeoutExpired('fixed-inspector',1)
                     if kind=='go_failed': m.inspect_output.side_effect=ValueError('inspect_failed')
@@ -105,8 +246,8 @@ class LaunchTests(unittest.TestCase):
         class C:
             fd=7
             def variables(self):return {'C2_EVENT_FIFO':'fixed','C2_EVENT_ATTEMPT_ID':'fresh'}
-        def child(argv,**kw):calls.append((argv,kw));return SimpleNamespace(returncode=0)
-        with patch.object(m,'admit',return_value=C()),patch.object(m.subprocess,'run',side_effect=child),patch.dict(m.os.environ,{'C2_EVENT_FIFO':'forged','C2_EVENT_ATTEMPT_ID':'forged','C2_INGEST_BINARY':'/evil'}):
+        def child(argv,**kw):calls.append((argv,kw));return 0
+        with patch.object(m,'admit',return_value=C()),patch.object(m,'execute',side_effect=child),patch.dict(m.os.environ,{'C2_EVENT_FIFO':'forged','C2_EVENT_ATTEMPT_ID':'forged','C2_INGEST_BINARY':'/evil'}):
             self.assertEqual(m.run_pair('fixture-bundle'),0)
         self.assertEqual([c[0][0] for c in calls],['/proc/self/fd/7']*2)
         self.assertNotIn('C2_EVENT_FIFO',calls[0][1]['env'])
@@ -119,14 +260,14 @@ class LaunchTests(unittest.TestCase):
             class C:
                 fd=7
                 def variables(self):raise ValueError('observer lost or expired')
-            with patch.object(m,'admit',return_value=C() if available else None),patch.object(m.subprocess,'run',side_effect=lambda args,**kw:(calls.append((args,kw)) or SimpleNamespace(returncode=0))):
+            with patch.object(m,'admit',return_value=C() if available else None),patch.object(m,'execute',side_effect=lambda args,**kw:(calls.append((args,kw)) or 0)):
                 self.assertEqual(m.run_pair('fixture'),0)
             self.assertEqual([c[0][:3] for c in calls],[['go','run','./cmd/ingest']]*2)
             self.assertTrue(all(not any(k.startswith('C2_') for k in c[1]['env']) for c in calls))
 
     def test_business_failure_status_preserved_and_apply_not_called_after_failed_dry_run(self):
         for statuses, expected, count in (([23],23,1),([0,17],17,2),([0,-15],143,2)):
-            with patch.object(m,'admit',side_effect=ValueError()),patch.object(m.subprocess,'run',side_effect=[SimpleNamespace(returncode=x) for x in statuses]) as child:
+            with patch.object(m,'admit',side_effect=ValueError()),patch.object(m,'execute',side_effect=statuses) as child:
                 self.assertEqual(m.run_pair('fixture'),expected)
                 self.assertEqual(child.call_count,count)
 
@@ -185,6 +326,122 @@ class LaunchTests(unittest.TestCase):
         for path in (p,link):
             with self.assertRaises((ValueError,OSError)):
                 with m.root_file(str(path),4096): self.fail('unprivileged file accepted')
+
+
+class NativeElfTests(unittest.TestCase):
+    """Actual nonroot ELF/fd/exec boundary, NOT simulated production authority."""
+    @classmethod
+    def setUpClass(cls):
+        if os.geteuid()==0:raise AssertionError('native fixture must run nonroot')
+        cls.build=tempfile.TemporaryDirectory(prefix='aktau-c2-elf-build-')
+        cls.addClassCleanup(cls.build.cleanup)
+        root=Path(cls.build.name)
+        source=root/'fixture.c'
+        source.write_text(r'''
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+static void quoted(FILE *f, const char *s) {
+    fputc('"',f);
+    if(s) for(const unsigned char *p=(const unsigned char *)s;*p;p++) {
+        if(*p=='"'||*p=='\\') fputc('\\',f);
+        if(*p<32) fprintf(f,"\\u%04x",*p); else fputc(*p,f);
+    }
+    fputc('"',f);
+}
+int main(int argc, char **argv) {
+    const char *log=getenv("FIXTURE_LOG");
+    if(!log) return 90;
+    FILE *f=fopen(log,"a"); if(!f) return 91;
+    fprintf(f,"{\"pid\":%ld,\"argv\":[",(long)getpid());
+    for(int i=0;i<argc;i++){ if(i) fputc(',',f); quoted(f,argv[i]); }
+    fputs("],\"fifo\":",f);quoted(f,getenv("C2_EVENT_FIFO"));
+    fputs(",\"attempt\":",f);quoted(f,getenv("C2_EVENT_ATTEMPT_ID"));
+    fputs("}\n",f);fclose(f);
+    int apply=0;for(int i=1;i<argc;i++) if(!strcmp(argv[i],"-apply")) apply=1;
+    if(getenv("FIXTURE_WAIT")&&(!getenv("FIXTURE_WAIT_APPLY")||apply)) for(;;) pause();
+    return 0;
+}
+''')
+        cls.binary=root/'fixture'
+        subprocess.run(['cc','-Wall','-Wextra','-Werror','-o',str(cls.binary),str(source)],
+                       check=True,capture_output=True,timeout=30)
+        if cls.binary.read_bytes()[:4]!=b'\x7fELF':raise AssertionError('real ELF required')
+
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory(prefix='aktau-c2-native-exec-')
+        self.addCleanup(self.tmp.cleanup)
+        self.root=Path(self.tmp.name);self.log=self.root/'events'
+        self.image=self.root/'candidate';shutil.copyfile(self.binary,self.image);self.image.chmod(0o700)
+
+    def events(self):return [json.loads(x) for x in self.log.read_text().splitlines()]
+
+    def test_real_pinned_descriptor_exec_both_phases_and_exact_argv_env(self):
+        with self.image.open('rb') as opened:
+            class C:
+                fd=opened.fileno()
+                def variables(self):return {'C2_EVENT_FIFO':'synthetic-fifo','C2_EVENT_ATTEMPT_ID':'synthetic-attempt'}
+            with patch.object(m,'admit',return_value=C()),patch.dict(os.environ,{'FIXTURE_LOG':str(self.log),'C2_EVENT_FIFO':'forged','C2_EVENT_ATTEMPT_ID':'forged'}):
+                self.assertEqual(m.run_pair('synthetic bundle'),0)
+            events=self.events()
+            self.assertEqual([v['argv'] for v in events],[[f'/proc/self/fd/{opened.fileno()}','-bundle','synthetic bundle'],[f'/proc/self/fd/{opened.fileno()}','-bundle','synthetic bundle','-apply']])
+            self.assertEqual([(v['fifo'],v['attempt']) for v in events],[('',''),('synthetic-fifo','synthetic-attempt')])
+            self.assertNotEqual(events[0]['pid'],events[1]['pid'])
+
+    def test_real_exec_format_or_permission_error_falls_back_only_before_exec(self):
+        fallback=self.root/'go';shutil.copyfile(self.binary,fallback);fallback.chmod(0o700)
+        for apply_failure in (False,True):
+            with self.subTest(apply_failure=apply_failure):
+                self.log.unlink(missing_ok=True)
+                self.image.write_bytes(self.binary.read_bytes() if apply_failure else b'not an executable')
+                self.image.chmod(0o700)
+                with self.image.open('rb') as opened:
+                    class C:
+                        fd=opened.fileno()
+                        n=0
+                        def variables(c):
+                            c.n+=1
+                            if apply_failure and c.n==2:self.image.chmod(0o600)
+                            return {'C2_EVENT_FIFO':'synthetic','C2_EVENT_ATTEMPT_ID':'synthetic'}
+                    with patch.object(m,'admit',return_value=C()),patch.dict(os.environ,{'FIXTURE_LOG':str(self.log),'PATH':str(self.root)+':'+os.environ['PATH']}):
+                        self.assertEqual(m.run_pair('fixture-bundle'),0)
+                events=self.events();self.assertEqual(len(events),3 if apply_failure else 2)
+                self.assertEqual([v['argv'] for v in events][-2:],[['go','run','./cmd/ingest','-bundle','fixture-bundle'],['go','run','./cmd/ingest','-bundle','fixture-bundle','-apply']])
+                self.assertEqual(sum('-apply' in v['argv'] for v in events),1)
+                self.assertTrue(all(not v['fifo'] and not v['attempt'] for v in events))
+
+    def test_real_cli_sigterm_sigint_cancel_without_retry_and_reap_child(self):
+        code='''import importlib.util,os,sys
+s=importlib.util.spec_from_file_location("launcher",sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+f=open(sys.argv[2],"rb")
+class C:
+ fd=f.fileno()
+ def variables(self): return {}
+m.admit=lambda stack:C()
+sys.argv=[sys.argv[1],"synthetic-bundle"]
+sys.exit(m.main())
+'''
+        for sig,apply in ((signal.SIGTERM,False),(signal.SIGINT,False),(signal.SIGTERM,True),(signal.SIGINT,True)):
+            with self.subTest(signal=sig,apply=apply):
+                self.log.unlink(missing_ok=True)
+                env={**os.environ,'FIXTURE_LOG':str(self.log),'FIXTURE_WAIT':'1'}
+                if apply:env['FIXTURE_WAIT_APPLY']='1'
+                else:env.pop('FIXTURE_WAIT_APPLY',None)
+                p=subprocess.Popen([sys.executable,'-B','-c',code,str(Path(m.__file__)),str(self.image)],
+                    env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                try:
+                    deadline=time.monotonic()+5
+                    while not self.log.exists() or not self.log.stat().st_size or len(self.events())<(2 if apply else 1):
+                        self.assertIsNone(p.poll());self.assertLess(time.monotonic(),deadline);time.sleep(0.01)
+                    child_pid=self.events()[-1]['pid']
+                    p.send_signal(sig);out,err=p.communicate(timeout=5)
+                    self.assertEqual(p.returncode,128+sig,err)
+                    self.assertEqual(len(self.events()),2 if apply else 1)
+                    with self.assertRaises(ProcessLookupError):os.kill(child_pid,0)
+                finally:
+                    if p.poll() is None:p.terminate();p.communicate(timeout=5)
+                    p.stdout.close();p.stderr.close()
 
 
 if __name__=='__main__':unittest.main()
