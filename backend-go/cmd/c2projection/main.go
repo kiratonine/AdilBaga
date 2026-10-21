@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 	"regexp"
 	"time"
@@ -21,6 +22,31 @@ import (
 
 // Set only at build time: -ldflags "-X main.sourceSHA=<40 hex>".
 var sourceSHA string
+
+// CLI preparation is not the 204-to-GET acceptance window. Keep the complete
+// read-only operation bounded below the existing Node ten-second process limit.
+const projectionTimeout = 8 * time.Second
+
+func projectionDatabaseURL(raw string) (string, error) {
+	failure := errors.New("projection database configuration invalid")
+	if config.ValidateDatabaseURL(raw) != nil {
+		return "", failure
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", failure
+	}
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return "", failure
+	}
+	// Each CLI process uses each query once. Extended exec avoids an additional
+	// describe/prepare roundtrip without simple-protocol interpolation. All SQL,
+	// parameters and production identity/read-only checks remain unchanged.
+	q.Set("default_query_exec_mode", "exec")
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
 
 const (
 	exitOK       = 0
@@ -110,7 +136,11 @@ func run(args []string, getenv func(string) string, stdout, stderr io.Writer) in
 	if (appEnv != "production" && appEnv != "test" && appEnv != "development") || config.ValidateDatabaseURL(dsn) != nil {
 		return fail(stderr, exitUsage, "environment")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	dsn, err := projectionDatabaseURL(dsn)
+	if err != nil {
+		return fail(stderr, exitUsage, "environment")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), projectionTimeout)
 	defer cancel()
 	open := postgres.OpenReadOnly
 	if appEnv == "production" {

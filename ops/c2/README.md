@@ -498,3 +498,20 @@ executable; absent/other filenames are not permission to retry. No C2 readmissio
 both ordinary phases are C2-free. Cancellation terminates/reaps the owned child,
 escalates to KILL after a bounded grace if needed, and exits128+signal with no
 retry. Generic errors fail safely, without raw exception/authority output.
+
+### One-shot projection preparation (Part32)
+
+`c2projection` has an eight-second end-to-end preparation budget, below the
+existing Node ten-second process deadline. Its URI is normalized in memory to
+pgx extended `exec` mode: each process uses each query once, so preparing a
+statement first adds avoidable network roundtrips. This is not simple-protocol
+SQL interpolation. Credentials, TLS options, SQL/parameters, RepeatableRead,
+effective ACL checks and production role validation remain unchanged. The API
+pool is not modified; per-statement timeout remains five seconds.
+
+This preparation budget is **not** the acceptance clock. The actual signed204
+starts the unchanged five-second GET convergence window; diagnostics remain at
+most20s,21 GET/2 sitemap. Timeout still means no trusted projection and no C2
+qualification. A newly built provider requires its own exact-source review and
+independent immutable-artifact approval; the old981 approval does not authorize
+replacement, and no install/rollback retry is implied.
