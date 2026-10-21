@@ -119,17 +119,27 @@ func run() (resultErr error) {
 	}
 	if *apply {
 		phase = "staging"
+		fifo := os.Getenv("C2_EVENT_FIFO")
+		requestedAttempt := c2AttemptID()
+		readyTicket, readyClass := revalidation.RequestReady(ctx, fifo, requestedAttempt)
 		staged, err := engine.Stage(ctx, bundle)
 		if err != nil {
 			return err
 		}
 		defer staged.Close()
+		baselineID, baselineAt := staged.Baseline()
+		bound := readyTicket.BindBaseline(baselineID, baselineAt)
+		if readyTicket != nil && !bound {
+			readyClass = "baseline_mismatch"
+		}
+		if fifo != "" {
+			logger.Info("c2_ready", "outcome_class", readyClass)
+		}
 		// Optional diagnostic receipt only; no FIFO I/O in the notification budget.
-		fifo := os.Getenv("C2_EVENT_FIFO")
 		var receipt revalidation.Attempt
 		attemptID := ""
-		if fifo != "" {
-			attemptID = c2AttemptID()
+		if fifo != "" && bound {
+			attemptID = requestedAttempt
 			if attemptID != "" {
 				notifier.WithTrace(func(a revalidation.Attempt) { receipt = a })
 			}

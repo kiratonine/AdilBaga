@@ -91,6 +91,8 @@ type C2State struct {
 	SnapshotID         string
 	PreviousSnapshotID *string
 	Body               C2Body
+	// Private READY metadata from the same RR view; not projection schema v2.
+	PublishedAt time.Time `json:"-"`
 }
 
 type C2Beginner interface {
@@ -137,6 +139,7 @@ func C2Project(ctx context.Context, db C2Beginner, req C2Request) (C2State, erro
 		return state, ErrC2Chain
 	}
 	state.SnapshotID = chain[0].ID
+	state.PublishedAt = chain[0].PublishedAt
 	if len(chain) == 2 && C2ValidUUID(chain[1].ID) {
 		state.PreviousSnapshotID = &chain[1].ID
 	}

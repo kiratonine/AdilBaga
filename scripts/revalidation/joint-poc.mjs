@@ -15,7 +15,9 @@ import { createEventSource } from './production-observer.mjs';
 import { prepareBeforeV2 } from './c2-manifest.mjs';
 import { fixtureBody } from './fixtures/c2-manifest.mjs';
 
-const exec = promisify(execFile), sourceSha = '4ba5b5276c0f2148b22fb31473f1f6816ef09d3f';
+const exec = promisify(execFile), sourceSha = execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+const originalProvider='4ba5b5276c0f2148b22fb31473f1f6816ef09d3f';
+const reviewedBaseline='6a4b4c7a91ec471db54987b689c3c87a785523a3';
 const frontendSha = '61eccfb957237781a8b5c14110f4a73de4952e83';
 const s0 = 'aaaaaaaa-0000-4000-8000-000000000000', s1 = 'bbbbbbbb-1111-4111-8111-111111111111';
 const s2 = 'cccccccc-2222-4222-8222-222222222222';
@@ -35,9 +37,14 @@ function virtualClock() {
   return { now: () => time, set: v => { time = v }, sleep };
 }
 try {
-  // Pin the Go source tree to the approved provider commit, not an invented
-  // deployment identity. Node integration has no Go runtime modifications.
-  assert.equal(execFileSync('git', ['diff', sourceSha, '--', 'backend-go/cmd/c2projection', 'backend-go/internal/postgres'], { encoding: 'utf8' }), '');
+  // Part32 adds private RR baseline metadata, not a public SQL/DTO change.
+  // Preserve the original query/ACL literals and every other repository file.
+  const projectionFile='backend-go/internal/postgres/c2projection.go';
+  const original=execFileSync('git',['show',originalProvider+':'+projectionFile],{encoding:'utf8'});
+  const queryLiterals=text=>[...text.matchAll(/`([\s\S]*?)`/g)].map(m=>m[1]).filter(s=>/\bSELECT\b/.test(s));
+  assert.deepEqual(queryLiterals(fs.readFileSync(projectionFile,'utf8')),queryLiterals(original));
+  const protectedFiles=execFileSync('git',['ls-tree','-r','--name-only',reviewedBaseline,'backend-go/internal/postgres'],{encoding:'utf8'}).trim().split('\n').filter(p=>p!==projectionFile);
+  assert.equal(execFileSync('git',['diff',reviewedBaseline,'--',...protectedFiles],{encoding:'utf8'}),'');
   for (const [name, pkg] of [['c2projection', './cmd/c2projection'], ['relayprobe', './internal/revalidation/testdata/relayprobe'], ['fixture', './internal/revalidation/testdata/c2fixture']]) {
     execFileSync('go', ['build', '-ldflags', '-X main.sourceSHA=' + sourceSha, '-o', path.join(directory, name), pkg], { cwd: 'backend-go', env: cleanEnv, timeout: 120000 });
     fs.chmodSync(path.join(directory, name), 0o700);

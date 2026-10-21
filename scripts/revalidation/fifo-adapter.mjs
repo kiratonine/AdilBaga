@@ -88,7 +88,12 @@ function receiver({ fifo, attemptId, calibration, manifest, before, provider }, 
   let closed = false;
   const close = () => { if (!closed) { closed = true; fs.closeSync(fd) } };
   const armedAt = process.hrtime.bigint();
-  return { close, async observe({ get, sleep, waitMs = 2000, onEvent } = {}) {
+  return { close, isArmed() {
+    if(closed || !calibrations.has(calibration) || calibration.bootId!==boot()
+      || process.hrtime.bigint()-calibration.measuredAt>60_000_000_000n)return false;
+    try{const current=checkPath(fifo),opened=fs.fstatSync(fd);return current.ino===opened.ino&&current.dev===opened.dev&&current.mode===opened.mode&&current.uid===opened.uid}
+    catch{return false}
+  }, async observe({ get, sleep, waitMs = 2000, onEvent } = {}) {
     let refreshing = null, refreshError = false;
     const abortRefresh = new AbortController();
     try {

@@ -215,6 +215,15 @@ type Staged struct {
 }
 
 func (s *Staged) SnapshotID() string { return s.id }
+
+// Baseline returns only value copies captured under Stage's existing advisory
+// lock. No query, mutable map/pointer, lock extension or publication change.
+func (s *Staged) Baseline() (string, time.Time) {
+	if s.previous.PublishedAt == nil {
+		return s.previous.ID, time.Time{}
+	}
+	return s.previous.ID, *s.previous.PublishedAt
+}
 func (s *Staged) fail(code string) error {
 	s.Report.FailureCode = code
 	raw, _ := json.Marshal(s.Report)
