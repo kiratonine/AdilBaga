@@ -103,3 +103,25 @@ rejection, correctly signed204, public catalog/dashboard/category/product/sitema
 Do not publish a production snapshot just to test. First legitimate publish later
 records post-commit notification/freshness evidence. Part16 DONE only after those
 release/deployment gates, not this source-review candidate.
+
+## Part32 unattended observation: explicit frontend configuration evidence
+
+Owner later authorized automatic coordination through the existing daily sync
+schedule, without repeated human/Vercel API approval. The root-custodian's new
+version2 deployment record uses `identityEvidence:owner-pinned-configuration`,
+the hash of the protected Owner-confirmed frontend pin, its **historical**
+`ownerConfirmedAt`, and a separate actual per-attempt `checkedAt`. This is a
+fresh custody/configuration check, **not a fresh external Vercel attestation**.
+Manual version1 fresh-attestation behavior is unchanged. Exact schema, root
+process verification, lifecycle and limitations are in
+[ops/c2](../../ops/c2/README.md#part32--owner-authorized-unattended-custodian).
+
+The policy permits unattended configuration-bound convergence observations; it
+does not independently detect an out-of-band alias/deployment change or certify
+live Vercel identity. Record this evidence basis alongside results; never present
+an old Owner message as newly observed metadata. Actual frontend pin changes
+require an authorized root configuration update outside a live attempt.
+The unchanged actual204/FIFO clock, six representations,5s acceptance,20s
+diagnostics,21 GET/2 sitemap and three qualified PASS remain mandatory. Ordinary
+sync stays fail-open; uncertain C2 evidence never becomes PASS. No new
+publication, webhook retry, frontend cache setting or public API is introduced.

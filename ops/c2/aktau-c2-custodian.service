@@ -1,0 +1,28 @@
+[Unit]
+Description=AdilBaga bounded trusted C2 custodian for ordinary sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=root
+ExecStart=/usr/bin/python3 -I -B /usr/local/libexec/aktau-c2-custodian.py
+TimeoutStartSec=35s
+RuntimeMaxSec=36min
+TimeoutStopSec=10s
+KillMode=control-group
+Restart=no
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ReadWritePaths=/etc/aktau-c2 /var/lib/aktau-sync/c2 /var/lib/aktau-c2-custodian
+ProtectHome=yes
+ProtectControlGroups=yes
+StandardOutput=journal
+StandardError=null
+
+# Deliberately not enabled/started at boot by itself. The already enabled daily
+# timer triggers its existing service, whose bounded pre-start requests this
+# unit once. No new timer, cron, publication or independent restart policy.

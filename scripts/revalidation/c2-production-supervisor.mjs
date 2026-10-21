@@ -181,20 +181,26 @@ export async function prepareObservation(options = {}) {
   let observed = false, arming = null, receiver = null, relay = null, pending = null;
   let result = null, initial = null, completedUTC = null;
   let readyAuthority = null, cleanupVerified=true;
+  let cancelled=false, finalized=false, cancellation=null;
   async function arm() {
+    if(cancelled)return Object.freeze({state:'NOT_ARMED'});
     if (arming) return arming;
     arming = (async () => {
       try {
+        if(cancelled)throw Error('cancelled');
         initial = productionIdentity(provider, attemptId, 'before');
         const before = await provider.beforeReady(attemptId);
+        if(cancelled)throw Error('cancelled');
         const selected = prepareBeforeV2(before);
         if (!before || selected.status !== 'ready') throw Error('before_unavailable');
         if (productionBeforeIdentity(provider, before) !== initial) throw Error('before_identity_changed');
         const baseline = providerBeforeBaseline(provider, before);
         const calibration = await calibrateProductionClock(provider);
+        if(cancelled)throw Error('cancelled');
         receiver = openPersistentReceiver({ fifo: path.join(directory, attemptId, 'event.fifo'), attemptId, calibration, before, provider });
         ledger.transition('armed', { attemptId, sourceSha: before.provenance.sourceSha,
-          frontendSha: before.provenance.frontendSha, snapshotId: before.snapshotId, deploymentId: initial.deploymentId });
+          frontendSha: before.provenance.frontendSha, snapshotId: before.snapshotId, deploymentId: initial.deploymentId,
+          ...(initial.identityEvidence?{identityEvidence:initial.identityEvidence,configurationSha256:initial.configurationSha256,ownerConfirmedAt:initial.ownerConfirmedAt,checkedAt:initial.checkedAt}:{}) });
         const digest = v => createHash('sha256').update(JSON.stringify(v) + '\n').digest('hex');
         let consumed = false;
         // Start the SAME receiver now: calibration refresh/deadline never wait
@@ -234,8 +240,28 @@ export async function prepareObservation(options = {}) {
   }
   return Object.freeze({ attemptId,
     arm,
+    // An orderly cancellation can retire ONLY this verified session. Unknown
+    // helper/HTTP cleanup keeps the durable lock; crashes are never rearmed.
+    cancel() {
+      return cancellation??=(async()=>{
+        if(finalized)throw Error('attempt_completed');
+        cancelled=true;
+        if(arming)await arming.catch(()=>{});
+        try{receiver?.close()}catch{cleanupVerified=false}
+        if(relay&&!await relay.close())cleanupVerified=false;
+        if(pending){
+          let timer;
+          try{await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('cleanup_timeout')),5000)})])}
+          catch{cleanupVerified=false}finally{clearTimeout(timer)}
+        }
+        const final=inconclusive('cancelled_without_qualified_result');
+        ledger.transition('inconclusive',final);finalized=true;
+        if(cleanupVerified)ledger.close();
+        return Object.freeze({acceptance:'INCONCLUSIVE',reconciliationRequired:!cleanupVerified});
+      })();
+    },
     async observe() {
-      if (observed) throw Error('attempt_reuse'); observed = true;
+      if (cancelled || finalized || observed) throw Error('attempt_reuse'); observed = true;
       try {
         await arm();
         result ??= await pending;
@@ -254,7 +280,7 @@ export async function prepareObservation(options = {}) {
       return Object.freeze({ acceptance: 'INCONCLUSIVE', reason: 'pending_post_identity_and_cleanup', request_count: result.request_count ?? 0 });
     },
     finalize() {
-      if (!observed || !result) throw Error('attempt_state');
+      if (cancelled || finalized || !observed || !result) throw Error('attempt_state');
       let final = result;
       try {
         if(result.acceptance!=='INCONCLUSIVE')recheckProductionReadyAuthority(provider,readyAuthority);
@@ -267,6 +293,7 @@ export async function prepareObservation(options = {}) {
       if (final.acceptance === 'INCONCLUSIVE') ledger.transition('inconclusive', final);
       else ledger.transition('completed', final);
       const count = ledger.series(); if(cleanupVerified)ledger.close();
+      finalized=true;
       return Object.freeze({ acceptance: final.acceptance, qualifiedPassCount: count, accepted: cleanupVerified&&count >= 3,
         ...(!cleanupVerified?{reconciliationRequired:true}:{}) });
     },

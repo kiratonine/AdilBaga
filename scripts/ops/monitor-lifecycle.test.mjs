@@ -32,12 +32,17 @@ test('actual ops CI subprocess propagates broken suite failure (isolated miniatu
   const dir = owned(t, 'aktau-ops-ci-');
   fs.mkdirSync(path.join(dir, 'scripts/ci'), { recursive: true }); fs.mkdirSync(path.join(dir, 'scripts/ops'));
   for (const file of ['run-checks.mjs', 'common.mjs']) fs.copyFileSync(path.join(root, 'scripts/ci', file), path.join(dir, 'scripts/ci', file));
-  const names = ['verify-go-production.test.mjs','monitor-go-production.test.mjs','check-go-release.test.mjs','monitor-lifecycle.test.mjs','telegram-notifier.test.mjs','telegram-lifecycle.test.mjs'];
+  const names = ['verify-go-production.test.mjs','monitor-go-production.test.mjs','check-go-release.test.mjs','monitor-lifecycle.test.mjs','telegram-notifier.test.mjs','telegram-lifecycle.test.mjs','prepare-recovery-operator.test.mjs','c2-provisioning-plan.test.mjs','c2-ingest-launch.test.mjs'];
   for (const name of names) fs.writeFileSync(path.join(dir, 'scripts/ops', name), "import {test} from 'node:test'; test('synthetic positive',()=>{});\n");
+  fs.mkdirSync(path.join(dir,'ops/c2'),{recursive:true});
+  fs.writeFileSync(path.join(dir,'ops/c2/test_synthetic.py'),'import unittest\nclass Fixture(unittest.TestCase):\n def test_fixture(self): self.assertTrue(True)\n');
   const invoke = () => spawnSync(process.execPath, [path.join(dir, 'scripts/ci/run-checks.mjs'), 'ops'], { cwd: dir, env: cleanEnv, encoding: 'utf8', timeout: 20000, maxBuffer: 65536 });
   assert.equal(invoke().status, 0, 'positive control must execute the ops branch');
   fs.writeFileSync(path.join(dir, 'scripts/ops/monitor-go-production.test.mjs'), "import {test} from 'node:test'; import assert from 'node:assert/strict'; test('synthetic negative',()=>assert.fail('EXPECTED_FIXTURE_FAILURE'));\n");
   const result = invoke(); assert.notEqual(result.status, 0); assert.match(result.stdout + result.stderr, /EXPECTED_FIXTURE_FAILURE/);
+  fs.writeFileSync(path.join(dir,'scripts/ops/monitor-go-production.test.mjs'),"import {test} from 'node:test'; test('synthetic positive',()=>{});\n");
+  fs.writeFileSync(path.join(dir,'ops/c2/test_synthetic.py'),'import unittest\nclass Fixture(unittest.TestCase):\n def test_fixture(self): self.fail("EXPECTED_PYTHON_FIXTURE_FAILURE")\n');
+  const pythonFailure=invoke();assert.notEqual(pythonFailure.status,0);assert.match(pythonFailure.stdout+pythonFailure.stderr,/EXPECTED_PYTHON_FIXTURE_FAILURE/);
 });
 
 // Test-only transport: fixed approved verifier requests are redirected ONLY to

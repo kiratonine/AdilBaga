@@ -25,7 +25,11 @@ test('bundle review binds exact immutable source and rejects drift, links and ma
   try {
     const elf = Buffer.alloc(64); elf.set([0x7f, 69, 76, 70, 2, 1]); elf.writeUInt16LE(62, 18);
     for (const name of ['c2projection', 'relayprobe']) fs.writeFileSync(path.join(dir, name), elf, { mode: 0o600 });
-    for (const name of NODE_FILES) fs.copyFileSync(path.join(root, 'scripts/revalidation', name), path.join(dir, name));
+    for (const name of NODE_FILES) {
+      const source=spawnSync('git',['show',`${sha}:scripts/revalidation/${name}`],{cwd:root,maxBuffer:2<<20});
+      assert.equal(source.status,0);
+      fs.writeFileSync(path.join(dir,name),source.stdout);
+    }
     fs.writeFileSync(path.join(dir, 'source-manifest.json'), JSON.stringify({ sourceSha: sha, recipe: BUILD_RECIPE, nodeMajor: 24 }) + '\n', { mode: 0o600 });
     assert.equal(reviewBundle(dir, sha).status, 'REVIEW_REQUIRED_NOT_APPROVAL');
     assert.throws(() => reviewBundle(dir, '0'.repeat(40)), /BLOCKED/);

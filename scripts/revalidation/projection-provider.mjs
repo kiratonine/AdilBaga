@@ -169,10 +169,25 @@ export function createProductionProjectionProvider(options = {}) {
   function identity(attemptId, stage) {
     if (identityDrift || !['before', 'after'].includes(stage)) throw Error('deployment_changed');
     verify();
-    const d = rootJSON(deploymentPath);
-    if (!exact(d, ['version', 'attemptId', 'stage', 'alias', 'deploymentId', 'frontendSha', 'ready', 'target', 'confirmedAt', 'optInInactive', 'legitimatePublication'])
-      || d.version !== 1 || d.attemptId !== attemptId || d.stage !== stage || d.alias !== 'aktau.market'
-      || d.ready !== true || d.target !== 'Production' || d.legitimatePublication !== true || !hex(d.frontendSha, 40)
+    let d = rootJSON(deploymentPath);
+    if (d.version === 2) {
+      // Owner-approved automation policy, NOT a fresh Vercel API attestation.
+      // Keep historical Owner confirmation separate from this attempt's actual
+      // root configuration check. Only this fixed root file can supply the pin.
+      const pin = rootJSON('/etc/aktau-c2/frontend.json');
+      if (!exact(pin, ['version', 'evidence', 'alias', 'deploymentId', 'frontendSha', 'ownerConfirmedAt'])
+        || pin.version !== 1 || pin.evidence !== 'owner-pinned-configuration'
+        || pin.alias !== 'aktau.market' || !hex(pin.frontendSha, 40)
+        || !/^dpl_[a-zA-Z0-9]{1,80}$/.test(pin.deploymentId)
+        || !Number.isSafeInteger(pin.ownerConfirmedAt) || pin.ownerConfirmedAt < 1 || pin.ownerConfirmedAt > Date.now()
+        || !exact(d, ['version', 'attemptId', 'stage', 'alias', 'deploymentId', 'frontendSha', 'optInInactive', 'legitimatePublication', 'identityEvidence', 'configurationSha256', 'checkedAt'])
+        || d.identityEvidence !== pin.evidence || d.configurationSha256 !== createHash('sha256').update(JSON.stringify(pin) + '\n').digest('hex')
+        || d.frontendSha !== pin.frontendSha || d.deploymentId !== pin.deploymentId || d.checkedAt < pin.ownerConfirmedAt) throw Error('deployment_unverified');
+      d = { ...d, confirmedAt: d.checkedAt, ownerConfirmedAt: pin.ownerConfirmedAt };
+    } else if (d.version !== 1 || !exact(d, ['version', 'attemptId', 'stage', 'alias', 'deploymentId', 'frontendSha', 'ready', 'target', 'confirmedAt', 'optInInactive', 'legitimatePublication'])
+      || d.ready !== true || d.target !== 'Production') throw Error('deployment_unverified');
+    if (d.attemptId !== attemptId || d.stage !== stage || d.alias !== 'aktau.market'
+      || d.legitimatePublication !== true || !hex(d.frontendSha, 40)
       || !/^dpl_[a-zA-Z0-9]{1,80}$/.test(d.deploymentId) || !Number.isSafeInteger(d.confirmedAt)
       || typeof d.optInInactive !== 'boolean' || (stage === 'after' && !d.optInInactive)
       || Date.now() - d.confirmedAt < 0 || Date.now() - d.confirmedAt > 35 * 60 * 1000) throw Error('deployment_unverified');
@@ -185,7 +200,8 @@ export function createProductionProjectionProvider(options = {}) {
       agreedBefore ??= deepFreeze(structuredClone(d));
       return agreedBefore;
     }
-    const invariant = ['version', 'attemptId', 'alias', 'deploymentId', 'frontendSha', 'ready', 'target', 'legitimatePublication'];
+    const invariant = ['version', 'attemptId', 'alias', 'deploymentId', 'frontendSha', 'ready', 'target', 'legitimatePublication',
+      'identityEvidence', 'configurationSha256', 'ownerConfirmedAt'];
     if (!agreedBefore || invariant.some(k => d[k] !== agreedBefore[k]) || d.confirmedAt < agreedBefore.confirmedAt) {
       identityDrift = true; throw Error('deployment_changed');
     }

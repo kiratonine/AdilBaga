@@ -2041,3 +2041,493 @@ entry/process closure also needs actual independent review and a real live
 attestation close to schedule, not a guessed PID or an expired READY. Current
 source candidate is ready for review; full production goal remains incomplete,
 arming NOT_ARMED and qualified count0/3. No Release/tag/draft/auto-deploy.
+
+### Publication and final exact-head CI readback (source review only)
+
+One normal source commit `acaa57260470f539ff2fbbb6c179bf0e2a2a5ce5` was pushed
+without force on `fix/part32-c2-projection-preparation` and published as
+[Draft PR60](https://github.com/kiratonine/AdilBaga/pull/60), base main5a4478a.
+It contains exactly the four paths above. No merge or production replacement.
+[Hosted CI39646719826](https://github.com/kiratonine/AdilBaga/actions/runs/39646719826)
+was independently read after completion: exact acaa572 head,9/9 SUCCESS
+(Frontend, Nest Reference, Go Quality, Pipeline Quality, Security, Contracts,
+PostgreSQL Integration, Ephemeral Staging, CI Gate). PR is Draft/MERGEABLE;
+green CI is not an independent Code Review or root artifact approval.
+
+Additional actual required local gates: `node scripts/ci/run-checks.mjs ops`
+exit0,180/180/0skip; `python3 -B -m unittest discover -s pipeline/scripts -p
+test_c2_ingest_launch.py -v`22/22 OK; `node --test
+scripts/ops/c2-ingest-launch.test.mjs` exit0,3/3/0skip; `bash -n
+pipeline/scripts/daily-sync.sh` exit0. Node331 full suite includes the real
+local relay; no production captures or private capability was fabricated.
+
+This last operational appendix is deliberately uncommitted after exact-head CI;
+only this report differs from acaa572. All source bytes remain precisely the
+CI-tested commit. The final clean archive checks all700 non-report members
+against that head, all701 against current disk, and the complete prior134616-byte
+operational report plus main history as prefixes. Safe-member, bounded privacy,
+Markdown-link, exact-scope and diff checks exclude secrets/env/dumps/ELFs/CA/root
+records and temporary diagnostics. Archive hash is reported externally, avoiding
+a self-referential archive/report digest.
+
+**Next external action: independent source review of PR60 and exact manual
+operator command/closure.** Do not transfer981 approval to a new binary, overwrite
+the installed kit, discard receipt/reader/ledger or claim READY based on this
+source result. After review/normal merge, a fresh exact-main build and truthful
+no-clobber replacement/reconciliation packet must precede any new root approval.
+If a merge causes a new Vercel deployment, refresh actual alias/deployment/SHA
+attestation rather than reuse the currently reported5a4478a deployment blindly.
+READY can only attest a real live armed process within35min of a legitimate
+schedule. No overnight wait, synthetic publish, new permission grant or false
+production PASS. **SOURCE=READY_FOR_EXTERNAL_REVIEW; C2=C2_INSTALLED_INACTIVE,
+NOT_ARMED,0/3.** Original activation objective remains incomplete.
+
+## 2026-10-21 — Reviewed PR60 production continuation: exact-main and immutable review packet
+
+Owner supplied independent APPROVED FOR MERGE for exact acaa572 and authorized
+this continuation through the Part32 PR60 activation TASK. Fresh precheck proved
+unchanged head, reviewed archive SHA256 e0e10be7..., MERGEABLE,9/9 PR-head CI.
+PR60 was transitioned Draft→Ready and merged normally, pinned to acaa572 with
+no bypass/force. Actual main is **`d3a9cc59621764335f8ebe5fd54194a09d4b927e`**;
+its complete tree equals reviewed acaa572. Exact-main
+[CI39650032465](https://github.com/kiratonine/AdilBaga/actions/runs/39650032465)
+completed9/9 SUCCESS. No Release/tag/draft or deployment workflow dispatched.
+
+New audit worktree `aktau-part32-pr60-activation`, branch
+`audit/part32-pr60-reviewed-activation`, preserves the entire previous operational
+report prefix. No source edit or VPS mutation has been performed in this new
+continuation at this checkpoint. `AUTO_DEPLOY_ENABLED=false` reread through
+GitHub variables API. Focused Go CLI/postgres unit and race commands each exit0;
+unchanged broader gates are the exact PR/main CI plus explicitly recorded local
+results above, not invented reruns.
+
+### Fresh VPS preflight18:09:15Z
+
+One bounded root-side read-only Python inventory over existing verified `my-vps`
+SSH returned exit0; root TERM110s/KILL5s bound, each metadata command8s, no retries,
+no env/DSN/private record body or raw logs emitted. Sync981cd8e clean, owner999:987,
+Go1.27.3; no ingest/go process observed, services idle/success0; daily/full timers
+active/waiting with unchanged exact unit hashes and next daily22Oct06:00+05.
+API6a4b4c7 healthy/running, restart0/OOMfalse; rollback438ecdfa image preserved.
+NTP synchronized, free42,798,718,976bytes. Existing ledger0700 owner999:987 empty,
+namespace contains only ledger+reader; no reserved installer stages observed in
+three fixed parents. Reader metadata owner999:987/0600, no symlink, unchanged;
+contents never printed. Operator entry absent, deployment/READY absent, old root
+authorization present. Existing receipt root0600 SHA256
+`d8ffdbe5f5ab035acdd7263f342af3ce40d98de3880c1b1adcd604170ebf4af5`.
+Installed eight hashes match the prior approved981 set. Full DB recovery point
+is not newly proved by this metadata check; preserved data.tar is NOT a DB backup.
+No new DB/admin write is part of this release.
+
+Two bounded frontend GETs only at this checkpoint: `/ru` redirect rejected
+without following (source locale page intentionally redirects to catalog), then
+canonical `/ru/catalog` HTTP200/827ms, bounded2MiB body, no cookies/proxy/retries.
+Only safe headers/body hash/ID presence inspected; no HTML or product data saved.
+Canonical body contained no `dpl_...` marker. GitHub Vercel bot reports successful
+Production deployment7233596902 for new d3a9cc5 at18:08:55Z, immutable deployment
+URL `https://adil-baga-mpvo9oodl-kiratonines-projects.vercel.app`. Numeric GitHub ID
+and that URL do NOT prove actual Vercel `dpl_...` or exact alias binding. Prior
+Owner-confirmed dpl_Acz.../5a4478a remains historical, not silently reused after
+merge. Fresh actual alias/deployment/frontend proof remains a separate input.
+
+### Independently reviewable exact d3a9cc5 build, NOT authorization
+
+Fresh immutable `git archive d3a9cc5`, all701 exported files matched Git object
+bytes; Go1.27.3/local, CGO0/linux/amd64/trimpath, documented build recipe.
+`go mod verify` passed. Three ELFs built outside Git; Go package/toolchain/platform
+and ELF64 LE amd64 verified. Initial validator incorrectly required an ldflags
+line in `go version -m` metadata; the trimmed executable omits that line. This
+assertion failed BEFORE any upload/approval/install. Build bytes were preserved,
+not blindly rebuilt. A read-only ELF verifier resolved actual `main.sourceSHA`
+Go string-header symbol through mapped ELF segments and proved the linked string
+is exactly d3a9cc5. Exact-source/export/manifest review then returned
+**REVIEW_REQUIRED_NOT_APPROVAL**, not approved=true.
+
+| File | Installed/previous SHA256 | New exact d3a9cc5 SHA256 |
+| --- | --- | --- |
+| c2projection | `08be585091bc47d1f8c90c1a8f0dfcf9ef155aff538678e644b2c186934b8aec` | `605cdd29172e4eabbf04f63e3eaf1b701fbe808182fb5fbd85c6b92a7ef16474` |
+| relayprobe | `dda6075cbc5a0001dcc0b5a7a447e9e9553b63549ed6eadc8b5795636cfc8281` | same |
+| c2-production-supervisor.mjs | `72b5dc46c1bc705caa839c58b5f3f3e0c71de30121869e45536662152642279e` | same |
+| projection-provider.mjs | `be64de92f206493d5698e442b6882296439a262f17147b2804db0c0dc0b41bb9` | same |
+| fifo-adapter.mjs | `bfea914d48fb312753fb39c6546cefa148f1e4c948a393ac3a8eb684f3f7ed5c` | same |
+| production-observer.mjs | `8e52f34b82fe15d552140270c8b56c292bf99f6d87b41021aa9f6e2d742b30f2` | same |
+| c2-manifest.mjs | `e5ed6854f2182b3f8a108e2525585224337d0e3fb4a9eb587450b7213ac3978a` | same |
+| source-manifest.json | `6b1c0167a65965d2d541ec755eb770649f4cb08013486f579a16c3a89dc29e7e` | `657c1adf7ab4f74336ff05e19febac589524cbcf3c5c3b6c3d1e1287650431b6` |
+| separate ingest | `d06f99b3be0e8aee62b169121fc9917c29160726985249a3bd6cabdb32045183` | same (fresh rebuild) |
+| standalone operator entry | not installed | `80fc19966442325e00a519f8740e23a26fd19493228ea3e4918d298946ac4f35` |
+| actual Node24.18 ELF | `41a74efb34cbde5c7632cdac0cf8bd1a14d0b8d73dc1e82755014d9a9ce70f5c` | unchanged runtime, not rebuilt |
+| original installer | `b9b2a80a037efcc115d29eb592f353ab785b058bbd0341548c42942344d9eb98` | unchanged source |
+
+New c2projection size14,620,766bytes. Fresh relay and ingest match the previously
+approved ELFs exactly; five-module/entry bytes match merged Git objects. This
+packet requests independent review of new provider+manifest and separate entry
+command/import closure, NOT a future process/PID/READY. Proposed fixed command:
+
+```text
+sudo -n /usr/bin/env -i /usr/local/lib/nodejs/node-v24.18.0-linux-x64/bin/node /usr/local/libexec/aktau-c2-operator.mjs
+```
+
+Preserve old981 bundle/approval/receipt, immutable ingest, reader and every old
+rollback. No installer retry/overwrite: current installer only supports initial
+install/rollback and intentionally refuses a reader-bearing rollback. A safe
+replacement receipt/atomic-swap procedure must be reviewed/tested before mutation;
+old approval cannot authorize new bytes. Recurring automation also cannot re-date
+cached frontend/process assertions: a genuinely independent fresh per-attempt
+custodian is still mandatory. Specific replacement/custodian integration work
+continues independently; no artificial publication or waiting overnight.
+
+Checkpoint: **NEW_MAIN_CI=9/9_SUCCESS; NEW_ELF=BUILT_VERIFIED_NOT_APPROVED;
+VPS_INSTALLED=OLD981_INACTIVE; READER=PREVIOUS_REAL_READONLY_PROOF_PRESERVED;
+OPERATOR=NOT_INSTALLED; READY=ABSENT; C2_NOT_ARMED; QUALIFIED=0/3.**
+
+## 2026-10-21 — Owner-confirmed d3a9cc5 kit: installed BEFORE proved, schedule handoff
+
+This append-only continuation supersedes the immediately preceding *checkpoint*,
+not its history. Current result: **C2_INSTALLED_AND_BEFORE_OK; NOT_ARMED; 0/3**.
+Recurring unattended activation remains **BLOCKED_INDEPENDENT_CUSTODIAN_WIRING**;
+production convergence is NOT VERIFIED. No Release/tag/draft was created.
+
+### Independent Owner evidence and exact source
+
+Owner explicitly confirmed the presented d3a9cc5 projection/manifest hash packet,
+the six unchanged kit files, separate unchanged ingest, and independently reviewed
+standalone entry/fixed Node command/import closure. This approval covers actual
+artifact bytes and inactive installation, NOT a future PID/READY or C2 PASS.
+Only after that confirmation was the canonical root install approval materialized.
+No agent self-review was represented as independent artifact authorization.
+
+Separately, Owner confirmed Ready/Production alias `aktau.market`, exact frontend
+SHA **d3a9cc59621764335f8ebe5fd54194a09d4b927e**, Vercel deployment
+**dpl_FUnss13QtAuWVMQYPoGNPf9ka3RM**. This is **Owner-reported**, not an
+independently authenticated Vercel API/UI observation by this agent. Previous
+dpl_Acz.../5a4478a remains historical. It cannot be automatically re-dated as
+fresh per-attempt BEFORE/AFTER evidence for later scheduled runs.
+
+Fresh main still d3a9cc5. [Exact-main CI39650032465](https://github.com/kiratonine/AdilBaga/actions/runs/39650032465)
+independently re-read: all nine jobs completed SUCCESS (Go Quality, Nest
+Reference, Security, Frontend, Pipeline Quality, Contracts, PostgreSQL
+Integration, Ephemeral Staging, CI Gate). Exact merged tree equals reviewed
+PR60 head; no new tracked runtime patch in this continuation.
+
+### Actual inactive replacement and preserved custody
+
+The unchanged original installer intentionally cannot overwrite its live targets
+or roll back a reader-bearing state. It was NOT patched, bypassed or run against
+an edited receipt. A bounded private one-time administrative coordinator first
+verified old/new independent approvals, complete kit hashes, all three targets,
+receipt/inodes, root ancestry and parent identity, inactive namespace/empty
+ledger, Node/entry closure and reader metadata. It preserves all old targets,
+bundle, authorization and receipt with no-replace renames and fsync, then runs
+the **unchanged original installer once**, with all three fixed targets absent.
+The original installer creates a fresh receipt for the actual new target inodes.
+The existing reader inode is moved unchanged to the newly installed state.
+No receipt ownership/inode checks were disabled; no file was overwritten/deleted.
+
+Private coordinator SHA256
+`0637a5144d33160bcb878d10b0eb1a57d222076773e3223dbd0bc3bb730940a6`;
+tests `ff65cf1031d0997d9f5ade9000fe797959f5f81c5c3ec0b84a08bc62ee720a59`.
+These operational files remain outside Git/review source archive. Local syntax
+passed; coordinator unittest suite **12/12 PASS**, exit0, nonroot; unchanged
+original `python3 -B -m unittest discover -s ops/c2 -p 'test_*.py'` **53/53 PASS**,
+exit0. Coverage includes parent swap, unsafe stage/entry/Node, reader inode and
+hardlink protection, partial/crashed transaction, no-clobber, torn journal,
+foreign ledger, normal preservation/restore and known installation failure.
+An initial private test-fixture mutation hit PermissionError on its intentionally
+read-only fixture; fixture setup was corrected before final12/12, not a live
+resource failure or weakened assertion. The coordinator received local code/test
+review, not a separate external source PR; it adds no reusable runtime authority.
+
+Actual bounded operations (UTC):
+
+| Operation | Exit/result |
+| --- | --- |
+| 18:41:30 stage exact13-member private transport | 0, STAGED_NO_OVERWRITE; no runtime target changed |
+| 18:42:33 coordinator --verify, once | 0, REPLACEMENT_VERIFIED_NOT_APPROVAL |
+| 18:45:17 coordinator --execute, once | 0, C2_REPLACED_INACTIVE_READER_PRESERVED |
+| 18:47:04 independent SSH readback | 0, all eight installed hashes match approved table above |
+| 18:52:02–18:52:06 idle checkout identity alignment | 0, EXACT_SOURCE_ALIGNED_NO_PUBLICATION |
+| 18:52:41 separate final SSH inventory | 0, exact new source/kit, inactive empty namespace, API healthy |
+
+Protected old state is retained at
+`/var/lib/aktau-c2-install/rollback-d3a9cc5`: old kit, authority, state, bundle,
+approval and receipt plus durable replacement journal. Old receipt SHA256
+`d8ffdbe5f5ab035acdd7263f342af3ce40d98de3880c1b1adcd604170ebf4af5` preserved;
+new actual original-installer receipt SHA256
+`02a36e334ee923272ba267609a2478abd9fe844442f3abe0a444688454998eb1`.
+Known-complete inactive restore was tested locally, NOT executed on VPS.
+Do not use ordinary installer rollback on the reader-bearing state. Unknown
+ledger/socket/claim, torn journal or changed inventory requires reconciliation,
+not retry or deletion. Existing Part30 journal/quarantine remain untouched.
+
+Installed provider/manifest hashes are respectively605cdd29... and657c1adf...
+(full values in preceding table). Five modules, relay and ingest remain exactly
+unchanged. Standalone root-controlled entry80fc1996... is installed separately,
+not as a ninth kit member. Installed ELF0555/modules0444, root custody checked.
+Reader remains UID999/GID987,0600, **same dev64770/inode933613**; neither credential
+contents nor environment were printed or copied locally. New ledger0700 is
+empty; deployment.json/ready.json absent; all three stage-orphan counts zero.
+
+### Real installed restricted-reader BEFORE — not observation/acceptance
+
+At18:47:03.599Z the approved **installed** c2projection ran `-phase ready-before`
+through the actual protected reader as UID999/GID987: **exit0 / 5,446ms**.
+Existing pure schema-v2 and eligibility validation passed. Baseline S0
+`aa9574c9-f992-4e39-92ca-4f1fb65e86d3`, publishedAt
+`2026-10-21T13:01:56.413Z`; valid baseline and eligible witness proved without
+printing raw projection/product payload. Production TLS, exact reader identity
+and effective read-only ACL guards passed on that real connection. This is a
+single successful8s-budget preparation, not a latency guarantee or5s C2 test.
+
+Separate actual root Node privilege-drop diagnostic passed
+`NON_ROOT_PROTECTED`: real999/987, zero capabilities and non-dumpability.
+It did not call prepareObservation(), create an attempt/READY, open the observer
+or manufacture trusted capture. Private diagnostic JSON was not imported as a
+production provider capability. No HMAC POST, apply or snapshot was triggered.
+
+### Ordinary sync/source, API and public safety readback
+
+Only while both sync services were inactive, with no operator process and a clean
+own checkout, switched to **deploy/part32-c2-d3a9cc5**, exact source d3a9cc5.
+Fresh fetched main matched; new branch did not exist. The entire981→d3 diff is
+six known paths; pipeline, ops/sync, frontend, Go internals, Prisma, contracts and
+data have **zero diff**. No reset/rebase/stash/clean, Go build, ingest, service
+restart or timer stop/start. Bash/launcher AST syntax checks exit0.
+
+Before/after data state:18 regular files; content+path+uid/gid+mode+inode aggregate
+unchanged `098ee5dc2f721de7d085b7802fc55d1ae76aa3d02930a1b084769d0c4a84b9f5`.
+All six inspected unit hashes unchanged. Preserved source refs981 and SCRUM-19
+28cc3fc2..., old complete Go1.27.2 distribution, private local-data archive and
+old API rollback image438ecdfa... remain. That data archive is NOT a DB backup;
+no fresh complete DB recovery/parity claim is made by this Part.
+
+Final VPS API revision **6a4b4c7a91ec471db54987b689c3c87a785523a3**, running/healthy,
+restart0/OOMfalse, unchanged image. Go1.27.3, Cloudflare running; daily/weekly
+and monitor timers active. Last daily success21Oct18:00:17+05 predates the new
+checkout: **new-source scheduled run NOT_YET_OBSERVED**. Next daily is
+**22Oct2026 06:00+05 / 01:00UTC**; weekly26Oct03:00+05.
+
+Four postflight public GETs only,18:52:41–18:52:44Z, sequential/no retries,
+redirect rejection, no cookies/proxy, bounded body/time; no raw body saved:
+
+| Target | HTTP / duration_ms |
+| --- | --- |
+| API health/live | 200 /397 |
+| API health/ready | 200 /609 |
+| API dashboard | 200 /1164 |
+| Frontend RU catalog | 200 /1611 |
+
+This continuation's public HTTP total is **6 GET** including the earlier two
+identity-preflight GETs (one deliberately rejected `/ru` redirect); **0 POST,
+0 HEAD, 0 observer GET**. Health responses no-store/Cloudflare DYNAMIC; catalog
+Vercel MISS/Age0. These prove bounded reachability, NOT deployment alias identity
+or convergence. `AUTO_DEPLOY_ENABLED=false` independently re-read via GitHub API;
+the local gh version lacks `variable get` (CLI rejected it, no mutation); exact
+API read succeeded. No Release/tag, API/Frontend/Siri deployment or DB writes.
+
+### Exact scheduled arming handoff and recurring-contract boundary
+
+Task §7 explicitly forbids a READY hours before publication. At this checkpoint
+the next legitimate timer is still over six hours away; no pretend background
+waiting or short-lived READY issued now. Planned window for the next schedule:
+**22Oct00:50–00:59UTC (05:50–05:59+05)**, after rechecking actual timer/idle state.
+One root custodian must remain present through genuine AFTER/finalization:
+
+1. Reverify installed hashes/reader metadata, clean publisher d3/source identity,
+   no orphan/current attempt, clock and actual Ready Production alias identity.
+   Re-confirm the Vercel identity then, rather than re-date today's Owner message.
+2. Run exactly the independently approved empty-env Node entry command above
+   under a protected live root parent/private control pipe. On PREPARED, bind
+   actual newly generated attempt to authentic fresh BEFORE deployment record;
+   only then send ARM. Independently inspect live PID/startTicks/boot/executable,
+   command/import closure/non-dumpability and armed FIFO/helper/ledger before
+   issuing the one canonical process-bound READY. Do not pre-script ARM/FINALIZE.
+3. Let the **existing** daily timer run ordinary sync. No manual apply/Notify or
+   timer trigger. A real actual204/FIFO event admits at most21 GET/2 sitemap;
+   original5s SLA/20s diagnostics/35minute total remain. No qualifying event,
+   unchanged witness or missing authority means INCONCLUSIVE, never fake PASS.
+4. Independently prove same actual Vercel deployment AFTER and own cleanup/opt-in
+   inactivity; issue genuine post record, FINALIZE once; retain sanitized durable
+   evidence and genuine ledger count. FAIL resets count, INCONCLUSIVE does not
+   count/reset; three qualified PASS still required. Unknown state interlocks.
+
+**Recurring outcome is not achieved by installing this manual entry.** Minimal
+compatible candidate is a reviewed root-owned custodian wrapper at the existing
+daily service boundary (same timer schedule), preserving business UID/GID, cwd,
+exit0/1/3, rollback, no extra publication and C2-failure-independent normal sync.
+It must independently validate real Vercel alias/deployment before/after plus
+actual Node/PID/closure and cleanup for **each new attempt**. No new cron or
+self-issued monitored-actor approval. Existing fixed provider/READY/FIFO wire,
+private registry, fixtureOnly guards and SLA need not be relaxed.
+
+Concrete missing dependency: no approved, authenticated **read-only Vercel
+custodian context** exists for unattended fresh before/after verification; only
+Owner's specific current-deployment statement is available. Also current manual
+entry deliberately leaves unknown cancellation/crash state interlocked: an
+unattended wrapper requires reviewed cancellation/reconciliation and systemd
+operator wiring tests before installation. Silently re-dating cached Vercel
+statements or treating a wrapper's own readiness as independent proof would
+violate the frozen trust boundary. Original units were therefore left unchanged.
+
+Specific next decision is **how the independent root custodian obtains fresh
+read-only Vercel evidence** (protected approved API context or a present Owner
+per attempt), followed by separate source/ops-wiring review; do not send tokens
+in chat. Existing kit/reader/SSH permissions and Backend2 handoff are already
+approved and are NOT being requested again. A later reviewed wrapper must test
+missing/stale/drifted alias, pre-exec failure, same-UID source substitution,
+child crash/timeout, orphan/duplicate attempt, safe cancellation, publisher
+exit0/1/3 preservation and no extra network/publish attempt.
+
+**Current operational milestone: C2_INSTALLED_AND_BEFORE_OK.** No PREPARED/ARM/
+live READY/scheduled publication/AFTER/finalization was executed here; durable
+qualified count remains **0/3**. **C2_NOT_ARMED; RECURRING_BLOCKED; acceptance
+OPEN; ROOT_CAUSE_NOT_VERIFIED.** Stop for independent operational review and the
+real scheduled custodian window, not a fabricated production success.
+
+### Final offline integrity and review artifact
+
+After the operational appendix: `node scripts/ci/run-checks.mjs security` exit0
+(source/workflow policy PASS, synthetic backup1/1,0skip),
+`node scripts/revalidation/verify-part16.mjs` exit0 (static evidence only),
+`git diff --check` exit0. Exact scope is this single report, no staged/untracked
+source files. Main report prefix140,031bytes and previous operational report
+prefix142,675bytes preserved byte-for-byte; all10 local Markdown file links
+resolve. Bounded scan of the appended diff found no private-key/credential/DSN/
+token payload. Earlier exact-source local/full hosted gates are identified above;
+they were not falsely described as newly rerun production evidence.
+
+Review artifact is generated with unchanged
+`node scripts/create-clean-archive.mjs full-stack`, then an exclusive unique
+copy named `adilbaga-part32-pr60-installed-before-20261021.tar.gz` in this audit
+worktree's ignored artifacts directory. Archive safety, complete member inventory
+and byte comparison are checked after generation; its final SHA256 is delivered
+alongside the archive, not embedded recursively in this report. Private approval/
+transport/reader/ELF/coordinator files are outside the source archive. No source
+commit/push/PR was needed or made for this report-only operational continuation.
+
+## 2026-10-22 — Owner-authorized unattended C2: source integration checkpoint
+
+New Owner/Frontend/Backend2 instruction explicitly authorizes the necessary code,
+private contract/configuration, systemd and direct SSH deployment to remove human
+ARM/FINALIZE from future ordinary sync. This supersedes the preceding missing
+unattended-custodian permission/input blocker; it does NOT retroactively create
+a fresh Vercel observation, artifact human review, READY or qualified PASS.
+Current checkpoint is **SOURCE_IMPLEMENTED; PRODUCTION_AUTO_NOT_YET_INSTALLED**.
+Original main d3a9cc59621764335f8ebe5fd54194a09d4b927e; separate native worktree
+`aktau-part32-c2-auto-custodian`, branch `feat/part32-c2-auto-custodian`.
+All previous operational report bytes were transferred and compared equal before
+this append. Main checkout's unrelated untracked files/worktrees are untouched.
+
+### Explicit minimal private-contract change
+
+Owner repeats the configured frontend d3a9cc5 / dpl_FUnss13QtAuWVMQYPoGNPf9ka3RM /
+aktau.market and forbids new Vercel token/ID/API requests. New deployment-record
+**version2** therefore names its evidence basis `owner-pinned-configuration`.
+It binds the canonical protected frontend configuration SHA256, preserves the
+historical `ownerConfirmedAt`, and separately records actual root `checkedAt`.
+It contains no newly dated external Vercel Ready claim. Provider validates the
+fixed independent root pin, exact schema/hash, freshness of THIS attempt's config
+check and complete BEFORE/AFTER invariants. Manual version1 behavior remains.
+Unchanged READY-v1 uses the per-attempt root/process/config-check clock; no Go
+wire/SQL/HMAC/manifest/GET algorithm or private capability bypass is introduced.
+
+This is an Owner-approved evidence-policy change, not evidence that the old
+deployment statement is freshly verified. Automatic results are explicitly
+configuration-bound; out-of-band Vercel alias changes which do not update the
+root pin cannot independently be detected/certified. No frontend runtime,
+Vercel configuration, API/token login or HMAC secret is changed. See updated
+[C2 runbook](../../../ops/c2/README.md#part32--owner-authorized-unattended-custodian)
+and [revalidation contract](../FRONTEND_REVALIDATION.md#part32-unattended-observation-explicit-frontend-configuration-evidence).
+
+### Automatic architecture and safety
+
+New root-controlled Python custodian has no publish/SQL/API command. Existing
+daily service gets exactly one ignored-failure privileged pre-start requesting
+the dedicated Type=notify C2 service. Original business User/env/cwd/ExecStart,
+daily/weekly schedules, weekly no-publish and exit0/1/3 remain. No cron, new
+timer, always-on generic daemon, retry or additional apply is introduced.
+
+Root verifies exact fixed12-file closure/policy, existing artifact authority,
+clean real publisher source and literal service account; reader METADATA only.
+It starts fixed empty-env Node over private pipes. Actual PREPARED precedes own
+FIFO/config record; actual ARMED precedes kernel checks of Node/helper PID,
+parent, executable/argv, start ticks, zero capabilities, non-dumpability and
+the actual nonblocking FIFO reader descriptor. Only then is genuine READY issued
+and systemd notified. Node alone owns trusted BEFORE/FIFO/capture/AFTER/verdict.
+Root verifies source/config/closure and own helper cleanup before FINALIZE,
+independently compares genuine ledger verdict/count, and preserves sanitized
+per-attempt config/READY/result evidence under root-only custody.
+
+Orderly timeout/stop now cancels ONLY the owned session, writes terminal
+INCONCLUSIVE and unlocks only when cleanup is proved. Unknown cleanup remains
+interlocked. Interrupted service recovery requires a different real systemd
+invocation, actual exclusive kernel cgroup/no previous actor plus no operator
+process and validated matching state. Known old resources are preserved in
+unique root forensic directories before marking an interrupted attempt only
+INCONCLUSIVE. Historical PASS/FAIL/count remain; corrupt/foreign/ambiguous state
+is BLOCKED, not deleted/replayed. Reboot proof is explicitly distinguished from
+simulated boot tests and persistent wiring; no live VPS reboot at this checkpoint.
+
+### Actual fail-first and local results to date
+
+| Command/check | Actual result |
+| --- | --- |
+| New pinned-identity OS factory tests BEFORE implementation | exit1:2 expected positive failures;3 negatives PASS;104 unrelated filtered SKIP, not a full-suite claim |
+| New clean-cancellation regression BEFORE entry fix | exit1: cancellation callback not called; expected regression reproduced |
+| First custodian tests before new module existed | exit1, import FileNotFoundError; new-feature red phase, not a production defect |
+| Early supervisor test edit | exit1, illegal top-level return in isolated test script; fixture syntax corrected before assertions, not a source/runtime failure |
+| Initial ops profile after adding Python CI branch | exit1:178/180 Node; Python67/67 PASS; immutable-source fixture mixed HEAD with dirty modules, miniature CI fixture lacked new prerequisites |
+| Corrected ops profile | exit0:180/180 Node,0skip; Python67/67 at that revision; later custodian tests extend coverage |
+| Current focused Python custodian tests | exit0:28/28, no production resources/network; real bounded child pipes and filesystem operations plus explicit OS/kernel models |
+| Combined installer/custodian suite | exit0:81/81 at recorded checkpoint |
+| `node scripts/ci/run-checks.mjs go` with native Node24.10/Go1.27.3 | exit0:unit/race/vet/staticcheck/integration-tag analysis/govulncheck/build; real local relay;342/342 Node,0skip |
+| `node scripts/revalidation/joint-poc.mjs` | exit0:15/15,0skip; real Go CLI/FIFO/AFTER, SQL fixture COMMIT explicitly local, no production substitution |
+| `node scripts/ci/run-db-integration.mjs` | exit0: two new disposable loopback PG17 clusters, migrations/ACL/security/pool tests and real pre-Stage READY/Stage/COMMIT/FIFO/AFTER scenarios; own cleanup PASS |
+| `node scripts/ci/run-checks.mjs security` | exit0, source/workflow/backup synthetic guards,0skip |
+| `node scripts/revalidation/verify-part16.mjs` | exit0, static boundaries only |
+| `systemd-analyze verify ops/c2/aktau-c2-custodian.service` | exit0; local syntax, not installed activation |
+| report prefix / `git diff --check` | exit0; previous operational report byte-equal before append; historical FAIL/BLOCKED preserved |
+
+The two CI fixtures were corrected without weakening assertions: bundle fixture
+now takes exact immutable Git-object bytes rather than mixed working-tree bytes;
+miniature ops root includes all existing Node tests and an explicit synthetic
+Python suite, with independent negative propagation controls for both runners.
+No production monitor runtime changed. Source publisher/Go/SQL/frontend/API
+remain unchanged. Later checks/deployment evidence must be appended, not inferred
+from this checkpoint or old green CI.
+
+### Fresh bounded production inventory, not activation
+
+One sanitized read-only SSH collector exit0 at **2026-10-21T19:34:08.196066Z**:
+sync d3a9cc5 clean; API6a4b4c7a91ec471db54987b689c3c87a785523a3 running/healthy,
+restart0/OOMfalse; reader0600 UID999/GID987, same dev64770/inode933613;
+installed ledger entries0; root deployment/READY absent. Existing installed
+approved d3 kit/operator remain inactive. No new production HTTP, publish,
+ingest, service change or source update in this source checkpoint.
+
+Next is final source review/gates → normal protected PR/CI/merge → immutable
+exact-main build/provenance → Owner-delegated administrative installation with
+versioned rollback → real read-only service start/cancel/crash-recovery checks
+and existing-timer wiring. Do not call the mechanism enabled until actual unit,
+policy, runtime process/READY and cleanup readback proves it. **0/3 remains**.
+No Release/tag/draft Release or AUTO_DEPLOY_ENABLED activation is authorized.
+
+Final pre-publication source check: focused custodian **29/29**; complete Python
+installer/custodian **82/82**, Node ops **180/180,0skip**, final ops profile exit0.
+The added case invokes the real systemd verifier on BOTH the companion and the
+composed unchanged daily service plus new drop-in. JS runtime syntax checks
+exit0. Go/C2/PG17 results above correspond to the same Node/Go runtime changes;
+later edits were custodian/docs/tests only. Repository rules API confirms normal
+PR+CI Gate and zero mandatory approving reviewers; legacy branch-protection
+endpoint404 is NOT treated as permission to bypass rules. Fresh remote main
+still d3a9cc5. Protected source publication and real deployment follow, not a
+source-only final result.
+
+Pre-deployment review additionally reproduced a new custodian compatibility edge:
+Python re-encoding of a valid JSON.stringify decimal ledger (`0.00001` vs
+`1e-05`) falsely raised ledger_canonical. Fail-first command exit1,29 PASS/1 error;
+no production installation had occurred. Fixed the Node-ledger parser only:
+bounded single UTF-8 JSON document, duplicate/nonfinite/trailing data rejection,
+no Python serialization equality assumption. Root authority/config canonical
+checks remain unchanged; original forensic bytes are preserved. Focused suite
+now31/31; combined installer/custodian84/84 exit0. New positive/negative regression
+guards number compatibility without weakening verdict/custody verification.

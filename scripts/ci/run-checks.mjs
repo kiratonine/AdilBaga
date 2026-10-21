@@ -50,6 +50,7 @@ if (group === 'contracts') {
 } else if (group === 'ops') {
   if (process.versions.node.split('.')[0] !== '24') throw new Error('ops requires Node24');
   run('local TLS prerequisite (no installation)', 'openssl', ['version']);
+  console.log(run('C2 installer and automatic custodian regressions', 'python3', ['-B', '-m', 'unittest', 'discover', '-s', 'ops/c2', '-p', 'test_*.py']));
   console.log(run('ops regressions and local HTTPS lifecycle', process.execPath, ['--test',
     'scripts/ops/verify-go-production.test.mjs', 'scripts/ops/monitor-go-production.test.mjs',
     'scripts/ops/check-go-release.test.mjs', 'scripts/ops/monitor-lifecycle.test.mjs',

@@ -9,16 +9,22 @@ const validAttempt = x => typeof x === 'string' && /^[a-f0-9]{32}$/.test(x);
 // This orchestration function does not create a provider/capture capability.
 // Tests supply local stand-ins; the executable path below has fixed imports,
 // no options, callbacks, fixture mode, credential or approval parameters.
-export async function runOperatorAttempt({ drop, prepare, command, emit, monotonic = () => performance.now() }) {
+export async function runOperatorAttempt({ drop, prepare, command, emit, signal, monotonic = () => performance.now() }) {
   const start = monotonic();
-  let timer, prepared = false;
-  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(Error('deadline')), lifetime) });
+  let timer, session, prepared = false;
+  let stop;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Error('deadline')), lifetime);
+    stop=()=>reject(Error('cancelled'));
+    signal?.addEventListener('abort',stop,{once:true});
+    if(signal?.aborted)stop();
+  });
   const check = () => { if (monotonic() - start >= lifetime) throw Error('deadline') };
   const bounded = async promise => { check(); const value = await Promise.race([promise, deadline]); check(); return value };
   try {
     const launch = drop();
     if (launch?.state !== 'NON_ROOT_PROTECTED') throw Error('launch');
-    const session = await bounded(prepare());
+    session = await bounded(prepare());
     prepared = true;
     if (!validAttempt(session?.attemptId)) throw Error('attempt');
     emit({ state: 'PREPARED_REQUIRES_BEFORE_ATTESTATION', attemptId: session.attemptId });
@@ -45,9 +51,11 @@ export async function runOperatorAttempt({ drop, prepare, command, emit, monoton
   } catch {
     // No raw exception/DB/provider/HTTP body. Unknown ledger/socket state is
     // retained, not deleted or silently rearmed after failure/cancellation.
-    emit({ state: prepared ? 'RECONCILIATION_REQUIRED' : 'NOT_ARMED', acceptance: 'INCONCLUSIVE' });
+    let clean=false;
+    try { if(prepared&&typeof session?.cancel==='function')clean=(await session.cancel()).reconciliationRequired===false } catch {}
+    emit({ state: prepared ? (clean?'CANCELLED_INCONCLUSIVE':'RECONCILIATION_REQUIRED') : 'NOT_ARMED', acceptance: 'INCONCLUSIVE' });
     return 1;
-  } finally { clearTimeout(timer) }
+  } finally { clearTimeout(timer);signal?.removeEventListener('abort',stop) }
 }
 
 export function controlChannel(input) {
@@ -80,7 +88,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const { dropProductionSupervisorPrivileges } = await import('/usr/local/libexec/aktau-c2/projection-provider.mjs');
     const { prepareObservation } = await import('/usr/local/libexec/aktau-c2/c2-production-supervisor.mjs');
     const command = controlChannel(process.stdin);
-    const code = await runOperatorAttempt({ drop: dropProductionSupervisorPrivileges, prepare: prepareObservation, command, emit });
+    const stop=new AbortController();
+    process.once('SIGTERM',()=>stop.abort());process.once('SIGINT',()=>stop.abort());
+    const code = await runOperatorAttempt({ drop: dropProductionSupervisorPrivileges, prepare: prepareObservation, command, emit, signal:stop.signal });
     // A pending observe/Go helper must not keep a failed manual controller
     // alive beyond the original deadline. Pipe EOF ends its private helper;
     // unknown filesystem/ledger state remains a reconciliation interlock.

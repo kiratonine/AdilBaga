@@ -515,3 +515,120 @@ most20s,21 GET/2 sitemap. Timeout still means no trusted projection and no C2
 qualification. A newly built provider requires its own exact-source review and
 independent immutable-artifact approval; the old981 approval does not authorize
 replacement, and no install/rollback retry is implied.
+
+## Part32 — Owner-authorized unattended custodian
+
+The later Owner/Frontend/Backend2 decision authorizes automatic C2 coordination
+on each **existing daily** sync, without human ARM/FINALIZE or a Vercel API token.
+This section explicitly supersedes the manual-only operational limitation above;
+it does not change HMAC, SQL, projection-v2, Go READY-v1, custody registries or SLA.
+
+### Frontend evidence policy: configuration is not a live attestation
+
+Manual version1 deployment records remain supported with their original checks.
+Unattended operation uses a distinct canonical **version2** root deployment
+record with exact fields: `version`, `attemptId`, `stage`, `alias`, `deploymentId`,
+`frontendSha`, `optInInactive`, `legitimatePublication`, `identityEvidence`,
+`configurationSha256`, `checkedAt`. `identityEvidence` is literally
+`owner-pinned-configuration`; no `ready`, `target` or newly dated Owner
+`confirmedAt` claim is accepted in this format.
+
+`/etc/aktau-c2/frontend.json`, root0644, contains exactly `version:1`,
+`evidence:"owner-pinned-configuration"`, `alias:"aktau.market"`, the independently
+Owner-confirmed `deploymentId`/`frontendSha`, and historical integer UTC-ms
+`ownerConfirmedAt`. Its exact canonical bytes are SHA256-bound by a separate root
+automatic policy and each attempt record. `checkedAt` is the actual root check
+of **this configuration and its custody**, not a new Vercel API/UI observation.
+The provider retains both times/evidence kind and refuses future Owner dates,
+wrong hashes, unknown fields and config/identity drift. It normalizes the fresh
+configuration-check time for the unchanged process-bound Go READY clock only.
+
+This deliberately changes the evidence basis under the new Owner authorization:
+configuration-bound convergence can be observed automatically without a Vercel
+credential. It **cannot independently prove current alias/deployment identity**
+or detect an out-of-band Vercel rollout which leaves the root pin untouched.
+Results/ledger identify the policy; do not report them as fresh Vercel-verified
+deployment parity. An authorized frontend identity change requires updating the
+root pin/policy outside an active attempt; do not silently re-date this pin.
+The historical Owner-provided d3a9cc5/dpl_FUnss... values are configuration,
+not a new deployment observation caused by installing this kit.
+
+### Existing schedule, bounded independent root actor
+
+Install reviewed `auto-custodian.py` separately as
+`/usr/local/libexec/aktau-c2-custodian.py`, root0444. Its fixed no-argument entry
+runs only as root under the dedicated systemd unit. It verifies root-controlled
+`automatic.json` (`version:1`, `enabled:true`, `sourceSha`,
+`frontendConfigurationSha256`, `files`), exact12-path closure including its own
+bytes, Node/entry, both approved ELFs, immutable ingest, five modules and source
+manifest. It rechecks the existing independent artifact authority, clean actual
+publisher checkout and literal service account; it never reads the reader DSN.
+No path/UID/env/executable override or network credential is accepted.
+
+Root creates one fresh attempt FIFO only after the actual PREPARED frame. It
+checks the actual Node and Go ready-helper PID/parent/start ticks, zero caps,
+non-dumpability, executable bytes, exact argv and actual open FIFO reader before
+issuing READY. Only then does it notify systemd that C2 is armed. Existing Node
+private custody alone runs BEFORE, consumes the real committed204/FIFO, captures
+bounded GET, obtains real AFTER and computes the verdict. Root proves same pin/
+source/artifacts and helper cleanup before FINALIZE; final ledger count is
+independently checked before own-record cleanup. No manufactured event or SQL.
+
+Install [aktau-c2-custodian.service](aktau-c2-custodian.service) and only
+[this drop-in](aktau-sync-c2.conf) for `aktau-sync.service`. The existing enabled
+daily timer is the **sole scheduling source**. The drop-in has one ignored-failure
+root pre-start; original User, env, working directory, shell ExecStart, timer
+time, exit0/1/3 and weekly non-publishing service remain unchanged. The companion
+is Type=notify, single bounded35-minute attempt, Restart=no, KillMode=control-group;
+it has no WantedBy/new timer/cron. A C2 error cannot cancel ordinary sync.
+Unit enablement is therefore **indirect via the existing daily timer**, not an
+always-running generic daemon. Read-only startup/cancel verification must not
+trigger daily sync or publish a snapshot.
+
+State: root0700 `/var/lib/aktau-c2-custodian` stores an exclusive flock and
+durable sanitized current journal. Existing operator0700 state, reader0600 and
+all installer no-clobber/receipt guarantees remain. Orderly cancellation closes
+only the owned session, writes terminal INCONCLUSIVE and releases its lock only
+after verified cleanup. It cannot promote a provisional capture or PASS.
+
+After an interrupted service, automatic recovery requires a **different real
+systemd invocation**, verified exclusive kernel service cgroup with no previous
+actor, no live operator process, unchanged root configuration and a validated
+matching ledger/attempt. A changed boot independently proves old processes gone;
+same-boot recovery additionally uses actual cgroup/process evidence, not a stale
+PID/lock guess. Known original evidence/resources are preserved in a unique
+root-only recovered directory before marking only the interrupted attempt
+INCONCLUSIVE; earlier PASS/FAIL history and count policy are retained. Unknown
+names, corrupt/ambiguous state, same invocation, live actor or failed cleanup
+remain BLOCKED, never deleted or auto-replayed. Ordinary sync still proceeds.
+
+### Activation, diagnosis and rollback
+
+Source/CI merge and exact reviewed artifact admission precede VPS changes. Stage
+new bytes without overwrite, preserve the previous kit/entry/receipt/authority,
+install with the unchanged guard only at absent targets, and retain reader inode.
+Provision root policy/pin through the authorized administrative channel; record
+whether authority is Owner-delegated administration or an independent exact-hash
+human review. Never invent the latter. No original approval silently covers new
+bytes. Verify unit syntax, root closure, config hashes and loaded drop-in before
+daemon-reload. Existing API/sync/monitor must be idle/healthy and unaffected.
+
+Logs expose only state/verdict/count/evidence kind and safe fixed error classes/
+codes. No DSN, raw provider/HTTP body, prices, coordinates or secrets. Inspect
+sanitized service result, root journal metadata and genuine Node ledger, not raw
+application env or arbitrary journal payload. `C2_AUTO_ENABLED=true` means the
+verified mechanism/wiring is installed and startup works; **0/3 is not acceptance**.
+No physical VPS reboot is implied by enabled/persistent wiring or simulated boot
+tests; distinguish those from an actual reboot observation.
+
+Rollback: when sync is not running, stop only the C2 companion, remove only the
+owned drop-in after hash verification, daemon-reload and independently verify
+original service/timer/API identities. Preserve all C2 evidence/config/old bytes;
+do not run destructive original installer rollback on reader/ledger-bearing
+state. A failed C2 activation is not permission to restart API, rerun apply,
+modify PostgreSQL, clear foreign state or publish a test snapshot.
+
+Local regressions: `python3 -B -m unittest discover -s ops/c2 -p 'test_*.py'`,
+existing Node C2 suite with real local relay, ops/security profiles, Part16
+verifier and disposable PG17/real Go joint integration. The production entry
+does not expose any of these synthetic test adapters.

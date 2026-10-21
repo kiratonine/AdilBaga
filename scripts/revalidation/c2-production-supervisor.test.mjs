@@ -7,7 +7,7 @@ import { mock } from 'node:test';
 import { openAttemptLedger } from './c2-production-supervisor.mjs';
 import { execFileSync } from 'node:child_process';
 
-for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 'armOnly', 'missingReadyAuthority', 'wrongPeer', 'noReady', 'helperCrash', 'nonceReplay', 'unprotected', 'changedReady', 'afterReadyDrift', 'finalReadyDrift', 'cleanupFailure']) {
+for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 'armOnly', 'missingReadyAuthority', 'wrongPeer', 'noReady', 'helperCrash', 'nonceReplay', 'unprotected', 'changedReady', 'afterReadyDrift', 'finalReadyDrift', 'cleanupFailure', 'cancelPrepared', 'cancelArmed', 'cancelCleanupFailure']) {
   test(`isolated supervisor BEFORE attestation: ${scenario}`, () => {
     const script = String.raw`
       import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import cp from 'node:child_process';
@@ -29,7 +29,7 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
       const root=p=>typeof p==='string'&&(p.startsWith('/etc/aktau-c2')||p.startsWith('/usr/local/libexec/aktau-c2')||p.endsWith('/reader.dsn')||p===process.execPath||p===modulePath);
       const ancestor=p=>[process.execPath,modulePath].some(f=>f.startsWith(p+'/'));
       const stats=(p,d=false)=>({uid:p.endsWith('reader.dsn')?uid:0,mode:d?0o40755:p.endsWith('reader.dsn')?0o100600:0o100555,size:1000,nlink:1,isDirectory:()=>d,isFile:()=>!d,isSymbolicLink:()=>false});
-      let serial=90000,reads=0,readerOpens=0,gets=0,fifoFD=null,fifo=null,pair=null,manifest=null,sent=false,goBefore=0,delivered=false,allowEvent=scenario!=='armOnly',readyReads=0,afterDrift=false,readyConfirmedAt=null;
+      let serial=90000,reads=0,readerOpens=0,gets=0,fifoFD=null,fifo=null,pair=null,manifest=null,sent=false,goBefore=0,delivered=false,allowEvent=!['armOnly','cancelArmed','cancelCleanupFailure'].includes(scenario),readyReads=0,afterDrift=false,readyConfirmedAt=null;
       const files=new Map();
       fs.lstatSync=(p,...a)=>{
         if(root(p)||ancestor(p)||['/etc','/usr','/usr/local','/usr/local/libexec','/var','/var/lib','/var/lib/aktau-sync'].includes(p))return stats(p,true);
@@ -74,7 +74,7 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
       };cp.execFile=fake;
       cp.spawn=()=>{
         const child=new EventEmitter();child.stdin=new PassThrough();child.stdout=new PassThrough();child.exitCode=null;child.signalCode=null;
-        child.stdin.on('end',()=>{if(child.exitCode===null&&child.signalCode===null){child.exitCode=scenario==='cleanupFailure'?1:0;child.emit('exit',child.exitCode);child.emit('close',child.exitCode)}});
+        child.stdin.on('end',()=>{if(child.exitCode===null&&child.signalCode===null){child.exitCode=['cleanupFailure','cancelCleanupFailure'].includes(scenario)?1:0;child.emit('exit',child.exitCode);child.emit('close',child.exitCode)}});
         child.kill=s=>{delivered=true;child.signalCode=s;queueMicrotask(()=>{child.emit('exit',null);child.emit('close',null)});return true};
         const req=()=>({state:'request',request:{version:1,attemptId:deployment.attemptId,nonce:'a'.repeat(32)},peer:{pid:42,uid,gid:process.getegid(),executableSha256:scenario==='wrongPeer'?'0'.repeat(64):digest,rootControlled:true,bootId:boot}});
         child.stdin.on('data',b=>{const response=JSON.parse(b);assert.equal(response.status,'READY');assert.equal(response.s0.publishedAt,'2026-10-16T13:00:00.000Z');delivered=true;child.stdout.write('{"state":"delivered"}\n');if(scenario==='nonceReplay')child.stdout.write(JSON.stringify(req())+'\n')});
@@ -89,6 +89,16 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
         const {prepareObservation}=await import('./scripts/revalidation/c2-production-supervisor.mjs');
         const session=await prepareObservation();deployment.attemptId=session.attemptId;pair=projectionPair(session.attemptId);manifest=buildManifest(pair).manifest;
         const run=path.join(dir,session.attemptId);fs.mkdirSync(run,{mode:0o700});fifo=path.join(run,'event.fifo');cp.execFileSync('mkfifo',['-m','600',fifo]);
+        if(scenario.startsWith('cancel')){
+          if(scenario!=='cancelPrepared')assert.equal((await session.arm()).state,'armed');
+          const result=await session.cancel();assert.equal(result.acceptance,'INCONCLUSIVE');
+          assert.equal(result.reconciliationRequired,scenario==='cancelCleanupFailure');
+          assert.deepEqual(await session.cancel(),result);assert.equal(gets,0);
+          const records=JSON.parse(original.readFileSync(path.join(dir,'ledger','attempts.json'),'utf8'));
+          assert.equal(records.at(-1).state,'inconclusive');assert.equal(records.at(-1).verdict,'INCONCLUSIVE');
+          assert.equal(original.existsSync(path.join(dir,'ledger','operator.lock')),scenario==='cancelCleanupFailure');
+          assert.throws(()=>session.finalize(),/attempt/);
+        }else{
           if(scenario==='armOnly'){
             assert.equal((await session.arm()).state,'armed');assert.equal(goBefore,1);assert.equal(readerOpens,1);assert.equal(gets,0);
             assert.ok(JSON.parse(original.readFileSync(path.join(dir,'ledger','attempts.json'),'utf8'))[0].transitions.includes('armed'));allowEvent=true;
@@ -107,6 +117,7 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
             assert.deepEqual(records[0].transitions,gets?['prepared','armed','event_consumed','inconclusive']:['prepared','armed','inconclusive']);
             assert.ok((records[0].checkpoints??[]).filter(x=>x.evidence?.state==='ready_consumed').length<=1);
             if(scenario==='cleanupFailure'){assert.equal(final.reconciliationRequired,true);assert.equal(original.existsSync(path.join(dir,'ledger','operator.lock')),true);assert.equal(records[0].checkpoints.at(-1).evidence.result.events.length,6)}
+        }
         }
       }finally{fs.rmSync(dir,{recursive:true})}
     `;
