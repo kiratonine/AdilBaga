@@ -226,8 +226,11 @@ def execute(argv, *, env, pass_fds=()):
             # With fixed argv/no shell/no preexec_fn, these constructor errors
             # are reported before the program ran. Never classify a wait error
             # or an unclassified error (including EBADF) as permission to retry.
-            if error.errno in (errno.ENOENT, errno.EACCES, errno.EPERM, errno.ENOEXEC,
-                               errno.ENOTDIR, errno.ELOOP, errno.ETXTBSY):
+            # The POSIX exec-error pipe also attributes the executable filename;
+            # unattributed/other-filename constructor errors remain ambiguous.
+            if (error.errno in (errno.ENOENT, errno.EACCES, errno.EPERM, errno.ENOEXEC,
+                                errno.ENOTDIR, errno.ELOOP, errno.ETXTBSY)
+                    and error.filename == argv[0] and error.filename2 is None):
                 raise PreExecUnavailable() from None
             raise
         return child.wait()

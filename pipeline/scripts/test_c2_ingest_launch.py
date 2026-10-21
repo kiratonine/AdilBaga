@@ -66,7 +66,7 @@ class LaunchTests(unittest.TestCase):
                     fd = 19
                     def variables(self):return {'C2_EVENT_FIFO':'fixture','C2_EVENT_ATTEMPT_ID':'fixture'}
                 def fault(n, argv):
-                    if n==phase:raise OSError(error_number,'synthetic pre-exec')
+                    if n==phase:raise OSError(error_number,'synthetic pre-exec',argv[0])
                 Child,calls,started=self.simulated_children(fault)
                 with patch.object(m,'admit',return_value=C()),patch.object(m.subprocess,'Popen',Child):
                     self.assertEqual(m.run_pair('fixture-bundle'),0)
@@ -90,7 +90,9 @@ class LaunchTests(unittest.TestCase):
         class C:
             fd=19
             def variables(self):return {}
-        for error in (OSError(errno.EBADF,'ambiguous'),OSError(),RuntimeError('unknown')):
+        for error in (OSError(errno.EBADF,'ambiguous'),OSError(),RuntimeError('unknown'),
+                      OSError(errno.ENOENT,'unattributed constructor error'),
+                      OSError(errno.EACCES,'wrong constructor filename','unrelated-file')):
             with patch.object(m,'admit',return_value=C()),patch.object(m.subprocess,'Popen',side_effect=error) as child:
                 with self.assertRaises(type(error)):m.run_pair('fixture')
                 self.assertEqual(child.call_count,1)

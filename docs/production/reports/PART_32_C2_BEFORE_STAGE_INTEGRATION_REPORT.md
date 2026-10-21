@@ -1012,3 +1012,40 @@ earlier feature build packet is historical, not approval for the new source.
 After independent re-review, resume the existing rollout task with its real
 root/reader/frontend/Go1.27.3/recovery gates; do not ask Backend2 again or bypass
 them. New exact-head publication/CI and final clean packet readback follow below.
+
+### First correction publication and actual hosted failure — not counted PASS
+
+Normal commit/push **c743af16611167879f1e87ae2d384095c88b0de2** updated existing
+PR58. CLI `gh pr edit` failed with obsolete Projects(classic) GraphQL lookup;
+the supported REST PATCH succeeded, exit0, same PR/head, no new PR or settings
+change. Hosted run
+[39606177851](https://github.com/kiratonine/AdilBaga/actions/runs/39606177851)
+is **FAILURE**, not9/9: Go Quality failed, CI Gate failed, PG/Staging skipped.
+Contracts/Security/Pipeline/Nest/Frontend succeeded. This history is retained.
+
+Actual failing unchanged source: `TestVoiceHTTP`,voice_test.go71, raw substring
+search for43.6 in the entire JSON log. All20 cases failed at13:14:43.639–.642UTC,
+including bodies that do not contain that coordinate. A private local Go overlay
+changed ONLY the logger timestamp to13:14:43.640Z: the unmodified original test
+reproduced20 leak assertions, exit1. Control timestamp13:14:44.640Z: exit0, zero
+assertions. Both ran the actual local router/logger/test; neither changed the
+Git tree or privacy assertions. This proves the existing time-sensitive test
+false-positive mechanism, not a production Voice leak. Overlay controls are
+diagnostic, not substituted for the mandatory unmodified Go suite. The original
+failed CI is not reclassified. No Go/Voice/Siri/runtime/test file is changed in
+this narrowly scoped launcher correction; that test limitation remains disclosed.
+
+During the same P1 review, strengthened exec-error attribution: a known errno
+alone is insufficient. The constructor error must also name exactly argv[0]
+and have no filename2, matching the POSIX Popen exec-error pipe's executable
+attribution. An absent/wrong filename remains ambiguous and cannot retry.
+The added ambiguous-constructor regression first failed on c743af (exit1), then
+passed after this tightening. Checked installed CPython subprocess implementation;
+all known simulated exec errors now carry the same filename attribution as the
+actual native ENOEXEC/EACCES tests. No broader fallback or authority relaxation.
+
+Final affected checks repeated after this change: Python22/22/0 SKIP, launcher
+Node3/3/0 SKIP, ops180/180/0 SKIP, py_compile exit0. Entire correction still6 paths
+relative to5cbec019; only3 existing source/doc paths plus append-only report
+changed after c743af. New exact-head CI must complete9/9 independently; the earlier
+failed run remains a failed run. No production connection or activation.

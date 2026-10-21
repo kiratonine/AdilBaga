@@ -443,7 +443,8 @@ only apply: ordinary dry-run must succeed first. The prior immutable dry-run is
 read-only and does not substitute for it. A known `Popen` constructor exec error
 may downgrade; a child nonzero status, signal, wait error or unclassified spawn
 error cannot. At most one apply **program starts**, even if an earlier exec
-attempt failed before startup. No C2 readmission/claim deletion occurs on fallback;
+attempt failed before startup. Exec-error attribution must name the exact pinned
+executable; absent/other filenames are not permission to retry. No C2 readmission/claim deletion occurs on fallback;
 both ordinary phases are C2-free. Cancellation terminates/reaps the owned child,
 escalates to KILL after a bounded grace if needed, and exits128+signal with no
 retry. Generic errors fail safely, without raw exception/authority output.
