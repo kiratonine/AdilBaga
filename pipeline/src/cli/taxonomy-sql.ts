@@ -1,9 +1,10 @@
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { readDictionary } from '../mapping/dictionary.js'
-import { buildTaxonomyMigration } from '../mapping/taxonomy-sql.js'
+import { buildTaxonomyMigration, TAXONOMY_MIGRATION } from '../mapping/taxonomy-sql.js'
 
 const ROOT = resolve(import.meta.dirname, '../../..')
-const target = resolve(ROOT, 'backend/prisma/migrations/20261006000000_catalog_taxonomy/migration.sql')
+const target = resolve(ROOT, TAXONOMY_MIGRATION)
+mkdirSync(dirname(target), { recursive: true })
 writeFileSync(target, buildTaxonomyMigration(readDictionary(resolve(ROOT, 'data/mapping/dictionary.json'))), 'utf8')
 console.log(`[taxonomy:sql] ${target}`)

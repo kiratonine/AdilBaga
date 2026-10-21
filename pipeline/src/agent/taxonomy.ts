@@ -1,9 +1,11 @@
+import { MILK_FAT_OPTIONS } from '../mapping/milk.js'
+
 const size = (key: 'volumeMl' | 'weightGrams', label: string) => ({ key, label, type: 'multi-select' as const })
 const brand = { key: 'brand', label: 'Бренд', type: 'multi-select' as const }
 
 export const CATEGORIES = [
-  { slug: 'milk', name: 'Молоко и сливки', filters: [size('volumeMl', 'Объём'), { key: 'fatPercent', label: 'Жирность', type: 'multi-select' }, brand] },
-  { slug: 'dairy', name: 'Кисломолочные продукты и сыры', filters: [{ key: 'fatPercent', label: 'Жирность', type: 'multi-select' }, brand] },
+  { slug: 'milk', name: 'Молоко', filters: [size('volumeMl', 'Объём'), { key: 'fatPercent', label: 'Жирность', type: 'multi-select', allow: MILK_FAT_OPTIONS }, brand] },
+  { slug: 'dairy', name: 'Кисломолочные продукты и сыры', filters: [brand] },
   { slug: 'eggs', name: 'Яйца', filters: [{ key: 'packageCount', label: 'Количество', type: 'multi-select' }] },
   { slug: 'bread', name: 'Хлеб и выпечка', filters: [size('weightGrams', 'Вес'), brand] },
   { slug: 'meat', name: 'Мясо и птица', filters: [brand] },
