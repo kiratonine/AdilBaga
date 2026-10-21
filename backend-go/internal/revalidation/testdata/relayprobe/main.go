@@ -9,11 +9,36 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/user"
 	"strconv"
 	"sync/atomic"
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "operator" {
+		account, err := user.Lookup("aktau-sync")
+		if err != nil {
+			os.Exit(1)
+		}
+		uid, e1 := strconv.Atoi(account.Uid)
+		gid, e2 := strconv.Atoi(account.Gid)
+		if e1 != nil || e2 != nil || uid <= 0 || gid < 0 {
+			os.Exit(1)
+		}
+		if json.NewEncoder(os.Stdout).Encode(struct {
+			UID int `json:"uid"`
+			GID int `json:"gid"`
+		}{uid, gid}) != nil {
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) == 3 && os.Args[1] == "ready-server" {
+		if revalidation.RunReadyServer(os.Args[2], os.Stdin, os.Stdout) != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "clock" {
 		boot, err := revalidation.BootID()
 		if err != nil {

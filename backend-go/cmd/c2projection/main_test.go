@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"adilbaga/backend-go/internal/postgres"
 )
@@ -66,6 +67,45 @@ func TestParse(t *testing.T) {
 	for name, args := range invalid {
 		if _, ok := parse(args); ok {
 			t.Errorf("%s accepted", name)
+		}
+	}
+}
+
+func TestReadyBeforePrivatePhase(t *testing.T) {
+	args := replace(before(), "-phase", "ready-before")
+	if _, ok := parse(args); !ok {
+		t.Fatal("private READY BEFORE phase unavailable; dashboardAt is not snapshots.publishedAt")
+	}
+}
+
+func TestReadyEnvelopeTruePublishedAtPreservesV2(t *testing.T) {
+	sourceSHA = sha
+	defer func() { sourceSHA = "" }()
+	published, _ := time.Parse(time.RFC3339Nano, "2026-10-21T01:02:03.004Z")
+	state := postgres.C2State{SnapshotID: snapshot, PublishedAt: published, Body: postgres.C2Body{DashboardAt: "2026-10-20T00:00:00.000Z"}}
+	o, _ := parse(before())
+	original, err := document(o, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := readyDocument(original, state)
+	if err != nil || len(out) >= 16<<10 {
+		t.Fatal("envelope")
+	}
+	var parsed struct {
+		Projection json.RawMessage `json:"projection"`
+		Baseline   struct {
+			SnapshotID  string `json:"snapshotId"`
+			PublishedAt string `json:"publishedAt"`
+		} `json:"baseline"`
+	}
+	if json.Unmarshal(out, &parsed) != nil || !bytes.Equal(parsed.Projection, bytes.TrimSuffix(original, []byte{'\n'})) || parsed.Baseline.SnapshotID != snapshot || parsed.Baseline.PublishedAt != "2026-10-21T01:02:03.004Z" {
+		t.Fatal("true S0 timestamp or unchanged v2 bytes lost")
+	}
+	for _, at := range []time.Time{{}, published.Add(time.Nanosecond)} {
+		state.PublishedAt = at
+		if b, e := readyDocument(original, state); e == nil || b != nil {
+			t.Fatal("unsafe S0 precision accepted")
 		}
 	}
 }

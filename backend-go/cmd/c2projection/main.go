@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -81,7 +82,7 @@ func parse(args []string) (options, bool) {
 	}
 	after := []string{"-snapshot", "-previous", "-witness", "-slug"}
 	switch o.phase {
-	case "before":
+	case "before", "ready-before":
 		for _, name := range after {
 			if seen[name] {
 				return o, false
@@ -150,6 +151,9 @@ func emit(ctx context.Context, conn *pgxpool.Conn, o options, stdout, stderr io.
 		return fail(stderr, exitFailure, "projection")
 	}
 	out, err := document(o, state)
+	if o.phase == "ready-before" && err == nil {
+		out, err = readyDocument(out, state)
+	}
 	if err != nil {
 		return fail(stderr, exitFailure, "projection")
 	}
@@ -158,6 +162,27 @@ func emit(ctx context.Context, conn *pgxpool.Conn, o options, stdout, stderr io.
 		return fail(stderr, exitFailure, "output")
 	}
 	return exitOK
+}
+
+// Private envelope; original v2 projection bytes/body hash are not modified.
+func readyDocument(projection []byte, state postgres.C2State) ([]byte, error) {
+	if state.PublishedAt.IsZero() || state.PublishedAt.Nanosecond()%int(time.Millisecond) != 0 || !postgres.C2ValidUUID(state.SnapshotID) {
+		return nil, errors.New("ready baseline unavailable")
+	}
+	type baseline struct {
+		SnapshotID  string `json:"snapshotId"`
+		PublishedAt string `json:"publishedAt"`
+	}
+	out, err := json.Marshal(struct {
+		Projection json.RawMessage `json:"projection"`
+		Baseline   baseline        `json:"baseline"`
+	}{
+		json.RawMessage(bytes.TrimSuffix(projection, []byte{'\n'})), baseline{state.SnapshotID, state.PublishedAt.UTC().Format("2006-01-02T15:04:05.000Z")},
+	})
+	if err != nil || len(out)+1 >= 16<<10 {
+		return nil, errors.New("ready envelope unavailable")
+	}
+	return append(out, '\n'), nil
 }
 
 // canonicalStateId is sha256 over the exact body bytes embedded in the output.

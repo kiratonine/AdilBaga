@@ -4,9 +4,25 @@ import (
 	"flag"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestPart32ReadyBeforeStageAndBoundRelay(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+	ready, stage := strings.Index(source, "revalidation.RequestReady("), strings.Index(source, "engine.Stage(")
+	if ready < 0 || stage < ready {
+		t.Fatal("missing real pre-Stage READY exchange")
+	}
+	if !strings.Contains(source, "staged.Baseline()") || !strings.Contains(source, "readyTicket.BindBaseline(") {
+		t.Fatal("missing locked baseline binding")
+	}
+}
 
 func TestConfigurationFailureStructuredPrivacy(t *testing.T) {
 	oldArgs, oldFlags, oldStderr := os.Args, flag.CommandLine, os.Stderr

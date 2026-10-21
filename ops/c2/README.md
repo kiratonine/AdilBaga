@@ -76,7 +76,7 @@ owned local plaintext/disposable resources; never prune older backups.
 
 Owner independently reviews **one packet**, not an uploader's `approved` flag:
 
-1. Full immutable source commit, Go1.27.2 build recipe, linux/amd64 binary
+1. Full immutable source commit, Go1.27.3 build recipe, linux/amd64 binary
    digests, five exact Node module hashes, installer hash and test evidence.
 2. Separate actual Vercel READY Production alias `aktau.market`, deployment ID,
    frontend SHA and timestamp proof for each attempt; no guessed source=deploy.
@@ -215,14 +215,15 @@ target, service, backup or key is removed. A torn receipt or interruption before
 durable intent is ambiguous: STOP for independent manual reconciliation; never
 guess ownership from a directory name. No automatic stale-lock cleanup.
 
-## Backend2 genuine-publication boundary (pending, not implemented)
+## Historical pre-Part32 genuine-publication boundary
 
-Current `cmd/ingest` performs `engine.Stage()` before `PublishThenNotify`, and
-post-COMMIT notifier relay reads `C2_EVENT_FIFO` / `C2_EVENT_ATTEMPT_ID`. Adding
-BEFORE only immediately before Publish is **too late**: canonical mutations can
-already occur during Stage. Independent Backend2 integration must obtain trusted
-S0/witness **before any canonical mutation**, arm persistent FIFO reader with
-the new attempt ID, then allow the already-legitimate publisher to proceed.
+Before Part32, `cmd/ingest` performed `engine.Stage()` before
+`PublishThenNotify`, without a pre-Stage readiness exchange. Stage actually
+writes staging snapshots/source runs/raw products only; canonical products,
+mappings and offers change in Publish. The approved ordering is nevertheless
+trusted S0/witness and persistent FIFO **before Stage**, followed by comparison
+with Stage's locked baseline. The source implementation below supplies that
+boundary; production integration remains separately authorized.
 Observer failure must not block/slow ingestion; an unready attempt is excluded,
 not a publication failure. No polling scheduler or extra notification is added.
 
@@ -244,3 +245,161 @@ rollback suite. Sandbox uses current uid instead of root, never host destination
 paths; it cannot create a production capability. Run it as nonroot, like CI.
 The existing Security job already requires the ops profile; no workflow/job or
 production activation setting changes are needed.
+
+## Part32 private READY v1 (source contract; no production provisioning)
+
+This section supersedes the historical “pending” readiness description above.
+The Owner-provided approved Part32 handoff delegates the Unix protocol details
+to Backend1. No additional Backend2 review/permission is required. This source
+work does not install/provision any of the following runtime trust inputs.
+
+### Authority and filesystem boundary
+
+The existing non-root production provider, independently root-approved immutable
+Go executables, private capture registry and independent Vercel deployment record
+remain mandatory. Same UID, a FIFO pathname, environment variables and serialized
+JSON do not create authority. A separately provisioned, canonical root-controlled
+`/etc/aktau-c2/ready.json` binds ONE actual armed supervisor process to ONE attempt:
+exact ordered keys `version`, `attemptId`, `sourceSha`, `frontendSha`,
+`deploymentId`, `confirmedAt`, `bootId`, `operatorUid`, `operatorGid`,
+`supervisorPid`, `supervisorStartTicks`, `nodeExecutable`, `nodeSha256`, `commandSha256`,
+`supervisorSha256`, `ingestSha256`, `relaySha256`, `expiresAt`.
+Version1; lowercase32/40/64hex IDs/digests; `dpl_` alphanumeric deployment ID;
+UTC timestamps exactly `YYYY-MM-DDTHH:mm:ss.sssZ`; positive UID/PID, integer
+nonnegative primary GID; decimal process start ticks string; actual kernel boot
+UUID. Expiry is future and no later than35minutes from confirmation. Confirmation
+must match the independent BEFORE deployment attestation, not a caller claim.
+Root/admin independently verifies the live PID/start ticks, exact source/module,
+immutable Node and ingest binaries, complete reviewed command/bootstrap/import
+closure and actual Vercel identity before issuing this record. The application
+never writes it. Changing identity/record during an attempt invalidates C2.
+
+`nodeExecutable` is the independently verified absolute root-controlled immutable
+Node ELF path (no symlink or unsafe ancestor), equal to actual process.execPath.
+Root/admin hashes actual `/proc/PID/exe` bytes into `nodeSha256`; the unprivileged
+consumer checks approved executable file bytes. `commandSha256` hashes exact
+NUL-delimited `/proc/PID/cmdline`, `supervisorSha256` hashes the root-controlled
+installed `c2-production-supervisor.mjs`, `ingestSha256` hashes the immutable
+executing Go ingest ELF. Root-owned files/ancestors reject symlinks and effective
+group/other write; regular records are single-linked and bounded4096bytes.
+The independently verified launch must have a root-owned parent, no active tracer
+and NON-DUMPABLE Node/helper processes. Same-UID /proc/fd access to either side
+of the private child pipe must be denied, not merely assumed safe from ptrace.
+`dropProductionSupervisorPrivileges()` is a future admin-bootstrap operation:
+verify independent clock approval, query the fixed literal `aktau-sync` OS account
+through its bounded `operator` helper, clear supplementary groups and permanently
+drop this Node process's gid/uid; require zero capabilities and kernel-protected
+root-owned `/proc/self/status` (the top PID directory itself remains user-owned).
+The helper sets PR_SET_DUMPABLE=0 before listening. No
+account, file permission, sysctl, service or privilege grant is created/changed.
+This function is NEVER invoked implicitly on import or by a non-root provider.
+Root/admin independently attests actual protected processes after arming; the
+application does not issue ready.json. Missing protection/authority means
+NOT_ARMED, never a same-UID fallback. Ordinary operator-launched Node is therefore
+not production-authorized. Actual deployment/launch remains a separate task.
+
+Socket is derived solely from the existing validated attempt and fixed FIFO:
+`/var/lib/aktau-sync/c2/<attemptId>/ready.sock`, alongside exact `event.fifo`.
+No new ingest env/path/credential override. Namespace0700 and socket0600 belong
+to the existing operator; all ancestors root/operator-controlled, no symlinks or
+unsafe writes. Pin/recheck parent and socket device/inode. The existing immutable
+relayprobe has one fixed `ready-server <attempt>` mode. Go verifies kernel
+SO_PEERCRED of this root-approved helper, its executable digest (`relaySha256`,
+also matching the existing independent clock approval), UID/GID and actual parent
+PID equal to the independently attested Node supervisor. Node process start,
+boot, command and executable hashes are verified separately against ready.json.
+The helper obtains the client's real SO_PEERCRED and executable hash for Node's
+ingest-identity check; no claimed PID/UID is accepted. It never connects, runs SQL
+or changes notification behavior. Bounded parent stdio carries only this one
+request/response and kernel peer evidence, not arbitrary commands.
+
+Native Node24 socket auto-unlink was independently reproduced deleting a replaced
+pathname on close. Therefore the Go helper binds relative to a held parent fd,
+sets `SetUnlinkOnClose(false)`, retains the inode through client verification and
+unlinks only its own still-matching socket. Parent close/cancellation ends only
+that child; swapped/foreign paths are retained for manual reconciliation.
+
+### Exact bounded wire / one-shot lifecycle
+
+UTF-8 canonical compact JSON + one LF, no other frames/trailing bytes, max4096
+bytes including LF, exact ordered own fields, strict types; reserialization must
+equal original bytes (also rejects duplicate/unknown keys, unsafe escaping,
+whitespace, numbers and malformed Unicode). One Unix dial/write/read, no retry,
+poll, sleep or HTTP in the ingest critical path; **1500ms total IPC budget**,
+below the approved2000ms ceiling, promptly canceled by the parent context.
+
+Request ordered fields: `version:1`, `attemptId:hex32`, `nonce:hex32`.
+Nonce is cryptographically random per ingest request, echoed exactly once.
+Response ordered fields: `version:1`, `status:"READY"`, `attemptId`, `nonce`,
+`s0:{snapshotId:uuid,publishedAt:UTCms}`, `projectionSha256:hex64`,
+`witnessSha256:hex64`, `sourceSha:hex40`, `frontendSha:hex40`, `deploymentId`,
+`confirmedAt:UTCms`, `bootId:uuid`, `expiresAt:UTCms`.
+Non-READY closes without an authorization frame. Hashes cover canonical
+projection JSON+LF and canonical selected `{id,slug}` JSON+LF respectively.
+No raw product/price/location/DSN, secret or provider payload travels this wire.
+
+S0 publishedAt MUST NOT be dashboardAt/product snapshotAt. The private Go
+`-phase ready-before` envelope contains exact ordered `projection` (unchanged
+schema-v2 BEFORE) and `baseline:{snapshotId,publishedAt}` from the SAME existing
+RR read-only projection transaction. The already-selected snapshot row supplies
+publishedAt; no new SQL. Legacy `before`/`after` CLI documents remain byte-compatible.
+Only validated private provider custody may use this envelope for READY.
+
+Supervisor `arm()` resolves authentic BEFORE, eligible witness, stable deployment,
+clock calibration and an open persistent FIFO; fsyncs the ledger `armed` transition
+BEFORE exposing a READY response. It starts the same receiver/supervision clock,
+not a second observer. Before answering, root process authority and actual peer
+are rechecked; nonce consumption is durably checkpointed BEFORE write. At most
+one consumer/response. Crash/restart/torn/unknown state retains the ledger orphan
+interlock; no unknown socket/FIFO is removed. Own socket cleanup verifies inode.
+`observe()` and `finalize()` retain their existing provisional/post-attestation
+semantics; no actual post-COMMIT event may admit GET before READY consumption.
+
+Go performs this check immediately before Stage only for explicit apply+valid
+C2 opt-in. After Stage, a value-only accessor exposes the captured baseline;
+compare exact ID and UTC millisecond timestamp to S0 under the existing lock.
+Mismatch invalidates ONLY C2 and suppresses qualified relay. Stage/Publish,
+context cancellation and post-COMMIT HMAC keep their original outcomes/exit code.
+Disabled/dry-run:0 new IPC/DB/HTTP. Missing, stale, replayed, malformed, foreign,
+untrusted or crashed observer: ordinary ingest, C2 NOT_ARMED/INCONCLUSIVE.
+
+```mermaid
+sequenceDiagram
+  participant N as Trusted Node supervisor
+  participant G as Go ingest
+  participant D as Existing PostgreSQL engine
+  N->>N: BEFORE RR S0 + witness + deployment + calibration
+  N->>N: Open persistent FIFO; fsync armed ledger
+  G->>N: One Unix request (attempt + nonce)
+  N->>N: Independent process/peer authority; fsync consumed
+  N-->>G: READY (S0 + digests + identities + expiry)
+  G->>D: Stage (existing advisory lock + baseline)
+  G->>G: Compare baseline to S0; mismatch excludes C2 only
+  G->>D: Existing Publish / COMMIT
+  G->>N: Existing signed204 receipt via FIFO
+  N->>N: Existing bounded GET capture + trusted AFTER S1/S0
+  N->>N: Independent post identity/cleanup; finalize
+  Note over G,D: READY failure does not block ingestion; DB failure never notifies
+  Note over N: Missing custody/READY/event/AFTER means INCONCLUSIVE, never PASS
+```
+
+No5s SLA reset: <=21 GET/2 sitemap, <=20s diagnostics and original35-minute
+supervision. FAIL resets the3-PASS series; INCONCLUSIVE does not count. Local
+fixtures/CI cannot prove any production publication. Future installation must
+include the updated exact-source modules/Go binaries in a newly independently
+reviewed bundle; old Part31 staging/approval is not automatically compatible.
+
+The future root bootstrap must start the independently inspected Node command
+with a clean environment (no caller-controlled loader/options/import hooks),
+then drop privileges inside that same process; it must not exec after dropping
+UID. The root record attests this bootstrap as well as immutable bytes. This
+library does not turn an untrusted running process into an approved process.
+The per-attempt namespace requires exclusive coordinated operator custody;
+inode checks do not claim atomic compare-and-unlink against a malicious
+concurrent same-UID namespace writer. A replacement detected at cleanup is
+retained and the ledger interlock stays in place.
+
+The relay's exit0 certifies known-own socket cleanup, **not** READY consumption.
+Only a separately validated delivered frame can admit the event. Missing,
+replaced or unverified cleanup means INCONCLUSIVE with retained evidence and
+operator.lock; no automatic retry/recovery is authorized.

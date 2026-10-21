@@ -23,6 +23,11 @@ if (group === 'contracts') {
     ['vet', './...'], ['tool', 'staticcheck', './...'], ['tool', 'staticcheck', '-tags=integration', './...'],
     ['tool', 'govulncheck', './...']]) console.log(go(args));
   for (const name of ['api', 'ingest']) go(['build', '-o', join(temporary, name), `./cmd/${name}`]);
+  const relay = join(temporary, 'relayprobe');
+  go(['build', '-o', relay, './internal/revalidation/testdata/relayprobe']);
+  console.log(run('C2 Node regressions (real local relay, no production)', 'node', ['--test',
+    ...run('C2 test inventory', 'git', ['ls-files', '--cached', '--others', '--exclude-standard', 'scripts/revalidation/*.test.mjs']).split('\n').filter(Boolean),
+    'scripts/ci/guard.test.mjs'], { env: { ...env, C2_LOCAL_PROBE: relay } }));
 } else if (group === 'nest') {
   install('backend'); pnpm('backend', ['db:generate']); pnpm('backend', ['build']);
   console.log(pnpm('backend', ['test']).split('\n').slice(-10).join('\n'));

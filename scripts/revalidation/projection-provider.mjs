@@ -1,7 +1,7 @@
 // LOCAL synthetic provider only. No configurable executable/path/DSN/env input.
 // A reviewed Go binary/custody integration requires separate approval; JSON
 // files and caller callbacks cannot manufacture trusted projection evidence.
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,7 @@ const executable = process.execPath;
 const script = fileURLToPath(new URL('./fixtures/projection-provider-v2.mjs', import.meta.url));
 const fail = reason => ({ acceptance: 'INCONCLUSIVE', reason });
 const production = new WeakMap();
+const beforeBaselines = new WeakMap();
 const authorityPath = '/etc/aktau-c2/authorization.json';
 const deploymentPath = '/etc/aktau-c2/deployment.json';
 const binaryPath = '/usr/local/libexec/aktau-c2/c2projection';
@@ -46,6 +47,32 @@ function rootJSON(file) {
   if (JSON.stringify(value) + '\n' !== raw) throw Error('authority');
   return value;
 }
+function readApproval() {
+  const approved = rootJSON(authorityPath);
+  if (!exact(approved, ['version', 'approved', 'sourceSha', 'binarySha256', 'clockSha256', 'buildId', 'platform'])
+    || approved.version !== 1 || approved.approved !== true || !hex(approved.sourceSha, 40)
+    || !hex(approved.binarySha256, 64) || !hex(approved.clockSha256, 64)
+    || approved.platform !== 'linux/amd64' || process.arch !== 'x64'
+    || !/^[a-zA-Z0-9_-]{1,80}$/.test(approved.buildId)) throw Error('authority');
+  return approved;
+}
+// Future admin launch only: drop THIS process to the literal existing service
+// account before constructing a provider. Never creates an account/approval or
+// changes host permissions. Linux credential transition makes the process
+// non-dumpable; same-UID /proc/fd access must not expose the private helper pipe.
+export function dropProductionSupervisorPrivileges(options = {}) {
+  if (!exact(options,[]) || process.platform!=='linux' || process.getuid()!==0 || process.geteuid()!==0) throw Error('launch_authority');
+  const approved=readApproval(),bytes=rootFile(clockPath,64<<20);
+  if(createHash('sha256').update(bytes).digest('hex')!==approved.clockSha256 || bytes.subarray(0,4).toString('hex')!=='7f454c46')throw Error('launch_authority');
+  const raw=execFileSync(clockPath,['operator'],{env:{},timeout:500,maxBuffer:1024,stdio:['ignore','pipe','ignore']}).toString();
+  const account=JSON.parse(raw);
+  if(JSON.stringify(account)+'\n'!==raw || !exact(account,['uid','gid']) || !Number.isSafeInteger(account.uid)||account.uid<=0||!Number.isSafeInteger(account.gid)||account.gid<0)throw Error('launch_account');
+  process.setgroups([]);process.setgid(account.gid);process.setuid(account.uid);
+  const status=fs.readFileSync('/proc/self/status','utf8');
+  if(process.getuid()!==account.uid||process.geteuid()!==account.uid||process.getgid()!==account.gid||process.getegid()!==account.gid
+    || fs.statSync('/proc/self/status').uid!==0 || !['CapEff','CapPrm','CapInh'].every(k=>new RegExp('^'+k+':\\s+0+$','m').test(status)))throw Error('launch_unprotected');
+  return Object.freeze({state:'NON_ROOT_PROTECTED'});
+}
 export function isProductionProvider(provider) { return production.has(provider) }
 export function admitsProductionCapture(provider, before) {
   return production.has(provider) && ownsProviderBefore(provider, before);
@@ -72,18 +99,64 @@ export async function productionClock(provider, signal) {
   const { stdout } = await execute(clockPath, ['clock'], { env: {}, timeout: 2000, maxBuffer: 1024, signal });
   return JSON.parse(stdout);
 }
+// Actual SO_PEERCRED from the accepted Unix socket, not caller JSON. The same
+// independently approved immutable clock ELF exposes this one fd-only helper.
+export function productionReadyRelay(provider, attemptId) {
+  const state = production.get(provider);
+  if (!state || !hex(attemptId,32)) throw Error('authority');
+  state.checkApproval();
+  return spawn(clockPath,['ready-server',attemptId],{env:{},stdio:['pipe','pipe','ignore']});
+}
+export function providerBeforeBaseline(provider, before) {
+  if (!ownsProviderBefore(provider, before)) throw Error('authority');
+  const baseline = beforeBaselines.get(before);
+  if (!baseline || baseline.snapshotId !== before.snapshotId) throw Error('baseline');
+  return baseline;
+}
+
+export function productionReadyAuthority(provider, before) {
+  const initial = productionBeforeIdentity(provider, before);
+  const a = rootJSON('/etc/aktau-c2/ready.json');
+  const names = ['version', 'attemptId', 'sourceSha', 'frontendSha', 'deploymentId', 'confirmedAt', 'bootId',
+    'operatorUid', 'operatorGid', 'supervisorPid', 'supervisorStartTicks', 'nodeExecutable', 'nodeSha256', 'commandSha256',
+    'supervisorSha256', 'ingestSha256', 'relaySha256', 'expiresAt'];
+  const now = Date.now(), expires = Date.parse(a?.expiresAt), confirmed = Date.parse(a?.confirmedAt);
+  if (!exact(a, names) || Object.keys(a).join() !== names.join() || a.version !== 1
+    || a.attemptId !== before.attemptId || a.sourceSha !== before.provenance.sourceSha
+    || a.frontendSha !== initial.frontendSha || a.deploymentId !== initial.deploymentId
+    || a.confirmedAt !== new Date(initial.confirmedAt).toISOString() || a.operatorUid !== process.geteuid()
+    || a.operatorGid !== process.getegid() || a.supervisorPid !== process.pid
+    || process.getuid()!==process.geteuid() || process.getgid()!==process.getegid()
+    || a.nodeExecutable!==process.execPath || !/^\/[a-zA-Z0-9_./-]{1,255}$/.test(a.nodeExecutable) || path.normalize(a.nodeExecutable)!==a.nodeExecutable || fs.statSync('/proc/self/status').uid!==0
+    || typeof a.supervisorStartTicks !== 'string' || !/^[1-9][0-9]{0,19}$/.test(a.supervisorStartTicks)
+    || !Number.isFinite(expires) || !Number.isFinite(confirmed) || new Date(expires).toISOString() !== a.expiresAt
+    || a.expiresAt.length !== 24 || confirmed > now || expires <= now || expires - confirmed > 35 * 60000
+    || a.bootId !== fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()
+    || ['nodeSha256', 'commandSha256', 'supervisorSha256', 'ingestSha256','relaySha256'].some(k => !hex(a[k], 64))) throw Error('ready_authority');
+  const approved=rootJSON(authorityPath);
+  if(a.relaySha256!==approved.clockSha256 || a.sourceSha!==approved.sourceSha)throw Error('ready_authority');
+  const fields = fs.readFileSync('/proc/self/stat', 'utf8').replace(/^.*\) /, '').trim().split(/\s+/);
+  if (fields[19] !== a.supervisorStartTicks || fs.statSync('/proc/' + fields[1]).uid !== 0
+    || !fs.readFileSync('/proc/self/status', 'utf8').includes('TracerPid:\t0\n')) throw Error('ready_process');
+  const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+  if (hash(rootFile(process.execPath, 256 << 20)) !== a.nodeSha256
+    || hash(fs.readFileSync('/proc/self/cmdline')) !== a.commandSha256
+    || hash(rootFile(fileURLToPath(new URL('./c2-production-supervisor.mjs', import.meta.url)), 2 << 20)) !== a.supervisorSha256) throw Error('ready_process');
+  return deepFreeze(structuredClone(a));
+}
+export function recheckProductionReadyAuthority(provider,authority) {
+  const state=production.get(provider);
+  if(!state || JSON.stringify(rootJSON('/etc/aktau-c2/ready.json'))!==JSON.stringify(authority)
+    || Date.now()>=Date.parse(authority.expiresAt)||fs.statSync('/proc/self/status').uid!==0)throw Error('ready_authority_changed');
+  state.checkApproval();
+}
 // No caller-selected path, execution callback, digest, approval or environment.
 // Nonsecret metadata root0644, directories root0755, executables root0555:
 // readable/executable by aktau-sync, never writable by it. Installation is NOT
 // performed here. Local fixtures cannot mint this capability.
 export function createProductionProjectionProvider(options = {}) {
   if (!exact(options, []) || process.platform !== 'linux' || process.geteuid() === 0) throw Error('authority');
-  const approved = rootJSON(authorityPath);
-  if (!exact(approved, ['version', 'approved', 'sourceSha', 'binarySha256', 'clockSha256', 'buildId', 'platform'])
-    || approved.version !== 1 || approved.approved !== true || !hex(approved.sourceSha, 40)
-    || !hex(approved.binarySha256, 64) || !hex(approved.clockSha256, 64)
-    || approved.platform !== 'linux/amd64' || process.arch !== 'x64'
-    || !/^[a-zA-Z0-9_-]{1,80}$/.test(approved.buildId)) throw Error('authority');
+  const approved = readApproval();
   function verify() {
     if (JSON.stringify(rootJSON(authorityPath)) !== JSON.stringify(approved)) throw Error('authority');
     for (const [file, digest] of [[binaryPath, approved.binarySha256], [clockPath, approved.clockSha256]]) {
@@ -193,23 +266,36 @@ export function createSyntheticProjectionProvider({ scenario = 'valid', failureP
 function createProvider({ run, sourceSha, frontendSha, frontendIdentity }) {
   const custody = {};
   const settled = new WeakSet();
-  async function load(args, phase, attemptId) {
+  async function load(args, phase, attemptId, ready = false) {
     try {
       const { stdout } = await run(args, phase);
-      const p = JSON.parse(stdout);
+      let p = JSON.parse(stdout), baseline;
       // Go's one compact JSON + LF protocol also rejects duplicate keys,
       // multiple objects/trailing data; body digest is of those exact bytes.
       if (JSON.stringify(p) + '\n' !== stdout || Buffer.byteLength(stdout) >= 16 * 1024) throw Error();
+      if (ready) {
+        if (!exact(p, ['projection', 'baseline']) || Object.keys(p).join() !== 'projection,baseline'
+          || !exact(p.baseline, ['snapshotId', 'publishedAt']) || Object.keys(p.baseline).join() !== 'snapshotId,publishedAt'
+          || p.baseline.snapshotId !== p.projection?.snapshotId || typeof p.baseline.publishedAt !== 'string'
+          || p.baseline.publishedAt.length !== 24 || new Date(p.baseline.publishedAt).toISOString() !== p.baseline.publishedAt) throw Error();
+        baseline = p.baseline; p = p.projection;
+      }
       validateProjectionV2(p, phase, attemptId);
       if (p.provenance.sourceSha !== sourceSha || p.provenance.frontendSha !== (frontendIdentity ? frontendIdentity() : frontendSha)
         || p.provenance.canonicalStateId !== createHash('sha256').update(JSON.stringify(p.body)).digest('hex')) throw Error();
-      const result = deepFreeze(structuredClone(p)); trusted.set(result, custody); return result;
+      const result = deepFreeze(structuredClone(p)); trusted.set(result, custody);
+      if (baseline) beforeBaselines.set(result, deepFreeze(structuredClone(baseline)));
+      return result;
     } catch { return null }
   }
   const provider = Object.freeze({ fixtureOnly: true,
     async before(attemptId) {
       if (typeof attemptId !== 'string' || attemptId.length !== 32 || !/^[0-9a-f]{32}$/.test(attemptId)) return null;
       return load(['-phase', 'before', '-attempt', attemptId, '-frontend-sha', frontendSha], 'before-canonical-mutation', attemptId);
+    },
+    async beforeReady(attemptId) {
+      if (typeof attemptId !== 'string' || attemptId.length !== 32 || !/^[0-9a-f]{32}$/.test(attemptId)) return null;
+      return load(['-phase', 'ready-before', '-attempt', attemptId, '-frontend-sha', frontendSha], 'before-canonical-mutation', attemptId, true);
     },
     async after(capture, before) {
       const stop = reason => ({ ...fail(reason), request_count: capture?.request_count ?? 0, results: [], events: [] });
