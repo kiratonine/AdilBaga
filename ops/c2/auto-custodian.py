@@ -7,6 +7,8 @@ does not claim a current Vercel API attestation. The dropped Node process alone
 owns trusted BEFORE/FIFO/capture/AFTER custody and computes the verdict.
 """
 import datetime
+import base64
+import errno
 import fcntl
 import hashlib
 import json
@@ -47,6 +49,76 @@ def now_ms(): return time.time_ns()//1000000
 def iso(ms): return datetime.datetime.fromtimestamp(ms/1000, datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
 def exact(value, keys): return type(value) is dict and set(value)==set(keys)
 def identity(st): return (st.st_dev,st.st_ino,st.st_uid,st.st_gid,st.st_mode,st.st_nlink)
+
+
+def recovery_move(source, destination, expected):
+    """Preserve forensic evidence across systemd's separate writable mounts.
+
+    A same-mount rename still preserves the original inode. EXDEV uses an
+    exclusive, fsynced archive before deleting any original. Socket/FIFO state
+    has no portable live copy: archive metadata, never fabricate a live socket.
+    A crash/uncertain copy remains interlocked with both resources preserved.
+    """
+    if identity(os.lstat(source))!=expected: raise ValueError('recovery_resource_changed')
+    if os.path.lexists(destination): raise FileExistsError(destination)
+    try:
+        os.rename(source,destination)
+        return
+    except OSError as e:
+        if e.errno!=errno.EXDEV: raise
+    def stamp(s): return identity(s)+(s.st_size,s.st_mtime_ns,s.st_ctime_ns)
+    def read_regular(path):
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        try:
+            s=os.fstat(fd)
+            if not stat.S_ISREG(s.st_mode) or s.st_nlink!=1 or s.st_size>4<<20: raise ValueError('recovery_copy_type')
+            raw=bytearray()
+            while chunk:=os.read(fd,65536):
+                raw.extend(chunk)
+                if len(raw)>4<<20: raise ValueError('recovery_copy_capacity')
+            if stamp(os.fstat(fd))!=stamp(s) or stamp(os.lstat(path))!=stamp(s) or len(raw)!=s.st_size: raise ValueError('recovery_copy_changed')
+            return bytes(raw),stamp(s)
+        finally: os.close(fd)
+    st=os.lstat(source); children=[]
+    if stat.S_ISREG(st.st_mode):
+        raw,pin=read_regular(source)
+        if pin[:6]!=expected: raise ValueError('recovery_resource_changed')
+    elif stat.S_ISDIR(st.st_mode):
+        entries=[];pin=stamp(st)
+        for name in sorted(os.listdir(source)):
+            path=source+'/'+name;s=os.lstat(path)
+            if name not in ['event.fifo','ready.sock','publisher.claim'] or s.st_nlink!=1 or (s.st_uid,s.st_gid,stat.S_IMODE(s.st_mode))!=(st.st_uid,st.st_gid,0o600): raise ValueError('recovery_copy_child')
+            kind='fifo' if name=='event.fifo' and stat.S_ISFIFO(s.st_mode) else 'socket' if name=='ready.sock' and stat.S_ISSOCK(s.st_mode) else 'file' if name=='publisher.claim' and stat.S_ISREG(s.st_mode) and s.st_size<=4096 else None
+            if kind is None: raise ValueError('recovery_copy_child')
+            entry={'name':name,'type':kind,'identity':list(identity(s))}
+            child_pin=stamp(s)
+            if kind=='file':
+                content,child_pin=read_regular(path)
+                entry.update(contentBase64=base64.b64encode(content).decode('ascii'),sha256=digest(content))
+            entries.append(entry);children.append((path,child_pin))
+        if stamp(os.lstat(source))!=pin: raise ValueError('recovery_copy_changed')
+        raw=canonical({'type':'directory-metadata-v1','identity':list(expected),'entries':entries})
+    else: raise ValueError('recovery_copy_type')
+    fd=os.open(destination,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    try:
+        at=0
+        while at<len(raw):
+            n=os.write(fd,raw[at:])
+            if n<1: raise ValueError('recovery_short_write')
+            at+=n
+        os.fsync(fd)
+    finally: os.close(fd)
+    directory=os.open(os.path.dirname(destination),os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+    if stamp(os.lstat(source))!=pin or any(stamp(os.lstat(p))!=s for p,s in children): raise ValueError('recovery_copy_changed')
+    if stat.S_ISDIR(st.st_mode):
+        if sorted(os.listdir(source))!=[os.path.basename(p) for p,_ in children]: raise ValueError('recovery_copy_changed')
+        for path,child_pin in children:
+            if stamp(os.lstat(path))!=child_pin: raise ValueError('recovery_copy_changed')
+            os.unlink(path)
+        os.rmdir(source)
+    else: os.unlink(source)
 
 
 def root_fd(path, limit):
@@ -394,7 +466,7 @@ class Custodian:
         for path,name in moves:
             if identity(os.lstat(STATE))!=state_pin or identity(os.lstat(ledger))!=ledger_pin: raise ValueError('recovery_parent_changed')
             if identity(os.lstat(path))!=pins[path] or os.path.lexists(destination+'/'+name): raise ValueError('recovery_resource_changed')
-            os.rename(path,destination+'/'+name); self.sync_parent(path); self.sync_parent(destination+'/'+name)
+            recovery_move(path,destination+'/'+name,pins[path]); self.sync_parent(path); self.sync_parent(destination+'/'+name)
         fd=os.open(records,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
         try:
             os.fchown(fd,self.uid,self.gid)
@@ -425,7 +497,7 @@ class Custodian:
         for path,name,pin in moves:
             self.check_namespace()
             if identity(os.lstat(ledger))!=parent or identity(os.lstat(path))!=pin or os.path.lexists(dest+'/'+name): raise ValueError('unarmed_resource_changed')
-            os.rename(path,dest+'/'+name);self.sync_parent(path);self.sync_parent(dest+'/'+name)
+            recovery_move(path,dest+'/'+name,pin);self.sync_parent(path);self.sync_parent(dest+'/'+name)
         self.journal_save('completed')
 
     @staticmethod
@@ -607,7 +679,7 @@ def main():
         if isinstance(e,InterruptedError) and io.journal and io.journal.get('phase')=='completed':
             print(json.dumps({'state':'C2_CANCELLED_INCONCLUSIVE','acceptance':'INCONCLUSIVE','identityEvidence':'owner-pinned-configuration'},separators=(',',':')),flush=True)
             return 0
-        code=str(e) if type(e) is ValueError and re.fullmatch(r'[a-z_]{1,64}',str(e)) else None
+        code=str(e) if type(e) is ValueError and re.fullmatch(r'[a-z_]{1,64}',str(e)) else 'os_'+errno.errorcode.get(e.errno,'UNKNOWN').lower() if isinstance(e,OSError) else None
         print(json.dumps({'state':'C2_NOT_ARMED_OR_RECONCILIATION_REQUIRED','errorClass':type(e).__name__,'errorCode':code},separators=(',',':')),flush=True)
         return 1
 

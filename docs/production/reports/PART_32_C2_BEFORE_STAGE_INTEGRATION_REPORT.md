@@ -2531,3 +2531,102 @@ no Python serialization equality assumption. Root authority/config canonical
 checks remain unchanged; original forensic bytes are preserved. Focused suite
 now31/31; combined installer/custodian84/84 exit0. New positive/negative regression
 guards number compatibility without weakening verdict/custody verification.
+
+### Automatic custodian — actual deployment checkpoint, 2026-10-21 UTC
+
+**Current status: C2_AUTO_ENABLED=false; recovery correction still required.**
+This checkpoint does not replace any historical FAIL/BLOCKED or claim C2
+production acceptance. Qualified genuine-publication results remain **0/3**.
+
+- PR61: <https://github.com/kiratonine/AdilBaga/pull/61>, normally merged.
+  Reviewed source head `e668bb7263700ebc49d3c5dc4dc2225814a29e2a`;
+  exact main `ff567dd438991610a20f800164ed6968ee526b37` has the identical tree.
+  Head CI39668043047 and main CI39669287274: nine jobs SUCCESS each.
+  No admin branch-rule bypass, Release/tag, or deployment-workflow dispatch.
+- Immutable exact-main kit rebuilt locally with Go1.27.3; 705 source files
+  matched the exact-main archive. Projection ELF SHA256
+  `7b6d19601d07c26715aee7a2dc30dd2fe54f2050414d0a7c81bd4a911f0e13b2`.
+  Separate ingest ELF remains
+  `d06f99b3be0e8aee62b169121fc9917c29160726985249a3bd6cabdb32045183`.
+- Owner explicitly delegated root administration for this automatic installation.
+  Root records were issued under that delegation after immutable-byte checks;
+  this is not a claim of a new independent human digest review.
+- Root staging completed20:28:28Z; original unchanged installer verify exit0
+  at20:29:36Z; one controlled replacement exit0 at20:31:55Z. Seven previous
+  resources including the old operator entry were preserved in a versioned
+  root rollback directory. Restricted reader retained the same inode, UID/GID
+  and0600 mode; its value was not printed.
+- Idle publisher checkout aligned to exact main at20:34:04Z. All18 local data
+  files retained their combined content/path/owner/mode/inode fingerprint.
+  No sync was started. Existing timer definitions and API remained unchanged.
+- Installed root-controlled Python custodian, fixed frontend configuration,
+  twelve-artifact policy and `aktau-c2-custodian.service` at20:34:45Z.
+  **Daily-service integration drop-in has NOT been installed.**
+- Actual Type=notify startup at20:38:15Z returned0 and produced a genuine
+  process-bound READY after real restricted-read-only BEFORE. No manual
+  ARM/FINALIZE was needed. Controlled stop at20:39:41Z returned0; Node ledger
+  recorded INCONCLUSIVE, count0; READY and operator lock were removed.
+- Second actual startup at20:40:26Z returned0, reached armed state and genuine
+  READY. At20:41:29Z only the new C2 service cgroup was deliberately killed
+  for recovery testing. Observed service Result=signal, ExecMainStatus9.
+  The kill command returned1; this is retained, not represented as command PASS.
+- Recovery startup at20:42:34Z returned1, Result=exit-code/ExecMainStatus1.
+  Sanitized journal reports OSError, no errno-specific diagnosis yet. Root
+  forensic directory contains controller.json only; previous READY, operator
+  lock and ledger remain present. No retries or speculative deletion followed.
+  Cross-mount rename under systemd filesystem isolation is a hypothesis, not
+  a confirmed RCA. Correction/reconciliation must preserve this evidence and
+  pass a realistic isolated recovery regression before another controlled start.
+- Independent Docker readbacks throughout these checks: API revision
+  `6a4b4c7a91ec471db54987b689c3c87a785523a3`, running/healthy, restart0,
+  OOMfalse. No artificial publication, HMAC POST, observer GET, API deployment,
+  DB mutation, Frontend/Siri change, timer restart or automatic deploy enablement.
+
+Frontend identity uses Owner-pinned configuration SHA
+`d3a9cc59621764335f8ebe5fd54194a09d4b927e`, deployment
+`dpl_FUnss13QtAuWVMQYPoGNPf9ka3RM`, alias aktau.market. This is explicitly
+configuration-bound evidence, not a newly observed Vercel API/UI attestation.
+Actual physical reboot was not performed; neither successful startup nor the
+failed same-boot recovery is described as a successful reboot test.
+
+### Custodian recovery correction — cross-mount fail-first, 2026-10-21 UTC
+
+The source recovery used rename between three independently bind-mounted
+ReadWritePaths. A new isolated regression failed first with errno18/EXDEV
+(exit1, one error). A separate unprivileged Linux user/mount namespace with
+actual bind mounts reproduced EXDEV and retained the source unchanged. This
+establishes the implementation defect compatible with the observed VPS OSError;
+the old production log did not retain errno, so it is not retrospectively
+claimed as an errno-specific production measurement.
+
+Correction is limited to custodian recovery, existing tests, README and this
+append-only report. Same-mount rename is retained. EXDEV alone permits an
+exclusive bounded archive, fsync(file+parent), source revalidation, then removal
+of only the already admitted owned resource. File bytes are preserved; special
+FIFO/socket entries are archived as explicit metadata, never a fake live
+socket. Copy/fsync failure, changed source, pre-existing archive and unknown
+resources retain originals/interlocks for reconciliation. Unarmed-start
+recovery uses the same primitive. Sanitized OSError diagnostics now retain an
+allowlisted symbolic errno, never a raw path/message or credential.
+
+Executed correction gates:
+
+- Focused `python3 -B -m unittest discover -s ops/c2 -p test_auto_custodian.py`:
+  **35/35 PASS**, exit0, including cross-mount, socket/claim, fsync failure,
+  changed source, no-clobber and non-EXDEV permission failure.
+- Real Linux bind-mount positive proof: unchanged regular bytes and FIFO
+  metadata durably preserved; originals removed only after archival, exit0.
+- `node scripts/ci/run-checks.mjs ops` with Node24.10/Go1.27.3: **88 Python +
+  180 Node PASS,0skip**, exit0. Initial invocation with ambient Node20 correctly
+  failed the Node24 prerequisite; it is not counted as PASS.
+- Full Node C2/guard suite with the existing real local Go1.27.3 relay:
+  **342/342 PASS,0skip**, exit0; no production transport used.
+- Security profile, Part16 verifier, JS syntax, diff-check and historical report
+  byte-prefix check: exit0. No Go/Node provider, ingestion, SQL, API, Frontend,
+  timer definition or HMAC behavior changed by this correction.
+
+VPS recovery and daily integration remain pending at this source checkpoint.
+The prior failed recovery directory, genuine old READY/ledger and original
+root policy must be preserved before any narrowly reviewed administrative
+reconciliation. No live-observation result or automatic enablement is inferred
+from these local tests.

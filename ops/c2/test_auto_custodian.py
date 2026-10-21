@@ -9,6 +9,8 @@ import subprocess
 import selectors
 import time
 import io
+import errno
+import socket
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -222,6 +224,61 @@ class BootFilesystemTests(unittest.TestCase):
         entries=json.loads((self.state/'ledger/attempts.json').read_bytes())
         self.assertEqual(m.ledger_verdict(entries,self.attempt),('INCONCLUSIVE',0))
         self.assertFalse((self.state/'ledger/operator.lock').exists());self.assertEqual(json.loads((self.admin/'current.json').read_bytes())['phase'],'completed')
+    def test_cross_mount_recovery_preserves_bytes_and_special_resource_metadata(self):
+        original=(self.state/'ledger/attempts.json').read_bytes()
+        real_rename=os.rename
+        def isolated_mounts(src,dst,*args,**kwargs):
+            if str(src).startswith(str(self.state)+'/') and str(dst).startswith(str(self.admin)+'/'):
+                raise OSError(errno.EXDEV,'synthetic mount boundary')
+            return real_rename(src,dst,*args,**kwargs)
+        with patch.object(m.os,'rename',side_effect=isolated_mounts):
+            self.io.recover_prior_boot()
+        saved=self.admin/('recovered-'+self.attempt)
+        self.assertEqual((saved/'attempts.json').read_bytes(),original)
+        archive=json.loads((saved/'attempt').read_bytes())
+        self.assertEqual(archive['type'],'directory-metadata-v1')
+        self.assertEqual([(e['name'],e['type']) for e in archive['entries']],[('event.fifo','fifo')])
+        self.assertFalse(self.run.exists())
+        self.assertEqual(m.ledger_verdict(json.loads((self.state/'ledger/attempts.json').read_bytes()),self.attempt),('INCONCLUSIVE',0))
+    def test_cross_mount_copy_failure_preserves_originals_and_interlocks(self):
+        original=(self.state/'ledger/attempts.json').read_bytes()
+        with patch.object(m.os,'rename',side_effect=OSError(errno.EXDEV,'mount')):
+            with patch.object(m.os,'fsync',side_effect=OSError(errno.ENOSPC,'full')):
+                with self.assertRaises(OSError): self.io.recover_prior_boot()
+        self.assertEqual((self.state/'ledger/attempts.json').read_bytes(),original)
+        self.assertTrue((self.state/'ledger/operator.lock').exists())
+        self.assertTrue(self.run.exists())
+        with self.assertRaises(FileExistsError): self.io.recover_prior_boot()
+    def test_cross_mount_archive_of_claim_and_socket_never_creates_live_socket(self):
+        sock=socket.socket(socket.AF_UNIX);sock.bind(str(self.run/'ready.sock'));os.chmod(self.run/'ready.sock',0o600);sock.close()
+        self.save(self.run/'publisher.claim',b'bounded claim fixture')
+        pin=m.identity(os.lstat(self.run));destination=self.admin/'archive'
+        with patch.object(m.os,'rename',side_effect=OSError(errno.EXDEV,'mount')):
+            m.recovery_move(str(self.run),str(destination),pin)
+        archive=json.loads(destination.read_bytes())
+        self.assertEqual([e['type'] for e in archive['entries']],['fifo','file','socket'])
+        claim=archive['entries'][1]
+        self.assertEqual(m.base64.b64decode(claim['contentBase64']),b'bounded claim fixture')
+        self.assertEqual(claim['sha256'],m.digest(b'bounded claim fixture'))
+        self.assertFalse(self.run.exists());self.assertTrue(destination.is_file())
+    def test_no_fallback_on_other_error_and_no_clobber_or_changed_source_deletion(self):
+        source=self.state/'ledger/operator.lock';destination=self.admin/'archive';pin=m.identity(os.lstat(source))
+        with patch.object(m.os,'rename',side_effect=PermissionError(errno.EACCES,'denied')):
+            with self.assertRaises(PermissionError):m.recovery_move(str(source),str(destination),pin)
+        self.assertFalse(destination.exists());self.assertTrue(source.exists())
+        destination.write_bytes(b'foreign')
+        with patch.object(m.os,'rename',side_effect=OSError(errno.EXDEV,'mount')):
+            with self.assertRaises(FileExistsError):m.recovery_move(str(source),str(destination),pin)
+        self.assertEqual(destination.read_bytes(),b'foreign');self.assertTrue(source.exists())
+        destination.unlink()
+        real=m.os.fsync;changed=False
+        def swap(fd):
+            nonlocal changed
+            real(fd)
+            if not changed:changed=True;source.write_bytes(b'changed')
+        with patch.object(m.os,'rename',side_effect=OSError(errno.EXDEV,'mount')),patch.object(m.os,'fsync',side_effect=swap):
+            with self.assertRaises(ValueError):m.recovery_move(str(source),str(destination),pin)
+        self.assertEqual(source.read_bytes(),b'changed');self.assertEqual(destination.read_bytes(),b'')
     def test_unknown_resource_blocks_before_any_move(self):
         (self.run/'foreign').write_bytes(b'do not move')
         before=self.snapshot();original=(self.state/'ledger/attempts.json').read_bytes()
