@@ -41,6 +41,7 @@ const credentialUsers = [
 ].map(([name, user, accepted]) => ({ scenario: `credential_${name}`, user, accepted }));
 for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', 'missing', 'symlink', 'writable_acl_mask', 'replace_before_exec', 'wrong_alias',
   'before_frontend_drift', 'before_deployment_drift', 'before_confirmation_drift', 'stable_identity', 'after_frontend_drift', 'after_deployment_drift',
+  'pinned_valid', 'pinned_old_owner_confirmation', 'pinned_wrong_hash', 'pinned_config_drift', 'pinned_future_owner',
   ...credentialUsers.map(c => c.scenario)]) {
   test(`production authority OS mock: ${scenario}`, () => {
     const child = String.raw`
@@ -55,6 +56,13 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
       const digest = createHash('sha256').update(bytes).digest('hex');
       const approval = { version:1, approved: scenario !== 'unapproved', sourceSha:'b'.repeat(40), binarySha256:scenario==='wrong_digest'?'0'.repeat(64):digest, clockSha256:digest, buildId:'reviewed-build', platform:'linux/amd64' };
       const deployment = { version:1, attemptId:'a'.repeat(32), stage:'before', alias:scenario==='wrong_alias'?'elsewhere.invalid':'aktau.market', deploymentId:'dpl_test', frontendSha:'c'.repeat(40), ready:true, target:'Production', confirmedAt:Date.now(), optInInactive:false, legitimatePublication:true };
+      const frontend = { version:1, evidence:'owner-pinned-configuration', alias:'aktau.market', deploymentId:'dpl_test', frontendSha:'c'.repeat(40), ownerConfirmedAt:Date.now()-(scenario==='pinned_old_owner_confirmation'?86400000:1000) };
+      if(scenario==='pinned_future_owner')frontend.ownerConfirmedAt=Date.now()+60000;
+      if(scenario.startsWith('pinned_')){
+        delete deployment.ready;delete deployment.target;delete deployment.confirmedAt;
+        Object.assign(deployment,{version:2,identityEvidence:'owner-pinned-configuration',configurationSha256:createHash('sha256').update(JSON.stringify(frontend)+'\n').digest('hex'),checkedAt:Date.now()});
+        if(scenario==='pinned_wrong_hash')deployment.configurationSha256='0'.repeat(64);
+      }
       let executions=0, serial=90000; const files=new Map();
       const original={ lstatSync:fs.lstatSync, openSync:fs.openSync, fstatSync:fs.fstatSync, readFileSync:fs.readFileSync, closeSync:fs.closeSync };
       const targeted = p => typeof p==='string' && (p.startsWith('/etc/aktau-c2')||p.startsWith('/usr/local/libexec/aktau-c2')||p.startsWith('/var/lib/aktau-sync'));
@@ -78,6 +86,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
           }
           return Buffer.from(JSON.stringify(deployment)+'\n');
         }
+        if(p.endsWith('frontend.json')){if(scenario==='pinned_config_drift')frontend.deploymentId='dpl_changed';return Buffer.from(JSON.stringify(frontend)+'\n')}
         if(p.endsWith('reader.dsn'))return 'postgres://'+(credentialCase?.user??'aktau_api_runtime')+':synthetic-only@fixture.invalid:5432/test';
         if(p.endsWith('c2projection')&&scenario==='replace_before_exec'&&++binaryReads>1)return Buffer.from('replaced');
         return bytes;
@@ -107,8 +116,17 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
         if(scenario==='after_frontend_drift')deployment.frontendSha='d'.repeat(40);
         if(scenario==='after_deployment_drift')deployment.deploymentId='dpl_other';
         assert.throws(()=>api.productionIdentity(provider,'a'.repeat(32),'after'),/deployment/);
-      }else if(scenario==='valid'||scenario==='stable_identity'||credentialCase?.accepted){
+      }else if(scenario==='valid'||scenario==='stable_identity'||['pinned_valid','pinned_old_owner_confirmation'].includes(scenario)||credentialCase?.accepted){
         assert.ok(before);assert.equal(executions,1);
+        if(scenario.startsWith('pinned_')){
+          const identity=api.productionBeforeIdentity(provider,before);
+          assert.equal(identity.identityEvidence,'owner-pinned-configuration');
+          assert.equal(identity.ownerConfirmedAt,frontend.ownerConfirmedAt);
+          assert.equal(identity.confirmedAt,deployment.checkedAt);
+          assert.notEqual(identity.confirmedAt,identity.ownerConfirmedAt);
+          deployment.stage='after';deployment.optInInactive=true;deployment.checkedAt=Date.now();
+          assert.equal(api.productionIdentity(provider,'a'.repeat(32),'after').identityEvidence,'owner-pinned-configuration');
+        }
         if(scenario==='stable_identity'){
           assert.equal(before.provenance.frontendSha,initial.frontendSha);
           assert.equal(api.productionBeforeIdentity(provider,before),initial);

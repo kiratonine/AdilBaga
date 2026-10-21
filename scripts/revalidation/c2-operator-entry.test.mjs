@@ -42,6 +42,29 @@ test('external BEFORE cancellation leaves ordinary sync untouched and performs n
   assert.equal(await runOperatorAttempt(h.deps), 1); assert.equal(h.calls.includes('arm'), false);
   assert.equal(h.calls.includes('observe'), false);
 });
+test('automatic failure closes only its session and persists INCONCLUSIVE rather than orphaning a prepared lock', async () => {
+  let cancelled=0;
+  const h=harness({deps:{command:async()=> 'CANCEL'},session:{cancel:async()=>{cancelled++;return {acceptance:'INCONCLUSIVE',reconciliationRequired:false}}}});
+  assert.equal(await runOperatorAttempt(h.deps),1);
+  assert.equal(cancelled,1);
+  assert.equal(h.events.at(-1).state,'CANCELLED_INCONCLUSIVE');
+  assert.equal(h.calls.includes('finalize'),false);
+});
+test('unverified cancellation or cleanup failure retains reconciliation interlock', async () => {
+  for(const cancel of [async()=>{throw Error('private cleanup payload')},async()=>({reconciliationRequired:true})]){
+    const h=harness({deps:{command:async()=> 'CANCEL'},session:{cancel}});
+    assert.equal(await runOperatorAttempt(h.deps),1);
+    assert.equal(h.events.at(-1).state,'RECONCILIATION_REQUIRED');
+    assert.ok(!JSON.stringify(h.events).includes('private cleanup'));
+  }
+});
+test('root/systemd stop cancels an active wait without a publication or another HTTP window', async () => {
+  const abort=new AbortController();let cancels=0;
+  const h=harness({deps:{signal:abort.signal},session:{observe:()=>{queueMicrotask(()=>abort.abort());return new Promise(()=>{})},cancel:async()=>{cancels++;return {reconciliationRequired:false}}}});
+  assert.equal(await runOperatorAttempt(h.deps),1);
+  assert.equal(cancels,1);assert.equal(h.events.at(-1).state,'CANCELLED_INCONCLUSIVE');
+  assert.equal(h.calls.includes('finalize'),false);
+});
 test('NOT_ARMED cannot be relabelled ACTIVE or PASS', async () => {
   const h = harness({ session: { arm: async () => ({ state: 'NOT_ARMED' }) } });
   assert.equal(await runOperatorAttempt(h.deps), 1); assert.equal(h.calls.includes('observe'), false);
