@@ -337,3 +337,29 @@ exit0; frozen install, Prisma client generation (no migration), Nest build,
 27/27 unit/HTTP tests,0 SKIP and production audit **No known vulnerabilities**.
 The initial hosted failure and skipped downstream jobs remain historical;
 they are not relabeled as green. The next exact-head hosted run must prove all9.
+
+### Second hosted attempt — newly published Go standard-library advisory
+
+Exact head488949660240969d6d244813f61ae055de21f5e1, run
+[39561583810](https://github.com/kiratonine/AdilBaga/actions/runs/39561583810)
+FAILED at Go Quality govulncheck; all Go unit/race, vet and both staticcheck
+selections passed first. Nest Reference now SUCCESS (27 tests and clean audit),
+as are Contracts/Frontend/Pipeline/Security. Downstream PG/staging SKIPPED,
+CI Gate FAILURE. This is not a successful required9-job run.
+
+Actual hosted govulncheck and a fresh independent local reproduction (exit3)
+identify [GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809), compromised
+intermediate-certificate distrust in crypto/x509: found Go1.27.2, fixed1.27.3.
+The previous local no-vulnerability result is preserved as a historical scan,
+not a claim about the later vulnerability database. Official
+[Go downloads](https://go.dev/dl/?mode=json) confirms stable1.27.3; the Go
+toolchain downloader retrieved it through its normal verification mechanism.
+
+Minimal coherent build correction: backend-go/go.mod patch directive1.27.3 and
+backend-go/Dockerfile builder1.27.3-alpine; existing C2 README build recipe updated.
+No Go module/library dependency upgrade, API/DB/cache/ingest behavior or deploy
+workflow change. The running API/image is NOT rebuilt/deployed by this source
+task. This is necessary to meet the Owner's full CI/security gate, not an audit
+suppression. Final scope **33 paths**, including the two build pins and earlier
+single Nest lock patch. All later builds/tests/hashes use Go1.27.3; old measured
+1.27.2 tests are not silently reused as proof of the new toolchain.

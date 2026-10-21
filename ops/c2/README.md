@@ -76,7 +76,7 @@ owned local plaintext/disposable resources; never prune older backups.
 
 Owner independently reviews **one packet**, not an uploader's `approved` flag:
 
-1. Full immutable source commit, Go1.27.2 build recipe, linux/amd64 binary
+1. Full immutable source commit, Go1.27.3 build recipe, linux/amd64 binary
    digests, five exact Node module hashes, installer hash and test evidence.
 2. Separate actual Vercel READY Production alias `aktau.market`, deployment ID,
    frontend SHA and timestamp proof for each attempt; no guessed source=deploy.
