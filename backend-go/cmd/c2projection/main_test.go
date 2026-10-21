@@ -11,7 +11,39 @@ import (
 	"time"
 
 	"adilbaga/backend-go/internal/postgres"
+	"github.com/jackc/pgx/v5"
 )
+
+func TestProjectionPreparationConfig(t *testing.T) {
+	for _, raw := range []string{
+		"postgres://aktau_api_runtime:synthetic-only@127.0.0.1:5432/part16_c2?sslmode=disable",
+		"postgres://aktau_api_runtime:synthetic-only@127.0.0.1:5432/part16_c2?sslmode=disable&default_query_exec_mode=simple_protocol",
+	} {
+		value, err := projectionDatabaseURL(raw)
+		if err != nil {
+			t.Fatal("projection configuration rejected")
+		}
+		c, err := pgx.ParseConfig(value)
+		if err != nil || c.DefaultQueryExecMode != pgx.QueryExecModeExec {
+			t.Error("one-shot projection must use extended exec without first-use statement preparation")
+		}
+		if c != nil && (c.Host != "127.0.0.1" || c.Port != 5432 || c.Database != "part16_c2" || c.User != "aktau_api_runtime" || c.Password != "synthetic-only") {
+			t.Error("projection connection identity changed")
+		}
+	}
+	if projectionTimeout != 8*time.Second || projectionTimeout >= 10*time.Second {
+		t.Error("projection preparation must have a fixed eight-second bound below Node process deadline")
+	}
+}
+
+func TestProjectionPreparationConfigRejectsMalformed(t *testing.T) {
+	for _, raw := range []string{"", "https://invalid", "postgres://u:synthetic-only@127.0.0.1/db?sslmode=%QQ", "postgres://u:synthetic-only@127.0.0.1/db?bad;query=value"} {
+		value, err := projectionDatabaseURL(raw)
+		if err == nil || value != "" || strings.Contains(err.Error(), "synthetic-only") || strings.Contains(err.Error(), raw) && raw != "" {
+			t.Fatal("malformed projection configuration did not fail closed with sanitized error")
+		}
+	}
+}
 
 const (
 	attempt  = "0123456789abcdef0123456789abcdef"

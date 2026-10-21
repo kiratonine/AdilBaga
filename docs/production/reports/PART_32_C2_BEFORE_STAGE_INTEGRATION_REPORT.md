@@ -1751,3 +1751,293 @@ publication awaited or manually triggered. Root/reader/frontend inputs remain
 concrete external dependencies; source correction is independent useful work,
 not a claim of production ACTIVE. Final source PR/CI/archive readback follows
 append-only below; no Release/tag/draft or auto-deploy activation.
+
+## 2026-10-21 — Actual Owner-approved inactive install, reader proof and operator source merge
+
+Current result: **C2_INSTALLED_INACTIVE / BLOCKED_EXACT_MISSING_INPUT**, not
+ACTIVE or production acceptance. All earlier NOT_INSTALLED/reader BLOCKED
+statements describe their historical checkpoints; nothing is deleted or
+retroactively changed to PASS. Qualified production count remains **0/3**.
+
+### Source and CI actually completed
+
+Manual one-attempt entry source commit
+`c846584a4ea7a29212fb6eaf1a00c0080fcc3ecd` was published normally in
+[PR59](https://github.com/kiratonine/AdilBaga/pull/59), exact-head
+[CI39633974863](https://github.com/kiratonine/AdilBaga/actions/runs/39633974863)
+completed9/9 SUCCESS. A normal protected merge, pinned to that head, produced
+main `5a4478aecdb131793b9ac194d3e1aa08bba4aac0`;
+[exact-main CI39637452760](https://github.com/kiratonine/AdilBaga/actions/runs/39637452760)
+completed9/9 SUCCESS: Nest Reference, Frontend, Contracts, Pipeline Quality,
+Security, Go Quality, PostgreSQL Integration, Ephemeral Staging, CI Gate.
+`git diff --exit-code c846584a4ea7a29212fb6eaf1a00c0080fcc3ecd origin/main`
+exited0: complete trees identical. No force push, branch-rule bypass, Release,
+deploy workflow or automatic production update was performed.
+
+Changed source paths in PR59: `scripts/revalidation/c2-operator-entry.mjs`,
+`scripts/revalidation/c2-operator-entry.test.mjs`, `ops/c2/README.md`, and this
+append-only report. The later operational appendix is not falsely represented
+as CI-tested committed text. Final entry SHA256 is
+`80fc19966442325e00a519f8740e23a26fd19493228ea3e4918d298946ac4f35`.
+The entry has NOT been installed or launched on VPS; merging source does not
+approve its command closure or its future live process.
+
+### Real independent approval and single inactive installation
+
+Owner independently supplied the three exact ELF digests and then explicitly
+approved exact981cd8e inactive kit and separate ingest ELF. Owner also authorized
+reader administration through existing SSH. This is independent human approval
+for those immutable files, NOT approval of a fictitious process/READY or new
+operator command. The agent acted as installation operator after that signoff;
+the agent did not act as the independent reviewer.
+
+At16:27:30Z the protected installation helper verified the previous0095 bundle,
+fixed targets, custody, UID999/GID987, parent inode and absence of orphans. It
+preserved the old bundle without overwrite/delete as
+`/var/lib/aktau-c2-install/bundle.preserved-0095d995-20261021`. Root0600 canonical
+installer approval faithfully recorded the already supplied Owner decision.
+Exactly one reviewed installer `--verify` returned READY, exit0; exactly one
+`--install` returned C2_PROVISIONED_INACTIVE, exit0. Separate ninth ingest was
+installed no-clobber at `/usr/local/libexec/aktau-c2-ingest`, root:root0555,
+single link. Installer receipt, Part30 journal/quarantine and old staging remain.
+No existing `/var/lib/aktau-sync` ownership/mode was changed.
+
+Actual ELF SHA256:
+
+| Fixed artifact | Independently approved / installed hash |
+| --- | --- |
+| c2projection | `08be585091bc47d1f8c90c1a8f0dfcf9ef155aff538678e644b2c186934b8aec` |
+| relayprobe | `dda6075cbc5a0001dcc0b5a7a447e9e9553b63549ed6eadc8b5795636cfc8281` |
+| separate ingest | `d06f99b3be0e8aee62b169121fc9917c29160726985249a3bd6cabdb32045183` |
+
+Readback16:57:11Z independently verified all eight installed file hashes,
+root ownership, exact0555/0444 modes/single links, and separate ingest hash/
+custody. `/etc/aktau-c2/authorization.json` exists; `deployment.json` and
+`ready.json` do NOT exist. No supervisor is claimed alive or armed.
+
+### Reader: actual TLS/identity/ACL proof; projection timeout remains
+
+Only the specifically authorized local ROLE_PASSWORD value was selected in
+memory and sent by encrypted SSH stdin. Existing protected runtime configuration
+contributed endpoint/database/tenant topology only. Its ingest username/password
+was NOT used as the reader identity. No whole env copy, argv secret, credentials
+in Git/report/archive, privileged DB connection or DB grants/DDL/DML occurred.
+
+Historical attempts are retained: first local custody assumption rejected the
+operator-owned0600 topology file; subsequent approved CLI identity failure was
+traced to TLS unknown authority, before authentication. A verified official
+Supabase CA was obtained from the official certificate URL, independently hashed
+and installed only at `/etc/aktau-c2-install/supabase-prod-ca-2021.crt`, root0444.
+No global trust store change, sslmode downgrade or DB SSL setting change occurred.
+The [official SSL guidance](https://supabase.com/docs/guides/platform/ssl-enforcement)
+documents verify-full certificate validation. CA file SHA256:
+`700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7`.
+
+Bounded read-only diagnostics use the exact existing production identity and
+C2 effective ACL predicates. An earlier SELECT test included `source_runs`,
+which this C2Project path does not read. Its false result did NOT prove missing
+required C2 privileges. Source trace confirmed the six actual dependencies:
+categories, canonical_products, offers, stores, store_locations, snapshots.
+The diagnostic allowlist was corrected outside Git; no grants were changed to
+satisfy the erroneous seven-table expectation.
+
+At16:55:57Z actual API-role diagnostics returned connected=true,
+verifiedTLS=true, identityGuard=true, readonlyTransactionStarted=true,
+aclGuard=true, requiredSelectProved=true. Connect1151ms, identity374ms,
+ACL268ms. This proves the existing real role and effective read-only/SELECT
+policy for that bounded connection; it is NOT a successful full projection.
+Only after these gates passed, no-clobber `reader.dsn` was created with file+
+directory fsync at the fixed contract path, owner999:987,0600,single link.
+Independent metadata readback confirmed those properties without printing it.
+
+The immutable approved Go projection was also attempted with valid BEFORE args,
+APP_ENV=production and the installed reader. It exited1, safe class `timeout`,
+6091ms wall duration including driver cleanup. Raw projection/stdout/stderr was
+suppressed. An earlier real attempt also timed out. Do not equate successful
+identity/ACL proof to a completed BEFORE or increase timeouts speculatively.
+The intermediate readback invocation without CLI args returned usage2 and used
+an incorrect container/timer label; it performed no DB query or mutation and
+was corrected from source before the valid readback. It is not counted as a
+projection PASS or as a failed real service.
+
+### Independent production boundaries and exact remaining packet
+
+GitHub Vercel bot metadata now reports Production deployment7231754710 for
+main5a4478a, created16:44:57Z, success, immutable deployment URL. Earlier bot
+metadata reported7227874749 for981cd8e. Neither GitHub numeric ID nor hostname
+is a real Vercel `dpl_...` or proof of current `aktau.market` alias binding.
+Owner's earlier981 frontend observation is historical after this newer source
+merge. Authorized Vercel dashboard session was unavailable; no login bypass,
+token search or invented deployment identity. **VERCEL_PRODUCTION_ID=NOT_VERIFIED.**
+
+One concrete Owner/custodian packet remains: provide the real current Production
+`dpl_...`, exact alias→Ready deployment/source SHA proof, and independently review
+the manual operator entry digest above with installed five-module981 closure
+and actual Node24 executable SHA256
+`41a74efb34cbde5c7632cdac0cf8bd1a14d0b8d73dc1e82755014d9a9ce70f5c`.
+Proposed fixed root command, not yet executed:
+
+```text
+sudo -n /usr/bin/env -i /usr/local/lib/nodejs/node-v24.18.0-linux-x64/bin/node /usr/local/libexec/aktau-c2-operator.mjs
+```
+
+Approval of files/command still does not attest a live PID/start ticks/boot,
+non-dumpability and actual armed FIFO. Those must be checked on the real process
+close to the legitimate schedule before a fresh READY; no35-minute record is
+created hours early. Full projection timeout is a separate technical blocker
+requiring measured stage diagnosis, not additional general Owner permission.
+
+Readback: VPS sync981cd8e clean; Go1.27.3 unchanged; daily/full/monitor timers
+enabled+active/waiting. API6a4b4c7 running healthy, restart0. Source rollback28cc3fc,
+old Go1.27.2, old kit and API rollback438ecdfa remain preserved by the earlier
+verified operations; no destructive rollback test was performed. With a reader
+present, installer rollback must not delete unknown credentials/state: reconcile
+exact owned resources first. No sync/API/service restart, publication, HMAC POST,
+observer GET, SQL writes or overnight wait. `AUTO_DEPLOY_ENABLED=false` was
+independently reread through GitHub variables API; unsupported local `gh variable
+get` was not claimed successful. No Release/tag/draft.
+
+**Current: kit INSTALLED_VERIFIED; separate ingest INSTALLED_VERIFIED; reader
+REAL_READONLY_PROVED; full BEFORE BLOCKED_TIMEOUT; process authority BLOCKED;
+arming NOT_ARMED; qualified0/3; last new-source scheduled sync NOT_YET_OBSERVED.**
+The objective of real arming is incomplete. Source/reader/install progress is
+real, but cannot substitute for missing deployment/process authority or a valid
+completed BEFORE. New clean archive and history/member/byte/privacy checks are
+performed after this append; public archive excludes all credentials, root
+records, diagnostic binaries, certificates, dumps and private operation outputs.
+
+### Follow-up measured timeout boundary, no budget or installed-source change
+
+A single diagnostic-only CLI copy was built in the existing temporary Git
+export with Go1.27.3, instrumenting only query ordinal/start/end/duration/success
+in the existing tracer. No SQL, args, rows or raw driver error was recorded.
+This is NOT the approved immutable provider and creates no trusted C2 evidence;
+it was placed only in the root0700 maintenance namespace, never in installed
+kit/authorization. SHA256
+`90a02cf014a2e3df07cc97bb21d4220423d7cd133a2a46a321dc273a3a177a1e`.
+The initial nonroot execution was correctly rejected by that root-only parent
+before exec/DB; no permissions were widened. Root then ran the diagnostic with
+the same real restricted DB identity/read-only guards, not an admin DB role.
+
+Actual result: exit1, safe class timeout,5760ms wall. Ordinals1–11 completed
+successfully in346,469,460,243,120,255,245,527,325,504,251ms respectively
+(3745ms query total, excluding initial connect). Ordinal12 failed after125ms
+as the existing shared five-second CLI context expired; rollback ordinal13
+also reported failure. In this exact serial BEFORE path those successful steps
+cover session setup/identity/ping, BEGIN/ACL, snapshot chain, dashboard,
+categories and sitemap; the next category-page step does not receive a fresh
+budget. Thus this sample demonstrates cumulative connection/roundtrip budget
+exhaustion, not a permission rejection or proof that one SQL statement took5s.
+It does NOT establish general cold-Supabase RCA or justify changing public API,
+SQL, SLA or timeouts. No privileged DB connection, retry loop, installed binary
+replacement or source fix was performed. A separately tested/reviewed C2-only
+preparation-budget/roundtrip solution is required before claiming working BEFORE;
+production observation's204→GET five-second SLA remains unchanged.
+
+### Falsification of a timeout-only candidate; no production rollout
+
+A second temporary diagnostic-only build changed its own whole-CLI context to
+8s, keeping the same SQL/guards and safe ordinal tracer. This was a bounded
+read-only experiment, not a source candidate, approved artifact, budget change
+in the installed kit or C2 capture. SHA256
+`09384e559ad05fdc3f57653cd435b630dcfacdc0c45f3a5e25f1ab8608e79b54`.
+Exactly one real restricted-reader run still exited1 timeout,8658ms wall.
+Ordinals1–10 succeeded in126,265,316,559,217,389,531,1269,501,1715ms;
+ordinal11 failed after790ms, then rollback failed after0ms. The increased
+diagnostic budget did NOT prove a working solution; no production budget was
+increased and no further timeout ladder/retry loop is authorized by this result.
+These two different samples demonstrate variable cumulative preparation cost,
+not a proven isolated slow SQL/cache/region/cold-connection root cause.
+
+Node production execFile already bounds the process at10s; the Go CLI owns the
+inner5s context, session/identity checks and RR data traversal. A compatible
+source correction would need regression-backed C2-only reduction of roundtrips
+or an explicitly reviewed bounded preparation-budget contract, preserving all
+identity/ACL/transaction guards and204→GET SLA. No common API pool, SQL, DB schema,
+installed approved ELF or independent approval was changed to conceal failure.
+Missing live Vercel identity and process review remain separate external gates.
+A single concrete Owner request for actual `dpl_...`+alias/frontend proof was
+issued; no request for credentials or repeated general SSH permission.
+
+## 2026-10-21 — C2-only preparation candidate and Owner deployment identity
+
+Owner supplied actual Vercel ID suffix `AczbPzNBbwT2khvbEd61A7DZHnLU` and
+explicitly confirmed the current Ready/Production `aktau.market` deployment
+uses frontend SHA `5a4478aecdb131793b9ac194d3e1aa08bba4aac0` after PR59.
+Contract-form ID is `dpl_AczbPzNBbwT2khvbEd61A7DZHnLU`; this is Owner-reported
+external evidence, not an invented GitHub ID or independent API/UI observation.
+It supersedes the earlier missing-ID checkpoint. No deployment.json/READY was
+created hours before the next genuine publication; root/process attestation is
+still required and no C2 ACTIVE/PASS is claimed.
+
+### Minimal source candidate, not an installed approval replacement
+
+New native worktree `aktau-part32-c2-projection-preparation`, branch
+`fix/part32-c2-projection-preparation`, starts from fresh exact-main5a4478a.
+The previous worktree, full report prefix and all artifacts were preserved.
+Only CLI `main.go`, its `main_test.go`, `ops/c2/README.md` and this report change.
+No SQL, common API pool, ingest/notifier, HTTP/manifest/FIFO contract, Frontend,
+dataset, service/timer or credential is changed. An unchanged-function extraction
+first exposed the old default query mode and five-second CLI budget; the new
+`TestProjectionPreparationConfig` then failed with both mode assertions and
+the budget assertion (exit1). After the narrow fix, focused CLI suite exited0.
+
+The one-shot CLI now normalizes its DSN only in memory to pgx extended `exec`
+mode, avoiding first-use Describe/Prepare roundtrips. This is parameterized
+extended protocol, NOT simple-protocol interpolation. Identity, actual TLS and
+URI credentials/options remain intact; malformed options fail closed with a
+fixed nonsecret error. A fixed eight-second whole-CLI preparation bound remains
+below Node's existing ten-second process cap. Per-statement5s and public API
+pool are unchanged. This is distinct from, and does not restart or relax, the
+five-second actual204→fresh GET acceptance window/20s diagnostics/21 GET/2 sitemap.
+Failed preparation still yields no trusted document/qualification.
+
+A diagnostic exec-mode-only5s run still timed out (5607ms wall), despite shorter
+initializer roundtrips; that sample alone is NOT claimed a fix. The combined
+candidate was built outside Git and placed only in the root maintenance
+namespace, with no installed-kit/authorization replacement. Its diagnostic
+binary SHA256 `f203b19379daa0e803adfdfdd585659fb390585bfd1d6775d0e4899437afcbb1`
+uses baseline source metadata plus uncommitted candidate bytes, explicitly NOT
+an immutable approved release. One real read-only API-role BEFORE exited0 in
+3766ms, returned a valid v2 document and eligible witness; all row data, IDs,
+DSN and raw outputs were suppressed. This is a real diagnostic success, NOT
+trusted production custody, full observer acceptance or proof of reliable
+latency under all network/cache states. No AFTER/publication/HTTP was fabricated.
+No further production diagnostic retries are needed for this source review.
+
+### Actual test gates and limitations
+
+Node24.10.0, Go1.27.3/GOTOOLCHAIN=local, nonroot native WSL:
+
+| Command | Actual result |
+| --- | --- |
+| `go test -count=1 ./cmd/c2projection -run TestProjectionPreparationConfig` before fix | exit1, mode/budget regression reproduced |
+| `go test -count=1 ./cmd/c2projection` after fix | exit0 |
+| `node scripts/ci/run-checks.mjs security` | exit0,0skip |
+| `node scripts/ci/run-db-integration.mjs` | exit0, real owned disposable PG17, including changed real CLI BEFORE/AFTER and cleanup |
+| `node scripts/revalidation/joint-poc.mjs` | exit0,15/15,0skip |
+| `node scripts/revalidation/verify-part16.mjs` | exit0 |
+| first `node scripts/ci/run-checks.mjs go` | exit1 in unchanged Voice outage privacy tests during race run; unit phase passed |
+| repeated unchanged Go profile after investigating that failure | exit0: unit/race/vet/staticcheck/integration-tag staticcheck/govulncheck/build plus Node331/331,0skip |
+| gofmt / `git diff --check` | exit0 |
+
+The first race failure is preserved, not rewritten as PASS. It came from the
+existing `TestVoiceProviderOutages` whole-log substring assertion; that assertion
+also examines timestamp strings and can collide with short coordinate literals.
+No raw failing logger payload was retained, so timestamp collision is a source-
+supported hypothesis, NOT a proven privacy RCA. Neither test/assertions nor
+production Voice were changed; hosted exact-head CI must independently cover
+the final candidate. Initial shell profile starts also exited127 due an unquoted
+inherited Windows PATH containing spaces; quoted PATH corrected the invocation,
+not tests/runtime, and those failed starts are not counted as test PASS.
+
+### Next independent gate
+
+Installed approved981 kit and ingest remain unchanged and inactive; reader is
+REAL_READONLY_PROVED. New provider source requires ordinary PR/mandatory CI and
+independent exact-source/artifact review before replacing any installed bytes.
+The prior Owner approval for981 does not extend to this new binary. Operator
+entry/process closure also needs actual independent review and a real live
+attestation close to schedule, not a guessed PID or an expired READY. Current
+source candidate is ready for review; full production goal remains incomplete,
+arming NOT_ARMED and qualified count0/3. No Release/tag/draft/auto-deploy.
