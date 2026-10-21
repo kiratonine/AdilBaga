@@ -92,3 +92,31 @@ sudo -u aktau-sync git -C /opt/aktau-sync pull --ff-only
 Не коммитьте прямо в `/opt/aktau-sync`: локальный коммит на VPS ломает `git pull --ff-only`, а у пользователя `aktau-sync` нет прав на push.
 
 Разбор ошибок — `docs/data/SYNC_RUNBOOK.md §4`, еженедельный прогон — `§5`.
+
+## Part32: reviewed immutable ingest launcher candidate
+
+`daily-sync.sh` delegates its unchanged dry-run then apply pair to
+`pipeline/scripts/c2-ingest-launch.py`. Ordinary unarmed execution still uses
+`go run ./cmd/ingest`; all inherited `C2_*` variables are stripped. Stale-source
+exit3, all-source failure, quality/dry-run/apply failures and publication behavior
+are preserved. No retry, additional publication, timer or scraper is introduced.
+The explicit `GOTOOLCHAIN=local` means a future checkout update requires an
+already installed Go1.27.3; it must not silently fetch a new toolchain on the VPS.
+
+C2 selection is opt-in through the existing independently installed root records,
+not through user env values. It uses only the approved fixed immutable ingest
+ELF and the existing private BEFORE/READY protocol; see
+[C2 custody and prerequisites](../c2/README.md#scheduled-immutable-ingest-candidate-review-required-not-activation).
+Do not activate this candidate before independent review and exact artifact
+approval. Do not replace the deployed SCRUM-19 branch with the old local main:
+first prove that the selected main retains every SCRUM-19 pipeline/migration
+byte, record the current branch/SHA and preserve its known rollback. This source
+change does not authorize checkout, toolchain, namespace or systemd changes.
+
+On C2 authority loss after an immutable dry-run, the launcher repeats the
+**complete ordinary read-only dry-run/apply pair**, never ordinary apply alone.
+Only a proven pre-exec failure can also select that fallback. Once any apply
+program starts, no fallback or second apply is allowed, including nonzero,
+uncertain wait or cancellation. SIGTERM/SIGINT preserve143/130 CLI status;
+the existing scheduled script still maps publish-step failure to1. SCRUM-19,
+source-stale exit3, bundle arguments and the root trust/Go1.27.3 gates are unchanged.

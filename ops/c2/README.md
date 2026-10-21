@@ -403,3 +403,48 @@ The relay's exit0 certifies known-own socket cleanup, **not** READY consumption.
 Only a separately validated delivered frame can admit the event. Missing,
 replaced or unverified cleanup means INCONCLUSIVE with retained evidence and
 operator.lock; no automatic retry/recovery is authorized.
+
+### Scheduled immutable-ingest candidate (review required, not activation)
+
+`pipeline/scripts/c2-ingest-launch.py` owns the existing dry-run/apply pair.
+Without independently provisioned C2 authority it runs the original Go commands,
+strips inherited `C2_*` values and preserves business exit codes. It does not
+create approval, start an observer, install anything or certify READY/PASS.
+`GOTOOLCHAIN=local` forbids an implicit toolchain download; the host must first
+have the source-required Go1.27.3 through a separately reviewed admin procedure.
+
+The only candidate ELF is `/usr/local/libexec/aktau-c2-ingest` (root-owned0555,
+single-linked, no-follow root ancestry). Its digest must equal the independent
+root READY record's `ingestSha256`, whose source/relay identity must agree with
+the existing authorization record. This separate ingest executable is **not**
+part of the older eight-file installer bundle. Its placement and this launcher
+require independent exact-source review before a VPS checkout change.
+
+The fixed root-controlled `/usr/local/go/bin/go` inspects host and candidate
+Go1.27.3 metadata: one-second deadlines and bounded32KiB output, no candidate
+execution during inspection, no inherited toolchain configuration. The pinned
+ingest descriptor is used for both phases via `/proc/self/fd`, not a mutable
+checkout executable. Root records and descriptor identity are revalidated at
+each phase. Only apply receives the derived attempt/FIFO values. The unchanged
+Go private READY peer/BEFORE validation remains authoritative; a candidate is
+not necessarily armed. Lost/invalid C2 state falls back to ordinary publication,
+never a synthetic qualified result or a second apply.
+
+An exclusive0600 `publisher.claim` in the existing0700 per-attempt namespace
+coordinates one scheduled pair. It is fsynced and never automatically removed;
+unknown/partial claims exclude C2. This operator-owned claim is not independent
+root authorization and does not replace Node's durable one-time ledger. The
+existing exclusive operator-custody assumption still applies. No new env/path
+override or approval format is introduced. Tests use synthetic OS authority only.
+
+The runner makes one immutable-pair attempt, then at most one **complete ordinary
+pair**. Authority loss between phases or a proven pre-exec failure never switches
+only apply: ordinary dry-run must succeed first. The prior immutable dry-run is
+read-only and does not substitute for it. A known `Popen` constructor exec error
+may downgrade; a child nonzero status, signal, wait error or unclassified spawn
+error cannot. At most one apply **program starts**, even if an earlier exec
+attempt failed before startup. Exec-error attribution must name the exact pinned
+executable; absent/other filenames are not permission to retry. No C2 readmission/claim deletion occurs on fallback;
+both ordinary phases are C2-free. Cancellation terminates/reaps the owned child,
+escalates to KILL after a bounded grace if needed, and exits128+signal with no
+retry. Generic errors fail safely, without raw exception/authority output.
