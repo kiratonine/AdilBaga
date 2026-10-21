@@ -304,3 +304,36 @@ All commands completed, exit0 (no production resources):
 No SKIP is represented as executed PASS. GitHub hosted/main results are still
 pending at this checkpoint. AUTO_DEPLOY_ENABLED read back false, unchanged;
 no Actions plan/deploy, production SSH/HTTP/SQL, root approval or installation.
+
+### Hosted CI first attempt — concrete audit blocker and narrow correction
+
+PR [56](https://github.com/kiratonine/AdilBaga/pull/56), head
+71e78c5ce34590a0b013055dae7627b3c4cdc936, run
+[39520491656](https://github.com/kiratonine/AdilBaga/actions/runs/39520491656)
+**FAILED**, not9/9: Contracts, Frontend, Go Quality, Security and Pipeline Quality
+SUCCESS; Nest Reference FAILURE; PostgreSQL Integration/Ephemeral Staging SKIPPED;
+CI Gate FAILURE. No merge occurred on this failed run.
+
+Actual Nest job log proves frozen install, generate, build and27/27 tests PASS;
+`pnpm audit --prod` then exit1 on existing follow-redirects1.16.0 via axios1.20.0.
+Independently reproduced locally before correction, exit1/two high advisories.
+GitHub reviewed advisories
+[GHSA-q3jh-wrc6-jgq8](https://github.com/advisories/GHSA-q3jh-wrc6-jgq8) and
+[GHSA-8r9p-f939-6h3c](https://github.com/advisories/GHSA-8r9p-f939-6h3c)
+both identify1.16.1 as patched. This is an existing dependency CI failure, not
+a READY test failure or evidence of observed credential exposure in production.
+
+Under the Owner's instruction to fix ordinary CI blockers to completion, the
+only additional path is backend/pnpm-lock.yaml: four substitutions resolve only
+follow-redirects1.16.0→1.16.1 and its integrity/snapshot. Generated with pnpm10.32.1
+`pnpm update follow-redirects --depth Infinity --lockfile-only`; package.json,
+axios version, all other resolutions, Nest runtime source/API, SQL/schema,
+Frontend and contracts remain unchanged. Final scope is **31 files**, superseding
+the original30-path prepublication checkpoint. No audit suppression/ignore,
+workflow/branch-rule weakening or production action. Final rerun follows below.
+
+Local `node scripts/ci/run-checks.mjs nest` after the narrow lock correction:
+exit0; frozen install, Prisma client generation (no migration), Nest build,
+27/27 unit/HTTP tests,0 SKIP and production audit **No known vulnerabilities**.
+The initial hosted failure and skipped downstream jobs remain historical;
+they are not relabeled as green. The next exact-head hosted run must prove all9.
