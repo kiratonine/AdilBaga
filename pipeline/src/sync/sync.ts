@@ -27,19 +27,19 @@ export function buildSyncBundle(files: SourceFile[], dict: Dictionary, generated
   const unmapped: Unmapped[] = []
   for (const file of files) {
     for (const product of file.products) {
-      const { key, card, category: guessed } = resolveCategory(dict, file.storeCode, product)
+      const { key, card, category: resolved } = resolveCategory(dict, file.storeCode, product)
       if (key && card) {
         // Все участники несут данные карточки из словаря → buildBundle выдаст то же название/бренд/атрибуты
-        known.set(key, [...(known.get(key) ?? []), { storeCode: file.storeCode, product, category: card.category,
+        known.set(key, [...(known.get(key) ?? []), { storeCode: file.storeCode, product, category: resolved,
           productType: 'dictionary', brand: card.brand, attributes: card.attributes as Attributes, displayName: card.name, flags: [] }])
         continue
       }
-      if (scope && !scope.has(guessed)) continue
+      if (scope && !scope.has(resolved)) continue
       const fat = extractFat(product.name)
       unmapped.push({ storeCode: file.storeCode, sourceProductId: product.sourceProductId, name: product.name,
-        price: product.price, sourceCategoryPath: product.sourceCategoryPath, guessedCategory: guessed })
+        price: product.price, sourceCategoryPath: product.sourceCategoryPath, guessedCategory: resolved })
       clusters.push({ method: 'deterministic', confidence: 1, review: 'pending', members: [{ storeCode: file.storeCode, product,
-        category: guessed, productType: 'unmapped', brand: product.brand,
+        category: resolved, productType: 'unmapped', brand: product.brand,
         attributes: { ...extractSize(product.name), ...(fat !== null ? { fatPercent: fat } : {}) }, displayName: product.name, flags: ['unmapped'] }] })
     }
   }

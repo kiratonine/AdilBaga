@@ -55,10 +55,10 @@ describe('dictionary', () => {
 
 describe('resolveCategory', () => {
   const d = buildDictionary(buildBundle([{ members: [a], method: 'deterministic', confidence: 1, review: 'approved' }], sources, '2026-10-06T06:00:00.000Z'))
-  const base = { sourceProductId: 'new', sourceCategoryPath: ['Молоко, яйца, масло', 'Молоко'] }
+  const base = { sourceProductId: 'new', sourceCategoryPath: ['Молоко, яйца, масло', 'Молоко'], name: 'Молоко FoodMaster 3.2% 1 л' }
 
   it('takes the canonical card first', () => {
-    const r = resolveCategory(d, 'DINA', { sourceProductId: '1', sourceCategoryPath: ['Бакалея'] })
+    const r = resolveCategory(d, 'DINA', { sourceProductId: '1', sourceCategoryPath: ['Бакалея'], name: 'Молоко FoodMaster 3.2% 1 л' })
     expect(r.category).toBe('milk')
     expect(r.card?.name).toBeTruthy()
   })
@@ -66,6 +66,10 @@ describe('resolveCategory', () => {
   it('falls back to the store category, then to other', () => {
     expect(resolveCategory(d, 'DINA', base)).toEqual({ category: 'milk' })
     expect(resolveCategory(d, 'DINA', { ...base, sourceCategoryPath: ['Бакалея'] })).toEqual({ category: 'other' })
+  })
+
+  it('refines a milk store section by product name', () => {
+    expect(resolveCategory(d, 'DINA', { ...base, name: 'Сливки Простоквашино 20% 500 г' }).category).toBe('dairy')
   })
 
   it('ignores a product entry whose canonical is missing', () => {
