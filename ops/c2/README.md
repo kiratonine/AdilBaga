@@ -248,6 +248,56 @@ production activation setting changes are needed.
 
 ## Part32 private READY v1 (source contract; no production provisioning)
 
+### Manual operator entry candidate (not an installed scheduler)
+
+`scripts/revalidation/c2-operator-entry.mjs` is a narrow one-attempt lifecycle
+entry for the existing private supervisor. It is installed **separately** as
+root-controlled `/usr/local/libexec/aktau-c2-operator.mjs` only after independent
+review of its digest, actual immutable Node command and complete import closure.
+It adds no file to the eight-member bundle/installer inventory. No installation
+or activation is implied by source merge. No env/config/provider/path overrides.
+
+After independently approved inactive kit/reader installation and with a real
+root parent, use the approved immutable Node ELF to run that fixed entry with
+no arguments, over private operator stdin/stdout (not a public endpoint):
+
+Use a cleared environment, never inherited NODE_OPTIONS/loader/credential env.
+For the independently verified host Node path, the manual command is
+`sudo -n /usr/bin/env -i /usr/local/lib/nodejs/node-v24.18.0-linux-x64/bin/node /usr/local/libexec/aktau-c2-operator.mjs`.
+Reverify that exact Node ELF and actual command closure before each root launch;
+the path is host evidence, not an executable override accepted by the entry.
+
+1. Entry calls `dropProductionSupervisorPrivileges()` in THIS process, then
+   `prepareObservation()`. `PREPARED_REQUIRES_BEFORE_ATTESTATION` returns the new
+   attempt ID. The independent root actor must verify actual alias/deployment
+   and install the exact BEFORE record for that attempt before sending `ARM`+LF.
+2. `ARMED_REQUIRES_LIVE_ROOT_READY` means only that the existing supervisor armed
+   its private receiver. It is NOT root process approval or production ACTIVE.
+   Root must now verify actual PID/start/boot/Node/command/import closure and
+   non-dumpability, then issue the genuine process-bound READY before scheduled
+   ingestion. Entry does not issue/modify any root record or reader credentials.
+3. `observe()` runs once under the original clock and existing HTTP budget.
+   `OBSERVED_REQUIRES_POST_ATTESTATION` is provisional. Root independently checks
+   same actual Vercel identity and actual opt-in cleanup, installs AFTER record,
+   then sends `FINALIZE`+LF. Only existing private supervisor verdict/ledger count
+   is returned; FAIL/INCONCLUSIVE cannot become PASS by sending a command.
+
+One original35-minute monotonic bound covers preparation, both human barriers
+and observation; no new SLA window or retries. Never launch nine hours before
+the schedule. Do not pipe pre-scripted ARM/FINALIZE as substitute attestations.
+EOF, CANCEL, unknown/oversized/combined commands, expired deadline or failure
+produce NOT_ARMED/RECONCILIATION_REQUIRED with no raw exception payload. On
+failure, the controller exits; unknown ledger/FIFO/socket state is retained as
+an interlock, never auto-deleted/rearmed. Independent reconciliation is required
+before another attempt. Ordinary sync remains fail-open through its unchanged
+launcher. No manual ingest, publish, HMAC, SQL or systemctl is added by the entry.
+
+This is **manual per-attempt** only. No automatic arming for future schedules,
+background observer, cron or systemd unit is installed. A real human/root actor
+and fresh reader/deployment/process authority are still required close to each
+genuine schedule. Additional automated orchestration would need separate source
+review and actual independent attestation/credential integration, not fake READY.
+
 This section supersedes the historical “pending” readiness description above.
 The Owner-provided approved Part32 handoff delegates the Unix protocol details
 to Backend1. No additional Backend2 review/permission is required. This source
