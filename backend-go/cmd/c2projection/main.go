@@ -64,6 +64,7 @@ var (
 type options struct {
 	phase, attempt, frontendSHA       string
 	snapshot, previous, witness, slug string
+	evidencePolicy, policySHA256      string
 }
 
 type provenance struct {
@@ -71,7 +72,10 @@ type provenance struct {
 	EvidenceID       string `json:"evidenceId"`
 	CanonicalStateID string `json:"canonicalStateId"`
 	SourceSHA        string `json:"sourceSha"`
-	FrontendSHA      string `json:"frontendSha"`
+	FrontendSHA      string `json:"frontendSha,omitempty"`
+	EvidencePolicy   string `json:"evidencePolicy,omitempty"`
+	PolicyVersion    int    `json:"policyVersion,omitempty"`
+	PolicySHA256     string `json:"policySha256,omitempty"`
 	Semantics        string `json:"semantics"`
 	SnapshotStatus   string `json:"snapshotStatus"`
 	ConsistentRead   bool   `json:"consistentRead"`
@@ -90,6 +94,7 @@ type projection struct {
 func parse(args []string) (options, bool) {
 	var o options
 	fields := map[string]*string{"-phase": &o.phase, "-attempt": &o.attempt, "-frontend-sha": &o.frontendSHA,
+		"-evidence-policy": &o.evidencePolicy, "-policy-sha256": &o.policySHA256,
 		"-snapshot": &o.snapshot, "-previous": &o.previous, "-witness": &o.witness, "-slug": &o.slug}
 	if len(args)%2 != 0 {
 		return o, false
@@ -103,8 +108,14 @@ func parse(args []string) (options, bool) {
 		seen[args[i]] = true
 		*target = args[i+1]
 	}
-	if !hex32.MatchString(o.attempt) || !hex40.MatchString(o.frontendSHA) {
+	site := o.evidencePolicy == "site-content-verification" && len(o.policySHA256) == 64 && regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(o.policySHA256) && !seen["-frontend-sha"]
+	legacy := !seen["-evidence-policy"] && !seen["-policy-sha256"] && hex40.MatchString(o.frontendSHA)
+	if !hex32.MatchString(o.attempt) || !(site || legacy) {
 		return o, false
+	}
+	count := 6
+	if site {
+		count = 8
 	}
 	after := []string{"-snapshot", "-previous", "-witness", "-slug"}
 	switch o.phase {
@@ -114,9 +125,9 @@ func parse(args []string) (options, bool) {
 				return o, false
 			}
 		}
-		return o, len(args) == 6
+		return o, len(args) == count
 	case "after":
-		return o, len(args) == 14 && postgres.C2ValidUUID(o.snapshot) && postgres.C2ValidUUID(o.previous) &&
+		return o, len(args) == count+8 && postgres.C2ValidUUID(o.snapshot) && postgres.C2ValidUUID(o.previous) &&
 			o.snapshot != o.previous && postgres.C2ValidID(o.witness) && postgres.C2ValidSlug(o.slug)
 	}
 	return o, false
@@ -226,10 +237,13 @@ func document(o options, state postgres.C2State) ([]byte, error) {
 	if o.phase == "after" {
 		phase, suffix = postgres.C2PhaseAfter, "-after"
 	}
+	p := provenance{Kind: "sealed-repository-projection", EvidenceID: o.attempt + suffix, CanonicalStateID: hex.EncodeToString(sum[:]),
+		SourceSHA: sourceSHA, FrontendSHA: o.frontendSHA, Semantics: "go-next-c2-v2", SnapshotStatus: "published", ConsistentRead: true}
+	if o.evidencePolicy == "site-content-verification" {
+		p.EvidencePolicy, p.PolicyVersion, p.PolicySHA256 = o.evidencePolicy, 2, o.policySHA256
+	}
 	out, err := json.Marshal(projection{Version: 2, Phase: phase, AttemptID: o.attempt, SnapshotID: state.SnapshotID,
-		PreviousSnapshotID: state.PreviousSnapshotID, Body: body, Provenance: provenance{
-			Kind: "sealed-repository-projection", EvidenceID: o.attempt + suffix, CanonicalStateID: hex.EncodeToString(sum[:]),
-			SourceSHA: sourceSHA, FrontendSHA: o.frontendSHA, Semantics: "go-next-c2-v2", SnapshotStatus: "published", ConsistentRead: true}})
+		PreviousSnapshotID: state.PreviousSnapshotID, Body: body, Provenance: p})
 	if err != nil || len(out)+1 >= 16<<10 {
 		return nil, errors.New("projection output unavailable")
 	}

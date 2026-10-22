@@ -125,3 +125,21 @@ The unchanged actual204/FIFO clock, six representations,5s acceptance,20s
 diagnostics,21 GET/2 sitemap and three qualified PASS remain mandatory. Ordinary
 sync stays fail-open; uncertain C2 evidence never becomes PASS. No new
 publication, webhook retry, frontend cache setting or public API is introduced.
+
+## Part32 automatic site-content verification v2
+
+The later Owner decision supersedes **only the automatic frontend identity
+policy** above. New `site-content-verification` attempts prove that actual public
+HTML/XML representation markers match canonical S1 within the existing5s window.
+They do **not** attest a Vercel deployment ID or frontend commit. No Vercel token,
+settings change or repinning is required when frontend deploys. Legacy/manual
+evidence retains its original meaning and is not counted in this new series.
+
+The protected root site policy fixes `https://aktau.market`, version2 and the six
+existing representations. Its exact SHA256 binds BEFORE, process-bound READY-v2,
+COMMIT/204 FIFO custody, AFTER and FINALIZE. No fake frontend identity is used.
+See [the versioned private contract](../../ops/c2/README.md#part32--site-content-verification-policy-v2).
+This leaves HMAC, SQL, public API, frontend runtime/cache settings and all request,
+clock and5s/20s/35-minute limits unchanged. Missing/changed marker formats cannot
+PASS. Source tests do not prove production convergence; three genuine qualified
+PASS must be recorded under this policy after legitimate publications.

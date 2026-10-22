@@ -31,11 +31,14 @@ type ReadyResponse struct {
 	ProjectionSHA256 string        `json:"projectionSha256"`
 	WitnessSHA256    string        `json:"witnessSha256"`
 	SourceSHA        string        `json:"sourceSha"`
-	FrontendSHA      string        `json:"frontendSha"`
-	DeploymentID     string        `json:"deploymentId"`
+	FrontendSHA      string        `json:"frontendSha,omitempty"`
+	DeploymentID     string        `json:"deploymentId,omitempty"`
 	ConfirmedAt      string        `json:"confirmedAt"`
 	BootID           string        `json:"bootId"`
 	ExpiresAt        string        `json:"expiresAt"`
+	EvidencePolicy   string        `json:"evidencePolicy,omitempty"`
+	PolicyVersion    int           `json:"policyVersion,omitempty"`
+	PolicySHA256     string        `json:"policySha256,omitempty"`
 }
 
 func canonicalReady(raw []byte, value any) bool {
@@ -59,14 +62,23 @@ var readyDigest = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var readySHA = regexp.MustCompile(`^[a-f0-9]{40}$`)
 var readyDeployment = regexp.MustCompile(`^dpl_[a-zA-Z0-9]{1,80}$`)
 
+// The two evidence contracts are disjoint. A site policy is never encoded as
+// frontend identity, nor can v1 carry unauthenticated v2 extension fields.
+func validReadyPolicy(version int, frontend, deployment, policy string, policyVersion int, digest string) bool {
+	if version == 1 {
+		return readySHA.MatchString(frontend) && readyDeployment.MatchString(deployment) && policy == "" && policyVersion == 0 && digest == ""
+	}
+	return version == 2 && frontend == "" && deployment == "" && policy == "site-content-verification" && policyVersion == 2 && readyDigest.MatchString(digest)
+}
+
 func validReadyResponse(r ReadyResponse, request ReadyRequest, now time.Time) bool {
 	_, s0 := exactReadyTime(r.S0.PublishedAt)
 	confirmed, c := exactReadyTime(r.ConfirmedAt)
 	expiry, e := exactReadyTime(r.ExpiresAt)
-	return r.Version == 1 && r.Status == "READY" && r.AttemptID == request.AttemptID && r.Nonce == request.Nonce &&
+	return validReadyPolicy(r.Version, r.FrontendSHA, r.DeploymentID, r.EvidencePolicy, r.PolicyVersion, r.PolicySHA256) && r.Status == "READY" && r.AttemptID == request.AttemptID && r.Nonce == request.Nonce &&
 		uuidPattern.MatchString(r.S0.SnapshotID) && s0 && readyDigest.MatchString(r.ProjectionSHA256) &&
-		readyDigest.MatchString(r.WitnessSHA256) && readySHA.MatchString(r.SourceSHA) && readySHA.MatchString(r.FrontendSHA) &&
-		readyDeployment.MatchString(r.DeploymentID) && uuidPattern.MatchString(r.BootID) && c && e &&
+		readyDigest.MatchString(r.WitnessSHA256) && readySHA.MatchString(r.SourceSHA) &&
+		uuidPattern.MatchString(r.BootID) && c && e &&
 		!confirmed.After(now) && expiry.After(now) && expiry.Sub(confirmed) > 0 && expiry.Sub(confirmed) <= 35*time.Minute
 }
 

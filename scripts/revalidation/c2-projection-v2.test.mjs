@@ -8,6 +8,17 @@ import { createSyntheticProjectionProvider } from './projection-provider.mjs';
 import * as providerModule from './projection-provider.mjs';
 import { execFileSync } from 'node:child_process';
 
+test('site-content provenance binds the same policy without frontend placeholders', () => {
+  const pair=projectionPair();
+  for(const p of [pair.before,pair.after]) {
+    delete p.provenance.frontendSha;
+    Object.assign(p.provenance,{evidencePolicy:'site-content-verification',policyVersion:2,policySha256:'d'.repeat(64)});
+  }
+  assert.equal(buildManifest({version:2,attemptId:pair.before.attemptId,...pair}).status,'ready');
+  pair.after.provenance.policySha256='e'.repeat(64);
+  assert.equal(buildManifest({version:2,attemptId:pair.before.attemptId,...pair}).status,'inconclusive');
+});
+
 test('production factory rejects caller-manufactured authority before any execution', () => {
   assert.equal(typeof providerModule.createProductionProjectionProvider, 'function');
   assert.throws(() => providerModule.createProductionProjectionProvider({ production: true,
@@ -42,6 +53,7 @@ const credentialUsers = [
 for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', 'missing', 'symlink', 'writable_acl_mask', 'replace_before_exec', 'wrong_alias',
   'before_frontend_drift', 'before_deployment_drift', 'before_confirmation_drift', 'stable_identity', 'after_frontend_drift', 'after_deployment_drift',
   'pinned_valid', 'pinned_old_owner_confirmation', 'pinned_wrong_hash', 'pinned_config_drift', 'pinned_future_owner',
+  'site_valid','site_wrong_hash','site_policy_drift','site_wrong_source','site_mixed','site_bad_matrix',
   ...credentialUsers.map(c => c.scenario)]) {
   test(`production authority OS mock: ${scenario}`, () => {
     const child = String.raw`
@@ -63,6 +75,15 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
         Object.assign(deployment,{version:2,identityEvidence:'owner-pinned-configuration',configurationSha256:createHash('sha256').update(JSON.stringify(frontend)+'\n').digest('hex'),checkedAt:Date.now()});
         if(scenario==='pinned_wrong_hash')deployment.configurationSha256='0'.repeat(64);
       }
+      if(scenario.startsWith('site_')){
+        for(const key of Object.keys(frontend))delete frontend[key];
+        Object.assign(frontend,{version:2,evidence:'site-content-verification',origin:'https://aktau.market',representations:['product_ru','product_kk','sitemap','catalog','dashboard','category']});
+        for(const key of Object.keys(deployment))delete deployment[key];
+        Object.assign(deployment,{version:3,attemptId:'a'.repeat(32),stage:'before',origin:'https://aktau.market',optInInactive:false,legitimatePublication:true,identityEvidence:'site-content-verification',policyVersion:2,policySha256:createHash('sha256').update(JSON.stringify(frontend)+'\n').digest('hex'),checkedAt:Date.now()});
+        if(scenario==='site_wrong_hash')deployment.policySha256='0'.repeat(64);
+        if(scenario==='site_bad_matrix')frontend.representations=['dashboard'];
+        if(scenario==='site_mixed')deployment.deploymentId='dpl_fake';
+      }
       let executions=0, serial=90000; const files=new Map();
       const original={ lstatSync:fs.lstatSync, openSync:fs.openSync, fstatSync:fs.fstatSync, readFileSync:fs.readFileSync, closeSync:fs.closeSync };
       const targeted = p => typeof p==='string' && (p.startsWith('/etc/aktau-c2')||p.startsWith('/usr/local/libexec/aktau-c2')||p.startsWith('/var/lib/aktau-sync'));
@@ -80,6 +101,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
         const p=files.get(fd); if(p.endsWith('authorization.json'))return Buffer.from(JSON.stringify(approval)+'\n');
         if(p.endsWith('deployment.json')){
           if(++deploymentReads===2){
+            if(scenario==='site_policy_drift')deployment.policySha256='e'.repeat(64);
             if(scenario==='before_frontend_drift')deployment.frontendSha='d'.repeat(40);
             if(scenario==='before_deployment_drift')deployment.deploymentId='dpl_other';
             if(scenario==='before_confirmation_drift')deployment.confirmedAt--;
@@ -99,7 +121,8 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
           'postgres://'+credentialCase.user+':synthetic-only@fixture.invalid:5432/test');
         const p=projectionPair().before;
         p.provenance.frontendSha=deployment.frontendSha;
-        if(scenario==='wrong_source')p.provenance.sourceSha='d'.repeat(40);
+        if(scenario.startsWith('site_')){delete p.provenance.frontendSha;Object.assign(p.provenance,{evidencePolicy:'site-content-verification',policyVersion:2,policySha256:deployment.policySha256});assert.ok(!args.includes('-frontend-sha'));assert.ok(args.includes('-policy-sha256'))}
+        if(scenario==='wrong_source'||scenario==='site_wrong_source')p.provenance.sourceSha='d'.repeat(40);
         p.provenance.canonicalStateId=createHash('sha256').update(JSON.stringify(p.body)).digest('hex');
         return {stdout:JSON.stringify(p)+'\n'};
       };cp.execFile=fake;syncBuiltinESMExports();
@@ -107,7 +130,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
       let before=null, provider, initial;
       try{
         provider=api.createProductionProjectionProvider();assert.ok(api.isProductionProvider(provider));
-        if(scenario.startsWith('before_')||scenario.startsWith('after_')||scenario==='stable_identity')initial=api.productionIdentity(provider,'a'.repeat(32),'before');
+        if(scenario.startsWith('before_')||scenario.startsWith('after_')||scenario==='stable_identity'||scenario==='site_policy_drift')initial=api.productionIdentity(provider,'a'.repeat(32),'before');
         before=await provider.before('a'.repeat(32));
       }catch{}
       if(scenario.startsWith('after_')){
@@ -116,7 +139,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
         if(scenario==='after_frontend_drift')deployment.frontendSha='d'.repeat(40);
         if(scenario==='after_deployment_drift')deployment.deploymentId='dpl_other';
         assert.throws(()=>api.productionIdentity(provider,'a'.repeat(32),'after'),/deployment/);
-      }else if(scenario==='valid'||scenario==='stable_identity'||['pinned_valid','pinned_old_owner_confirmation'].includes(scenario)||credentialCase?.accepted){
+      }else if(scenario==='valid'||scenario==='stable_identity'||scenario==='site_valid'||['pinned_valid','pinned_old_owner_confirmation'].includes(scenario)||credentialCase?.accepted){
         assert.ok(before);assert.equal(executions,1);
         if(scenario.startsWith('pinned_')){
           const identity=api.productionBeforeIdentity(provider,before);
@@ -141,7 +164,7 @@ for (const scenario of ['valid', 'unapproved', 'wrong_digest', 'wrong_source', '
         // A manually manufactured event cannot admit default production GET.
         const source2=createEventSource({now:()=>0});source2.begin('a'.repeat(32));source2.accept204(204,{status:204});
         assert.equal((await source2.capture(before,{provider})).request_count,0);
-      }else{assert.equal(before,null);if(scenario!=='wrong_source')assert.equal(executions,0)}
+      }else{assert.equal(before,null);assert.equal(executions,['wrong_source','site_wrong_source'].includes(scenario)?1:0)}
       assert.equal(api.isProductionProvider({fixtureOnly:false}),false);
     `;
     execFileSync(process.execPath, ['--input-type=module', '-e', child, scenario,

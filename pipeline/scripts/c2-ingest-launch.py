@@ -27,6 +27,7 @@ FIELDS = ('version', 'attemptId', 'sourceSha', 'frontendSha', 'deploymentId',
           'confirmedAt', 'bootId', 'operatorUid', 'operatorGid', 'supervisorPid',
           'supervisorStartTicks', 'nodeExecutable', 'nodeSha256', 'commandSha256',
           'supervisorSha256', 'ingestSha256', 'relaySha256', 'expiresAt')
+SITE_FIELDS = tuple(k for k in FIELDS if k not in ('frontendSha','deploymentId')) + ('evidencePolicy','policyVersion','policySha256')
 
 
 def require(ok):
@@ -75,16 +76,19 @@ def read_pinned(fd, expected):
 
 def record(raw):
     a = json.loads(raw)
-    require(type(a) is dict and tuple(a) == FIELDS and canonical(a) == raw)
-    require(type(a['version']) is int and a['version'] == 1
+    require(type(a) is dict)
+    site=type(a.get('version')) is int and a['version']==2
+    require(tuple(a) == (SITE_FIELDS if site else FIELDS) and canonical(a) == raw)
+    require(type(a['version']) is int and a['version'] == (2 if site else 1)
             and type(a['operatorUid']) is int and a['operatorUid'] == os.geteuid() > 0
             and type(a['operatorGid']) is int and a['operatorGid'] == os.getegid()
             and type(a['supervisorPid']) is int and a['supervisorPid'] > 0)
-    for name, length in [('attemptId', 32), ('sourceSha', 40), ('frontendSha', 40),
+    for name, length in [('attemptId', 32), ('sourceSha', 40), *(([('policySha256',64)]) if site else [('frontendSha',40)]),
                          *[(k, 64) for k in ('nodeSha256', 'commandSha256', 'supervisorSha256', 'ingestSha256', 'relaySha256')]]:
         require(type(a[name]) is str and re.fullmatch('[0-9a-f]{'+str(length)+'}', a[name]))
     require(type(a['bootId']) is str and re.fullmatch('[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}', a['bootId']))
-    require(type(a['deploymentId']) is str and re.fullmatch('dpl_[a-zA-Z0-9]{1,80}', a['deploymentId']))
+    if site: require(a['evidencePolicy']=='site-content-verification' and type(a['policyVersion']) is int and a['policyVersion']==2)
+    else: require(type(a['deploymentId']) is str and re.fullmatch('dpl_[a-zA-Z0-9]{1,80}', a['deploymentId']))
     require(type(a['supervisorStartTicks']) is str and re.fullmatch('[1-9][0-9]{0,19}', a['supervisorStartTicks']))
     require(type(a['nodeExecutable']) is str and re.fullmatch('/[a-zA-Z0-9_./-]{1,255}', a['nodeExecutable'])
             and os.path.normpath(a['nodeExecutable']) == a['nodeExecutable'])

@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
-import { createProductionProjectionProvider, productionIdentity, productionBeforeIdentity, productionReadyAuthority, recheckProductionReadyAuthority, productionReadyRelay, providerBeforeBaseline } from './projection-provider.mjs';
+import { createProductionProjectionProvider, productionEvidencePolicy, productionIdentity, productionBeforeIdentity, productionReadyAuthority, recheckProductionReadyAuthority, productionReadyRelay, providerBeforeBaseline } from './projection-provider.mjs';
 import { calibrateProductionClock, openPersistentReceiver } from './fifo-adapter.mjs';
 import { prepareBeforeV2 } from './c2-manifest.mjs';
 
@@ -49,7 +49,15 @@ function atomic(file, value) {
   fs.renameSync(temp, file); syncDirectory(path.dirname(file));
 }
 // No production capability is minted here. Exported for local durability tests.
-export function openAttemptLedger(dir) {
+export function openAttemptLedger(dir, policy = null) {
+  const policyKey=p=>{
+    if(p===null || p===undefined)return 'legacy';
+    if(!p || Object.keys(p).sort().join()!=='evidencePolicy,policySha256,policyVersion' || p.evidencePolicy!=='site-content-verification'
+      || p.policyVersion!==2 || typeof p.policySha256!=='string' || !/^[a-f0-9]{64}$/.test(p.policySha256))throw Error('ledger_policy');
+    return p.evidencePolicy+':'+p.policyVersion+':'+p.policySha256;
+  };
+  const currentPolicy=policyKey(policy);
+  policy=policy===null?null:Object.freeze({...policy});
   privateDirectory(dir);
   const lock = path.join(dir, 'operator.lock');
   const fd = fs.openSync(lock, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
@@ -62,6 +70,7 @@ export function openAttemptLedger(dir) {
   if (!Array.isArray(entries) || entries.length > 1000) throw Error('ledger_corrupt');
   const seen = new Set();
   for (const e of entries) {
+    policyKey(e.evidencePolicy);
     if (!e || !id(e.attemptId) || seen.has(e.attemptId) || !terminal(e.state)
       || !['PASS', 'FAIL', 'INCONCLUSIVE'].includes(e.verdict)
       || !Array.isArray(e.transitions) || e.transitions[0] !== 'prepared' || e.transitions.at(-1) !== e.state
@@ -82,7 +91,7 @@ export function openAttemptLedger(dir) {
       if (active || closed) throw Error('attempt_state');
       const attemptId = randomBytes(16).toString('hex');
       if (seen.has(attemptId)) throw Error('attempt_reuse');
-      active = { attemptId, state: 'prepared', transitions: ['prepared'],
+      active = { attemptId, ...(policy?{evidencePolicy:policy}:{}), state: 'prepared', transitions: ['prepared'],
         history: [{ state: 'prepared', atUTC: Date.now(), evidence: null }], verdict: 'INCONCLUSIVE', evidence: null };
       save([...entries, active]); return attemptId;
     },
@@ -96,9 +105,14 @@ export function openAttemptLedger(dir) {
     },
     series() {
       if (poisoned) throw Error('ledger_unavailable');
-      let count = 0;
-      for (const e of entries) { if (e.verdict === 'FAIL') count = 0; else if (e.state === 'completed' && e.verdict === 'PASS') count++ }
-      return count;
+      let count = 0, previous=null;
+      for (const e of entries) {
+        const key=policyKey(e.evidencePolicy);
+        if(key!==previous)count=0;
+        previous=key;
+        if (e.verdict === 'FAIL') count = 0; else if (e.state === 'completed' && e.verdict === 'PASS') count++;
+      }
+      return previous===currentPolicy?count:0;
     },
     checkpoint(evidence) {
       if (!active || closed || terminal(active.state)) throw Error('attempt_state');
@@ -176,7 +190,9 @@ export async function prepareObservation(options = {}) {
   if (Reflect.ownKeys(options).length) throw Error('operator_options');
   // Fixed independent authority before any ledger/FIFO or network activity.
   const provider = createProductionProjectionProvider();
-  const ledger = openAttemptLedger(path.join(directory, 'ledger'));
+  const evidencePolicy=productionEvidencePolicy(provider);
+  const site=evidencePolicy.evidencePolicy==='site-content-verification';
+  const ledger = openAttemptLedger(path.join(directory, 'ledger'),site?evidencePolicy:null);
   const attemptId = ledger.prepare();
   let observed = false, arming = null, receiver = null, relay = null, pending = null;
   let result = null, initial = null, completedUTC = null;
@@ -194,13 +210,15 @@ export async function prepareObservation(options = {}) {
         const selected = prepareBeforeV2(before);
         if (!before || selected.status !== 'ready') throw Error('before_unavailable');
         if (productionBeforeIdentity(provider, before) !== initial) throw Error('before_identity_changed');
+        if(site && (initial.identityEvidence!=='site-content-verification' || ['policyVersion','policySha256'].some(k=>initial[k]!==evidencePolicy[k])))throw Error('before_policy_changed');
         const baseline = providerBeforeBaseline(provider, before);
         const calibration = await calibrateProductionClock(provider);
         if(cancelled)throw Error('cancelled');
         receiver = openPersistentReceiver({ fifo: path.join(directory, attemptId, 'event.fifo'), attemptId, calibration, before, provider });
         ledger.transition('armed', { attemptId, sourceSha: before.provenance.sourceSha,
-          frontendSha: before.provenance.frontendSha, snapshotId: before.snapshotId, deploymentId: initial.deploymentId,
-          ...(initial.identityEvidence?{identityEvidence:initial.identityEvidence,configurationSha256:initial.configurationSha256,ownerConfirmedAt:initial.ownerConfirmedAt,checkedAt:initial.checkedAt}:{}) });
+          snapshotId: before.snapshotId,
+          ...(site?evidencePolicy:{frontendSha:before.provenance.frontendSha,deploymentId:initial.deploymentId}),
+          ...(initial.identityEvidence?{identityEvidence:initial.identityEvidence,...(site?{}:{configurationSha256:initial.configurationSha256,ownerConfirmedAt:initial.ownerConfirmedAt}),checkedAt:initial.checkedAt}:{}) });
         const digest = v => createHash('sha256').update(JSON.stringify(v) + '\n').digest('hex');
         let consumed = false;
         // Start the SAME receiver now: calibration refresh/deadline never wait
@@ -219,10 +237,10 @@ export async function prepareObservation(options = {}) {
               || a.bootId !== calibration.bootId || Date.now() >= Date.parse(a.expiresAt)) throw Error('ready_peer');
             consumed = true;
             readyAuthority = a;
-            const response = { version: 1, status: 'READY', attemptId, nonce: request.nonce, s0: baseline,
+            const response = { version: site?2:1, status: 'READY', attemptId, nonce: request.nonce, s0: baseline,
               projectionSha256: digest(before), witnessSha256: digest(selected.witness), sourceSha: a.sourceSha,
-              frontendSha: a.frontendSha, deploymentId: a.deploymentId, confirmedAt: a.confirmedAt,
-              bootId: a.bootId, expiresAt: a.expiresAt };
+              ...(site?{}:{frontendSha:a.frontendSha,deploymentId:a.deploymentId}), confirmedAt: a.confirmedAt,
+              bootId: a.bootId, expiresAt: a.expiresAt,...(site?evidencePolicy:{}) };
             ledger.checkpoint({ state: 'ready_consumed', nonceSha256: digest(request.nonce), projectionSha256: response.projectionSha256,
               witnessSha256: response.witnessSha256 });
             return response;
@@ -286,6 +304,7 @@ export async function prepareObservation(options = {}) {
         if(result.acceptance!=='INCONCLUSIVE')recheckProductionReadyAuthority(provider,readyAuthority);
         const post = productionIdentity(provider, attemptId, 'after');
         if (!initial || post.deploymentId !== initial.deploymentId || post.frontendSha !== initial.frontendSha
+          || ['identityEvidence','policyVersion','policySha256','origin','configurationSha256','ownerConfirmedAt'].some(k=>post[k]!==initial[k])
           || post.confirmedAt < completedUTC || !post.optInInactive) throw Error('deployment_changed');
       } catch { final = { ...result, acceptance: 'INCONCLUSIVE', reason: 'post_identity_or_cleanup_unverified' } }
       // Only the existing validator-generated safe result is persisted; no raw
