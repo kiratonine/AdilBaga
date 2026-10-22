@@ -148,6 +148,12 @@ must remain unchanged. No Docker prune, migrations, DB probes, ingestion or secr
 rotation. A DB/compose/frozen-contract change relative to active release blocks
 automatic transport. Root-owned compose hash is fixed to the reviewed Part15 file.
 
+Reviewed protected-path exceptions are pinned per exact active release by Git blob
+in `approvedExceptions` (`scripts/deploy/auto-transport.mjs`). Current entries:
+`438ecdfa` (contracts tooling pair) and `6a4b4c7` (the data-only SCRUM-19 taxonomy
+migration, already applied to production, required absent in the active tree). Any
+other protected delta, or a different active release, needs a new reviewed entry.
+
 ## Variant A: independent approval of one exact saved archive
 
 This procedure is a future separately authorized operator task, NOT executed by
