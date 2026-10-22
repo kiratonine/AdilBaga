@@ -71,6 +71,9 @@ describe('DashboardPage', () => {
     // Fix Price дешевле, но без яиц — выгоднейшей не считается
     expect(baskets[2]).not.toHaveAttribute('data-best')
     expect(baskets[2]).toHaveTextContent('Нет 1 из 5 позиций')
+    expect(within(baskets[2]).getByTestId('basket-total')).toHaveClass('text-muted')
+    expect(within(baskets[0]).getByTestId('basket-total')).not.toHaveClass('text-muted')
+    expect(screen.getByRole('heading', { name: 'Демо-корзина' })).toBeInTheDocument()
   })
 
   it('opens the basket contents with links to products', async () => {
