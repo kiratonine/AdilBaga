@@ -16,7 +16,7 @@ INSERT INTO canonical_products (id,name,brand,"categoryId",attributes) VALUES
 ('p1','Молоко Альфа','A','milk','{"volumeMl":1000,"organic":true,"nested":{},"nil":null}'),
 ('p2','МОЛОКО Бета','B','milk','{"volumeMl":500,"organic":false}'),
 ('p3','Молоко Ёж','A','milk','{"volumeMl":"1000","organic":true}'),
-('p4','Масло','A','oil','{"volumeMl":1000}'),
+('p4','Масло подсолнечное','A','oil','{"volumeMl":1000}'),
 ('zero','Нулевая цена','A','milk','{"volumeMl":999}'),
 ('out','Нет в наличии','stale','milk','{"volumeMl":999}'),
 ('none','Нет offers','A','milk','{"volumeMl":999}');

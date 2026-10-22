@@ -258,18 +258,66 @@ func TestDeterministicCatalog(t *testing.T) {
 		if len(d.Baskets) != 3 || d.Baskets[0].Total != 120 || d.Baskets[1].Total != 100 || d.Baskets[2].Total != 50 {
 			t.Fatal("store-specific basket prices")
 		}
+		wantKeys := []string{"basket-milk", "basket-pasta", "basket-rice", "basket-yogurt", "basket-oil"}
+		wantNames := []string{"Молоко 1 л", "Макароны 400 г", "Рис 800 г", "Йогурт Fruttis 115 г", "Масло подсолнечное 0,8–1 л"}
 		for _, b := range d.Baskets {
-			if len(b.Items) != 3 {
-				t.Fatal("fixed basket slots")
+			if len(b.Items) != 5 {
+				t.Fatal("demo basket slots")
 			}
-			if b.Items[1].CategorySlug != "sugar" || b.Items[1].CategoryName != "Сахар" {
-				t.Fatal("sugar basket contract drift")
-			}
-			for _, item := range b.Items {
+			for i, item := range b.Items {
+				if item.CategorySlug != wantKeys[i] || item.CategoryName != wantNames[i] {
+					t.Fatal("demo basket slot order/labels")
+				}
 				if item.Price == nil && (item.ProductID != nil || item.Name != nil) {
 					t.Fatal("missing null semantics")
 				}
 			}
+		}
+		if p := d.Baskets[0].Items[0]; p.ProductID == nil || *p.ProductID != "p1" {
+			t.Fatal("case-insensitive cyrillic name match (Молоко Альфа)")
+		}
+		if p := d.Baskets[2].Items[4]; p.ProductID == nil || *p.ProductID != "p4" {
+			t.Fatal("oil range 800..1000 match")
+		}
+	})
+	t.Run("demo basket slot filters", func(t *testing.T) {
+		// Extra rows are committed (the read-only pool is another session) and removed again below.
+		ids := `'bk-bad','bk-pasta','bk-oats','bk-rice','bk-noodle','bk-oil5','bk-yogurt','bk-nemoloko'`
+		t.Cleanup(func() {
+			_, err := admin.Exec(context.Background(), `DELETE FROM offers WHERE "canonicalProductId" IN (`+ids+`); DELETE FROM canonical_products WHERE id IN (`+ids+`); DELETE FROM categories WHERE id IN ('groats','dairy')`)
+			if err != nil {
+				t.Error("demo basket fixture cleanup failed")
+			}
+		})
+		if _, err := admin.Exec(ctx, `INSERT INTO categories (id,slug,name,"filterSchema") VALUES ('groats','groats','Крупы',NULL),('dairy','dairy','Кисломолочные',NULL);
+INSERT INTO canonical_products (id,name,brand,"categoryId",attributes) VALUES
+('bk-bad','Молоко Битое','A','milk','{"volumeMl":"abc"}'),
+('bk-nemoloko','Напиток Nemoloko 1 л','A','milk','{"volumeMl":1000}'),
+('bk-pasta','Спагетти Pasta collection 400 г','A','groats','{"weightGrams":400}'),
+('bk-oats','Овсяные хлопья 400 г','A','groats','{"weightGrams":400}'),
+('bk-rice','Рис круглозерный 800 г','A','groats','{"weightGrams":800}'),
+('bk-noodle','Рисовая лапша 800 г','A','groats','{"weightGrams":800}'),
+('bk-oil5','Масло подсолнечное 5 л','A','oil','{"volumeMl":5000}'),
+('bk-yogurt','Йогурт FRUTTIS 115 г','A','dairy','{"weightGrams":115}');
+INSERT INTO offers (id,"canonicalProductId","rawProductId","storeId",price,"inStock","snapshotAt","snapshotId")
+SELECT 'o-'||id,id,'r1','dina',CASE id WHEN 'bk-pasta' THEN 185 WHEN 'bk-rice' THEN 636 WHEN 'bk-yogurt' THEN 231 ELSE 1 END,true,'2026-10-01 10:00:00','fixture-internal-v1'
+FROM canonical_products WHERE id LIKE 'bk-%'`); err != nil {
+			t.Fatal("demo basket fixture insert failed")
+		}
+		d, err := repo.GetDashboard(ctx)
+		if err != nil {
+			t.Fatal("non-numeric attribute must not fail the dashboard")
+		}
+		got := []string{}
+		for _, item := range d.Baskets[0].Items {
+			if item.ProductID == nil {
+				got = append(got, "")
+			} else {
+				got = append(got, *item.ProductID)
+			}
+		}
+		if want := []string{"p1", "bk-pasta", "bk-rice", "bk-yogurt", ""}; !reflect.DeepEqual(got, want) || d.Baskets[0].Total != 120+185+636+231 {
+			t.Fatalf("dina slots %v total %d", got, d.Baskets[0].Total)
 		}
 	})
 	t.Run("restricted role and read-only pool", func(t *testing.T) {
