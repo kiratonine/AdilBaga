@@ -81,7 +81,7 @@ const tooling={
 
 // All Git/SSH responses here are synthetic OS fixtures; no network, repository
 // writes or reliance on historical objects in a shallow CI checkout.
-function fixtureGit(args,{old=active,next=reviewed,paths=Object.keys(tooling),change={},fail=false,mode='100644'}={}) {
+function fixtureGit(args,{old=active,next=reviewed,paths=Object.keys(tooling),change={},fail=false,mode='100644',table=tooling}={}) {
   const a=args.filter(x=>x!=='--no-replace-objects');
   const ok=stdout=>({status:0,stdout:Buffer.from(stdout),stderr:Buffer.alloc(0)});
   if(fail)return {status:128,stdout:Buffer.alloc(0),stderr:Buffer.from('synthetic failure')};
@@ -96,7 +96,7 @@ function fixtureGit(args,{old=active,next=reviewed,paths=Object.keys(tooling),ch
   if(a[0]==='ls-tree') {
     const path=a.at(-1),ref=a[a.indexOf('--')-1],key=ref+':'+path;
     if(change[key]==='missing')return ok('');
-    const hash=change[key]??tooling[path]?.[ref===old?0:1];
+    const hash=change[key]??table[path]?.[ref===old?0:1];
     return hash?ok(mode+' blob '+hash+'\t'+path+'\0'):ok('');
   }
   throw Error('unexpected synthetic Git operation');
@@ -274,4 +274,42 @@ for(const corruptAt of [1,3,4])test(`malformed Git output at operation ${corrupt
 }));
 for(const mode of ['120000','100755','160000'])test(`tooling Git mode ${mode} is not the reviewed regular file`,()=>withGit({mode},()=>{
   assert.throws(()=>transport.verifyCompatibility(active,reviewed));
+}));
+
+// Active release 6a4b4c7 (PR #54). The only protected delta from it to main is the data-only SCRUM-19 taxonomy
+// migration (PR #57, already applied to production), absent in the active tree and pinned by blob in the candidate.
+const active2='6a4b4c7a91ec471db54987b689c3c87a785523a3';
+const scrum19='backend/prisma/migrations/20261021000000_scrum19_milk_taxonomy/migration.sql';
+const scrum19Blob='1fe70e318dbc46838bcede80f310b569ca22b415';
+const scrum19Table={[scrum19]:[null,scrum19Blob]};
+const git2=(extra={})=>({old:active2,paths:[scrum19],table:scrum19Table,...extra});
+test('active 6a4b4c7 admits exactly the pinned SCRUM-19 migration (absent before, pinned blob after)',()=>withGit(git2(),calls=>{
+  transport.verifyCompatibility(active2,reviewed);
+  assert.equal(calls.filter(a=>a.includes('ls-tree')).length,2);
+}));
+test('active 6a4b4c7 admits a future verified main with the same pinned migration blob',()=>{
+  const next='c'.repeat(40);withGit(git2({next}),()=>transport.verifyCompatibility(active2,next));
+});
+for(const path of ['contracts/openapi.yaml','contracts/package.json','backend/prisma/schema.prisma',
+  'backend/prisma/migrations/20261022000000_other/migration.sql','deploy/compose.production.yml'])
+  test(`active 6a4b4c7 rejects extra protected change ${path}`,()=>withGit(git2({paths:[scrum19,path]}),()=>{
+    assert.throws(()=>transport.verifyCompatibility(active2,reviewed));
+  }));
+for(const paths of [[scrum19,scrum19],['backend/prisma/migrations/20261021000000_scrum19_milk_taxonomy/other.sql']])
+  test(`active 6a4b4c7 rejects duplicate/different path set ${paths.join(',')}`,()=>withGit(git2({paths}),()=>{
+    assert.throws(()=>transport.verifyCompatibility(active2,reviewed));
+  }));
+for(const hash of ['0'.repeat(40),'missing'])
+  test(`active 6a4b4c7 rejects ${hash==='missing'?'missing':'modified'} candidate blob`,()=>
+    withGit(git2({change:{[reviewed+':'+scrum19]:hash}}),()=>assert.throws(()=>transport.verifyCompatibility(active2,reviewed))));
+test('active 6a4b4c7 rejects a migration already present in the active tree (not an addition)',()=>
+  withGit(git2({change:{[active2+':'+scrum19]:'e'.repeat(40)}}),()=>assert.throws(()=>transport.verifyCompatibility(active2,reviewed))));
+for(const mode of ['120000','100755','160000'])test(`active 6a4b4c7 rejects migration Git mode ${mode}`,()=>withGit(git2({mode}),()=>{
+  assert.throws(()=>transport.verifyCompatibility(active2,reviewed));
+}));
+test('SCRUM-19 exception is bound to active 6a4b4c7 only',()=>{
+  const other='d'.repeat(40);withGit(git2({old:other}),()=>assert.throws(()=>transport.verifyCompatibility(other,reviewed)));
+});
+test('the 438ecdfa tooling pair is not an exception for active 6a4b4c7',()=>withGit({old:active2},()=>{
+  assert.throws(()=>transport.verifyCompatibility(active2,reviewed));
 }));

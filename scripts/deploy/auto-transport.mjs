@@ -24,10 +24,20 @@ export function runtimeChanged(paths) {
 }
 
 const protectedPaths=['backend/prisma','contracts','deploy/compose.production.yml'];
-const toolingActive='438ecdfa3d386a186dcd8b73c3c10aef5e79dc82';
-const toolingBlobs=[
-  ['contracts/package.json','ee97d962531376e81a0b9175d8eef2aaa36a7c9c','48a7866b9084cbc25b2dafc1089713eb555e0a38'],
-  ['contracts/pnpm-lock.yaml','5ec3371eba46c18660421d89949aa0ebf890d534','4a631ef27450ce85b818e4fe02705b9bcd224c13'],
+// Reviewed exceptions, keyed by the exact active release. Each lists every protected path that may differ
+// between that release and any candidate, with the Git blob expected in the active tree and in the candidate
+// tree. A null blob means the path must be absent from that tree (an addition).
+const approvedExceptions=[
+  // Contract tooling pair reviewed against the Part15 release.
+  {active:'438ecdfa3d386a186dcd8b73c3c10aef5e79dc82',blobs:[
+    ['contracts/package.json','ee97d962531376e81a0b9175d8eef2aaa36a7c9c','48a7866b9084cbc25b2dafc1089713eb555e0a38'],
+    ['contracts/pnpm-lock.yaml','5ec3371eba46c18660421d89949aa0ebf890d534','4a631ef27450ce85b818e4fe02705b9bcd224c13'],
+  ]},
+  // SCRUM-19 taxonomy migration (PR #57): data-only, no DDL, already applied to production. It is the only
+  // protected change between the active API release 6a4b4c7 (PR #54) and main.
+  {active:'6a4b4c7a91ec471db54987b689c3c87a785523a3',blobs:[
+    ['backend/prisma/migrations/20261021000000_scrum19_milk_taxonomy/migration.sql',null,'1fe70e318dbc46838bcede80f310b569ca22b415'],
+  ]},
 ];
 function compatibilityGit(args) {
   const r=spawnSync('git',['--no-replace-objects',...args],{timeout:10000,maxBuffer:1<<20,
@@ -48,12 +58,13 @@ export function verifyCompatibility(active,candidate) {
   const diff=compatibilityGit(['diff','--name-only','--no-renames','--no-ext-diff','--no-textconv','-z',
     active,candidate,'--',...protectedPaths]);
   if(diff==='')return;
-  assert.equal(active,toolingActive,'incompatible active release');
-  assert.equal(diff.split('\0').sort().join('\0'),['',...toolingBlobs.map(([path])=>path)].sort().join('\0'),
+  const approved=approvedExceptions.find(e=>e.active===active);
+  assert.ok(approved,'incompatible active release');
+  assert.equal(diff.split('\0').sort().join('\0'),['',...approved.blobs.map(([path])=>path)].sort().join('\0'),
     'incompatible DB/compose/contract delta');
-  for(const [path,oldBlob,newBlob] of toolingBlobs) {
+  for(const [path,oldBlob,newBlob] of approved.blobs) {
     for(const [ref,blob] of [[active,oldBlob],[candidate,newBlob]]) {
-      assert.equal(compatibilityGit(['ls-tree','-z',ref,'--',path]),`100644 blob ${blob}\t${path}\0`,
+      assert.equal(compatibilityGit(['ls-tree','-z',ref,'--',path]),blob===null?'':`100644 blob ${blob}\t${path}\0`,
         'unreviewed tooling object');
     }
   }
