@@ -23,15 +23,20 @@ const dashboardSQL = `WITH current_snapshot AS (
  SELECT id,name,min_price,max_price,
  floor(((max_price-min_price)::float8/min_price)*10000+0.5)/100 difference
  FROM aggregates WHERE chains>=2
-), slots(ord,slug,name,key,value) AS (
- VALUES (1,'milk','Молочные продукты','volumeMl','1000'::jsonb),
- (2,'sugar','Сахар','weightGrams','1000'::jsonb),
- (3,'oil','Растительные масла','volumeMl','1000'::jsonb)
+), slots(ord,slug,name,category,key,lo,hi,pattern) AS (
+ VALUES (1,'basket-milk','Молоко 1 л','milk','volumeMl',1000,1000,'^молоко '),
+ (2,'basket-pasta','Макароны 400 г','groats','weightGrams',400,400,'^(макароны|спагетти)'),
+ (3,'basket-rice','Рис 800 г','groats','weightGrams',800,800,'^рис '),
+ (4,'basket-yogurt','Йогурт Fruttis 115 г','dairy','weightGrams',115,115,'fruttis'),
+ (5,'basket-oil','Масло подсолнечное 0,8–1 л','oil','volumeMl',800,1000,'подсолнеч')
 ), candidates AS (
  SELECT u."storeId",slots.ord,u.id,u.name,u.price,
  row_number() OVER (PARTITION BY u."storeId",slots.ord ORDER BY u.price,u.id COLLATE "C") choice
  FROM usable u JOIN public.categories c ON c.id=u."categoryId"
- JOIN slots ON slots.slug=c.slug AND u.attributes->slots.key=slots.value
+ JOIN slots ON slots.category=c.slug
+ AND CASE WHEN jsonb_typeof(u.attributes->slots.key)='number'
+ THEN (u.attributes->>slots.key)::numeric END BETWEEN slots.lo AND slots.hi
+ AND u.name ~* slots.pattern
 ), baskets AS (
  SELECT s.code,s.name,sum(coalesce(best.price,0)) total,
  jsonb_agg(jsonb_build_object('categorySlug',slots.slug,'categoryName',slots.name,

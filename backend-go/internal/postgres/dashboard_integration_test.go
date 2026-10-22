@@ -35,13 +35,14 @@ func TestLocalDashboardPlan(t *testing.T) {
 	if result.Summary.CanonicalProducts != 849 || len(result.Locations) != 15 {
 		t.Fatal("explicit current restored clone population differs")
 	}
+	wantKeys := []string{"basket-milk", "basket-pasta", "basket-rice", "basket-yogurt", "basket-oil"}
 	for _, b := range result.Baskets {
-		if len(b.Items) != 3 {
-			t.Fatal("fixed slots")
+		if len(b.Items) != 5 {
+			t.Fatal("demo basket slots")
 		}
 		total := 0
 		for i, item := range b.Items {
-			if item.CategorySlug != []string{"milk", "sugar", "oil"}[i] {
+			if item.CategorySlug != wantKeys[i] {
 				t.Fatal("slot order")
 			}
 			if item.Price != nil {
