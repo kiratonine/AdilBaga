@@ -49,7 +49,7 @@ func readyFixture(t *testing.T, mutate func(*ReadyResponse), transport func(net.
 		if !canonicalReady(raw, &req) {
 			return
 		}
-		r := ReadyResponse{1, "READY", a.AttemptID, req.Nonce, ReadyBaseline{"bbbbbbbb-0000-4000-8000-000000000000", "2026-10-21T00:00:00.000Z"}, strings.Repeat("d", 64), strings.Repeat("e", 64), a.SourceSHA, a.FrontendSHA, a.DeploymentID, a.ConfirmedAt, a.BootID, a.ExpiresAt}
+		r := ReadyResponse{1, "READY", a.AttemptID, req.Nonce, ReadyBaseline{"bbbbbbbb-0000-4000-8000-000000000000", "2026-10-21T00:00:00.000Z"}, strings.Repeat("d", 64), strings.Repeat("e", 64), a.SourceSHA, a.FrontendSHA, a.DeploymentID, a.ConfirmedAt, a.BootID, a.ExpiresAt, "", 0, ""}
 		if mutate != nil {
 			mutate(&r)
 		}
@@ -70,6 +70,27 @@ func TestReadyRealUnixCanonicalBaselineOnce(t *testing.T) {
 	at, _ := time.Parse(readyTime, "2026-10-21T00:00:00.000Z")
 	if !ticket.BindBaseline("bbbbbbbb-0000-4000-8000-000000000000", at) || ticket.BindBaseline("bbbbbbbb-0000-4000-8000-000000000000", at) {
 		t.Fatal("one-time baseline binding")
+	}
+}
+
+func TestSiteContentReadyV2Canonical(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	raw := `{"version":2,"status":"READY","attemptId":"` + strings.Repeat("a", 32) + `","nonce":"` + strings.Repeat("b", 32) + `","s0":{"snapshotId":"bbbbbbbb-0000-4000-8000-000000000000","publishedAt":"2026-10-21T00:00:00.000Z"},"projectionSha256":"` + strings.Repeat("d", 64) + `","witnessSha256":"` + strings.Repeat("e", 64) + `","sourceSha":"` + strings.Repeat("c", 40) + `","confirmedAt":"` + now.Add(-time.Second).Format(readyTime) + `","bootId":"aaaaaaaa-0000-4000-8000-000000000000","expiresAt":"` + now.Add(time.Minute).Format(readyTime) + `","evidencePolicy":"site-content-verification","policyVersion":2,"policySha256":"` + strings.Repeat("f", 64) + `"}` + "\n"
+	var response ReadyResponse
+	request := ReadyRequest{1, strings.Repeat("a", 32), strings.Repeat("b", 32)}
+	if !canonicalReady([]byte(raw), &response) || !validReadyResponse(response, request, now) {
+		t.Fatal("site-content READY-v2 rejected without frontend identity")
+	}
+	for _, bad := range []string{
+		strings.Replace(raw, `"policyVersion":2`, `"policyVersion":1`, 1),
+		strings.Replace(raw, `"evidencePolicy":"site-content-verification"`, `"evidencePolicy":"unknown"`, 1),
+		strings.Replace(raw, `"sourceSha":`, `"frontendSha":"`+strings.Repeat("c", 40)+`","sourceSha":`, 1),
+		strings.Replace(raw, strings.Repeat("f", 64), strings.Repeat("F", 64), 1),
+	} {
+		var value ReadyResponse
+		if canonicalReady([]byte(bad), &value) && validReadyResponse(value, request, now) {
+			t.Fatal("mixed or malformed READY evidence accepted")
+		}
 	}
 }
 func TestReadyIdentityAndBaselineNegatives(t *testing.T) {

@@ -206,6 +206,16 @@ class LaunchTests(unittest.TestCase):
             scope.assert_called_once()
             self.assertEqual(len(self.inspections),2)
 
+    def test_site_content_v2_factory_uses_same_pinned_elf_without_frontend_identity(self):
+        self.a={k:v for k,v in self.a.items() if k not in ('frontendSha','deploymentId')}
+        self.a.update(evidencePolicy='site-content-verification',policyVersion=2,policySha256='3'*64)
+        self.a['version']=2
+        self.blobs[m.READY]=m.canonical(self.a)
+        with self.files() as (_,scope),contextlib.ExitStack() as stack:
+            candidate=m.admit(stack)
+            self.assertEqual(candidate.variables()['C2_EVENT_ATTEMPT_ID'],self.a['attemptId'])
+            scope.assert_called_once()
+
     def test_admission_negatives_never_claim_or_execute_candidate(self):
         for kind in ('wrong_digest','wrong_source','missing_binary','old_go','old_binary','go_timeout','go_failed','oversized_version','expired','wrong_boot','invalid_json','unapproved','extra_key','bool_uid','wrong_uid','wrong_gid'):
             with self.subTest(kind=kind):

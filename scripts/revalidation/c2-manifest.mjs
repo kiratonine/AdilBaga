@@ -115,9 +115,10 @@ export function validateProjectionV2(p, phase, attemptId) {
     || !uuid(p.snapshotId) || !(p.previousSnapshotId === null || uuid(p.previousSnapshotId))
     || p.previousSnapshotId === p.snapshotId) fail('projection_identity');
   const s = p.provenance;
-  keys(s, ['kind', 'evidenceId', 'canonicalStateId', 'sourceSha', 'frontendSha', 'semantics', 'snapshotStatus', 'consistentRead']);
+  const site = Object.getOwnPropertyDescriptor(s ?? {}, 'evidencePolicy')?.value === 'site-content-verification';
+  keys(s, ['kind', 'evidenceId', 'canonicalStateId', 'sourceSha', ...(site ? ['evidencePolicy','policyVersion','policySha256'] : ['frontendSha']), 'semantics', 'snapshotStatus', 'consistentRead']);
   if (s.kind !== 'sealed-repository-projection' || s.evidenceId !== `${attemptId}-${phase === 'after-commit' ? 'after' : 'before'}`
-    || !hex(s.canonicalStateId, 64) || !hex(s.sourceSha, 40) || !hex(s.frontendSha, 40)
+    || !hex(s.canonicalStateId, 64) || !hex(s.sourceSha, 40) || (site ? s.policyVersion !== 2 || !hex(s.policySha256,64) : !hex(s.frontendSha, 40))
     || s.semantics !== 'go-next-c2-v2' || s.snapshotStatus !== 'published' || s.consistentRead !== true) fail('unqualified_provenance');
   const b = p.body;
   keys(b, ['dashboardAt', 'topEight', 'witnessId', 'candidates', 'categoryPages', 'sitemap']);
@@ -194,6 +195,7 @@ export function buildManifest(input) {
     const checked = validateProjectionV2(a, 'after-commit', input.attemptId);
     if (a.previousSnapshotId !== b.snapshotId || a.snapshotId === b.snapshotId) fail('snapshot_chain');
     if (a.provenance.sourceSha !== b.provenance.sourceSha || a.provenance.frontendSha !== b.provenance.frontendSha
+      || ['evidencePolicy','policyVersion','policySha256'].some(k => a.provenance[k] !== b.provenance[k])
       || a.provenance.canonicalStateId === b.provenance.canonicalStateId) fail('conflicting_provenance');
     const p = b.body.candidates.find(c => c.id === prepared.witness.id), q = checked.products.get(p.id);
     if (a.body.witnessId !== p.id || !checked.eligible(q) || q.slug !== p.slug) fail('unqualified_after');

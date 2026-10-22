@@ -642,3 +642,61 @@ Local regressions: `python3 -B -m unittest discover -s ops/c2 -p 'test_*.py'`,
 existing Node C2 suite with real local relay, ops/security profiles, Part16
 verifier and disposable PG17/real Go joint integration. The production entry
 does not expose any of these synthetic test adapters.
+
+## Part32 — site-content-verification policy v2
+
+The Owner-approved automatic policy now measures convergence of the **actual
+public six representations** to canonical snapshot S1, not Vercel build identity.
+No deployment ID, frontend SHA, Vercel token or repinning on frontend redeploy is
+required. Historical manual READY-v1 and owner-pinned records keep their original
+meaning; they are not retrospectively upgraded or combined with the new series.
+
+The fixed root-controlled `/etc/aktau-c2/frontend.json` pathname is retained for
+compatibility, but its new content is a **site policy**, not frontend metadata:
+canonical JSON+LF, exact ordered keys `version:2`,
+`evidence:"site-content-verification"`, `origin:"https://aktau.market"`,
+`representations:["product_ru","product_kk","sitemap","catalog","dashboard","category"]`.
+SHA256 covers those exact bytes. The root automatic record is version2 with
+`sitePolicySha256` instead of `frontendConfigurationSha256`; all twelve immutable
+artifact hashes, source/reader/process/namespace checks remain mandatory.
+
+Per-attempt identity record version3 has ordered keys `version`, `attemptId`,
+`stage`, `origin`, `optInInactive`, `legitimatePublication`, `identityEvidence`,
+`policyVersion`, `policySha256`, `checkedAt`. The last field is a root custody
+check time, **not** a Vercel confirmation. BEFORE/AFTER must retain the same
+policy and publisher. Independently re-read BEFORE identity must match completely.
+
+Private READY **response/authority v2** omits `frontendSha`/`deploymentId` and
+appends `evidencePolicy`, `policyVersion:2`, `policySha256` after `expiresAt`.
+All other fields retain their order and semantics. The version1 nonce request is
+unchanged; versioned response is selected by the independently checked authority.
+Go verifies exact response/authority policy equality. No mixed v1/v2 fields are
+allowed. Max4096 bytes,1500ms admission, kernel peers, actual process/boot/source,
+one-use nonce and locked S0 baseline checks remain. The immutable ingest ELF and
+relay must therefore be rebuilt alongside the provider, not just Node copied.
+
+Go projection CLI accepts **either** legacy `-frontend-sha` **or**
+`-evidence-policy site-content-verification -policy-sha256 <hex64>`. New projection
+provenance replaces `frontendSha` with `evidencePolicy`, `policyVersion:2`,
+`policySha256`; body schema, canonicalStateId algorithm, SQL and witness choice
+are unchanged. SourceSHA is still the genuine immutable publisher build SHA.
+Only trusted factory custody can admit production HTTP. Public origin/GET-only
+transport, marker detector, six paths,5s SLA/20s diagnostics/21 GET/2 sitemap,
+8s BEFORE and35-minute supervision are unchanged. Missing/unexpected markers
+never PASS; frontend redeploy alone is not an identity failure or evidence.
+
+Each new ledger attempt carries an `evidencePolicy` object with those three
+policy fields. A policy-version/digest boundary resets the qualified series,
+without deleting/relabeling old entries; INCONCLUSIVE does not add a PASS and
+FAIL resets the current series. Root independently checks the same count and
+latest policy. Unqualified legacy entries remain readable for audit/recovery.
+Three genuine qualified PASS are still needed; new0/3 while awaiting the next
+ordinary publication is not a production convergence PASS.
+
+Existing daily pre-start/service wiring, weekly no-publish behavior, fail-open
+business exits and crash/reboot protections are retained. The scheduled launcher
+accepts both strict authority versions and uses the same pinned ELF for its
+dry-run/apply pair. A policy/authority error excludes C2, never retries apply.
+Rollout must preserve prior kit/receipts/root records, reader inode and all
+evidence under safe no-clobber replacement; do not edit old approvals to claim
+new bytes were independently reviewed. No running sync may be interrupted.

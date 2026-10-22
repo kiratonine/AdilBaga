@@ -209,21 +209,33 @@ def bounded_command(argv, timeout=5, cap=4096):
 
 
 def validate_pin(pin, now):
+    if type(pin) is dict and pin.get('version')==2:
+        if not exact(pin,['version','evidence','origin','representations']) or type(pin['version']) is not int or pin['evidence']!='site-content-verification' or pin['origin']!='https://aktau.market' or pin['representations']!=['product_ru','product_kk','sitemap','catalog','dashboard','category']: raise ValueError('site_verification_policy')
+        return
     if not exact(pin,['version','evidence','alias','deploymentId','frontendSha','ownerConfirmedAt']) or type(pin['version']) is not int or pin['version']!=1 or pin['evidence']!='owner-pinned-configuration' or pin['alias']!='aktau.market' or type(pin['deploymentId']) is not str or not re.fullmatch(r'dpl_[A-Za-z0-9]{1,80}',pin['deploymentId']) or type(pin['frontendSha']) is not str or not HEX40.fullmatch(pin['frontendSha']) or type(pin['ownerConfirmedAt']) is not int or not 0<pin['ownerConfirmedAt']<=now: raise ValueError('frontend_configuration')
 
 
 def deployment_record(pin, attempt, stage, checked, inactive):
     validate_pin(pin,checked)
     if not ID.fullmatch(attempt) or stage not in ['before','after'] or type(inactive) is not bool: raise ValueError('attempt')
+    if pin['version']==2:
+        return {'version':3,'attemptId':attempt,'stage':stage,'origin':pin['origin'],'optInInactive':inactive,'legitimatePublication':True,'identityEvidence':'site-content-verification','policyVersion':2,'policySha256':digest(canonical(pin)),'checkedAt':checked}
     return {'version':2,'attemptId':attempt,'stage':stage,'alias':pin['alias'],'deploymentId':pin['deploymentId'],'frontendSha':pin['frontendSha'],'optInInactive':inactive,'legitimatePublication':True,'identityEvidence':'owner-pinned-configuration','configurationSha256':digest(canonical(pin)),'checkedAt':checked}
 
 
 def ledger_verdict(entries, attempt):
     if type(entries) is not list or not entries or len(entries)>1000: raise ValueError('ledger_shape')
-    seen=set(); count=0
+    seen=set(); count=0; previous=None
     for e in entries:
         if type(e) is not dict or type(e.get('attemptId')) is not str or not ID.fullmatch(e['attemptId']) or e['attemptId'] in seen or e.get('state') not in ['completed','inconclusive'] or e.get('verdict') not in ['PASS','FAIL','INCONCLUSIVE']: raise ValueError('ledger_identity')
         seen.add(e['attemptId'])
+        policy=e.get('evidencePolicy')
+        if policy is None: key='legacy'
+        else:
+            if not exact(policy,['evidencePolicy','policyVersion','policySha256']) or policy['evidencePolicy']!='site-content-verification' or type(policy['policyVersion']) is not int or policy['policyVersion']!=2 or type(policy['policySha256']) is not str or not HEX64.fullmatch(policy['policySha256']): raise ValueError('ledger_policy')
+            key=(policy['evidencePolicy'],policy['policyVersion'],policy['policySha256'])
+        if key!=previous: count=0
+        previous=key
         tr=e.get('transitions'); hist=e.get('history')
         if type(tr) is not list or not tr or tr[0]!='prepared' or tr[-1]!=e['state'] or type(hist) is not list or len(hist)!=len(tr) or any(type(h) is not dict or h.get('state')!=s or type(h.get('atUTC')) is not int for h,s in zip(hist,tr)): raise ValueError('ledger_history')
         if e['state']=='completed':
@@ -333,7 +345,9 @@ class Custodian:
         if os.geteuid()!=0 or os.getuid()!=0: raise ValueError('root_required')
         if type(self.invocation) is not str or not ID.fullmatch(self.invocation): raise ValueError('systemd_invocation')
         self.policy=root_json(POLICY); self.pin=root_json(PIN)
-        if not exact(self.policy,['version','enabled','sourceSha','frontendConfigurationSha256','files']) or type(self.policy['version']) is not int or self.policy['version']!=1 or self.policy['enabled'] is not True or type(self.policy['sourceSha']) is not str or not HEX40.fullmatch(self.policy['sourceSha']) or not exact(self.policy['files'],FILES) or any(type(v) is not str or not HEX64.fullmatch(v) for v in self.policy['files'].values()) or self.policy['frontendConfigurationSha256']!=digest(canonical(self.pin)): raise ValueError('automatic_policy')
+        site=self.pin.get('version')==2
+        hashkey='sitePolicySha256' if site else 'frontendConfigurationSha256'
+        if not exact(self.policy,['version','enabled','sourceSha',hashkey,'files']) or type(self.policy['version']) is not int or self.policy['version']!=(2 if site else 1) or self.policy['enabled'] is not True or type(self.policy['sourceSha']) is not str or not HEX40.fullmatch(self.policy['sourceSha']) or not exact(self.policy['files'],FILES) or any(type(v) is not str or not HEX64.fullmatch(v) for v in self.policy['files'].values()) or self.policy[hashkey]!=digest(canonical(self.pin)): raise ValueError('automatic_policy')
         validate_pin(self.pin,now_ms()); self.check_files()
         self.boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
         if not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}',self.boot): raise ValueError('kernel_boot_identity')
@@ -582,7 +596,9 @@ class Custodian:
         self.live_process(int(children[0]),pid,KIT+'/relayprobe',[KIT+'/relayprobe','ready-server',self.attempt])
         remaining=int(max(0,self.deadline-time.monotonic())*1000)
         if remaining<31000: raise ValueError('preparation_expired')
-        record={'version':1,'attemptId':self.attempt,'sourceSha':self.policy['sourceSha'],'frontendSha':self.pin['frontendSha'],'deploymentId':self.pin['deploymentId'],'confirmedAt':iso(self.before_checked),'bootId':self.boot,'operatorUid':self.uid,'operatorGid':self.gid,'supervisorPid':pid,'supervisorStartTicks':ticks,'nodeExecutable':NODE,'nodeSha256':nodehash,'commandSha256':digest(cmd),'supervisorSha256':self.policy['files'][KIT+'/c2-production-supervisor.mjs'],'ingestSha256':self.policy['files']['/usr/local/libexec/aktau-c2-ingest'],'relaySha256':self.policy['files'][KIT+'/relayprobe'],'expiresAt':iso(min(self.before_checked+35*60000,now_ms()+remaining))}
+        site=self.pin['version']==2
+        record={'version':2 if site else 1,'attemptId':self.attempt,'sourceSha':self.policy['sourceSha'],**({} if site else {'frontendSha':self.pin['frontendSha'],'deploymentId':self.pin['deploymentId']}),'confirmedAt':iso(self.before_checked),'bootId':self.boot,'operatorUid':self.uid,'operatorGid':self.gid,'supervisorPid':pid,'supervisorStartTicks':ticks,'nodeExecutable':NODE,'nodeSha256':nodehash,'commandSha256':digest(cmd),'supervisorSha256':self.policy['files'][KIT+'/c2-production-supervisor.mjs'],'ingestSha256':self.policy['files']['/usr/local/libexec/aktau-c2-ingest'],'relaySha256':self.policy['files'][KIT+'/relayprobe'],'expiresAt':iso(min(self.before_checked+35*60000,now_ms()+remaining))}
+        if site: record.update(evidencePolicy='site-content-verification',policyVersion=2,policySha256=digest(canonical(self.pin)))
         self.atomic(READY,record)
         self.save_forensic(self.evidence_dir,'ready.json',record)
         self.journal_save('armed')
@@ -605,7 +621,7 @@ class Custodian:
         address=os.environ.get('NOTIFY_SOCKET','')
         if not address or (not address.startswith('/') and not address.startswith('@')): raise ValueError('systemd_notify')
         sock=socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM)
-        try: sock.connect('\0'+address[1:] if address.startswith('@') else address); sock.sendall(b'READY=1\nSTATUS=C2 armed; Owner-pinned frontend configuration; awaiting ordinary publication')
+        try: sock.connect('\0'+address[1:] if address.startswith('@') else address); sock.sendall(('READY=1\nSTATUS=C2 armed; '+self.pin['evidence']+'; awaiting ordinary publication').encode())
         finally: sock.close()
 
     def after(self,event):
@@ -633,7 +649,9 @@ class Custodian:
         clean_cancel=event.get('state')=='CANCELLED_INCONCLUSIVE'
         if code!=(1 if clean_cancel else 0) or event.get('reconciliationRequired',False): raise ValueError('child_cleanup')
         if os.path.lexists(STATE+'/ledger/operator.lock'): raise ValueError('ledger_still_locked')
-        verdict,count=ledger_verdict(self.read_ledger(),self.attempt)
+        records=self.read_ledger()
+        verdict,count=ledger_verdict(records,self.attempt)
+        if self.pin['version']==2 and records[-1].get('evidencePolicy')!={'evidencePolicy':'site-content-verification','policyVersion':2,'policySha256':digest(canonical(self.pin))}: raise ValueError('ledger_policy_mismatch')
         if verdict!=('INCONCLUSIVE' if clean_cancel else event.get('acceptance')) or (not clean_cancel and (type(event.get('qualifiedPassCount')) is not int or event['qualifiedPassCount']!=count or event.get('accepted')!=(count>=3))): raise ValueError('verdict_ledger_mismatch')
         for p,(old,want) in self.owned.items():
             if p==ADMIN+'/current.json': continue
@@ -644,7 +662,7 @@ class Custodian:
             os.unlink('event.fifo',dir_fd=self.runfd); os.fsync(self.runfd)
         for p in [READY,DEPLOYMENT]:
             if p in self.owned: os.unlink(p); self.sync_parent(p)
-        self.outcome={'acceptance':verdict,'qualifiedPassCount':count,'identityEvidence':'owner-pinned-configuration'}
+        self.outcome={'acceptance':verdict,'qualifiedPassCount':count,'identityEvidence':self.pin['evidence']}
         if self.evidence_dir:self.save_forensic(self.evidence_dir,'result.json',self.outcome)
         self.journal_save('completed')
 
@@ -672,12 +690,12 @@ def main():
         if sys.argv!=[SELF]: raise ValueError('fixed_root_entry_only')
         event=run_cycle(io)
         safe={k:event[k] for k in ['state','acceptance','qualifiedPassCount','accepted'] if k in event}
-        safe['identityEvidence']='owner-pinned-configuration'
+        safe['identityEvidence']=io.pin['evidence']
         print(json.dumps(safe,separators=(',',':')),flush=True)
         return 0
     except Exception as e:
         if isinstance(e,InterruptedError) and io.journal and io.journal.get('phase')=='completed':
-            print(json.dumps({'state':'C2_CANCELLED_INCONCLUSIVE','acceptance':'INCONCLUSIVE','identityEvidence':'owner-pinned-configuration'},separators=(',',':')),flush=True)
+            print(json.dumps({'state':'C2_CANCELLED_INCONCLUSIVE','acceptance':'INCONCLUSIVE','identityEvidence':io.pin['evidence']},separators=(',',':')),flush=True)
             return 0
         code=str(e) if type(e) is ValueError and re.fullmatch(r'[a-z_]{1,64}',str(e)) else 'os_'+errno.errorcode.get(e.errno,'UNKNOWN').lower() if isinstance(e,OSError) else None
         print(json.dumps({'state':'C2_NOT_ARMED_OR_RECONCILIATION_REQUIRED','errorClass':type(e).__name__,'errorCode':code},separators=(',',':')),flush=True)

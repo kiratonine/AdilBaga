@@ -2630,3 +2630,287 @@ The prior failed recovery directory, genuine old READY/ledger and original
 root policy must be preserved before any narrowly reviewed administrative
 reconciliation. No live-observation result or automatic enablement is inferred
 from these local tests.
+
+### CURRENT — automatic C2 enabled; real reboot recovery verified
+
+**C2_AUTO_ENABLED=true — READY_FOR_EXTERNAL_REVIEW.** Final independent VPS
+readback at **2026-10-21T21:22:11Z**, after one separately Owner-authorized real
+reboot, confirms installed automatic integration. This supersedes only the
+operational NOT_WIRED / recovery-pending status of the preceding checkpoints;
+their failed results remain unchanged. **Genuine convergence acceptance is still
+0/3, OPEN, not production C2 PASS.** No publication was manufactured for testing.
+
+#### Source, CI and independently pinned components
+
+- PR62: <https://github.com/kiratonine/AdilBaga/pull/62>, normal protected merge,
+  exact source head `d0dfc226f6119454ef64b4a3fa848a0001e00f9f`.
+  [Head CI39674071002](https://github.com/kiratonine/AdilBaga/actions/runs/39674071002)
+  **9/9 SUCCESS**. Main `421b53ac1642b2296a9a5c986d0f4d98993167db`, identical
+  source tree, [main CI39674965130](https://github.com/kiratonine/AdilBaga/actions/runs/39674965130)
+  **9/9 SUCCESS**. Contracts, Security, Frontend, Pipeline, Nest, Go, disposable
+  PostgreSQL integration, ephemeral staging and CI Gate all completed SUCCESS;
+  no pending/skipped job is counted as PASS.
+- This was a narrow root-custodian correction, **not a new Go/Node bundle or API
+  release**. Reviewed provider/Node bundle and clean publisher checkout remain
+  `ff567dd438991610a20f800164ed6968ee526b37`; their existing independent root
+  binary authorization remains unchanged. Custodian Python is independently
+  pinned to the PR62 source above. All twelve runtime hashes matched on VPS.
+- Custodian SHA256:
+  `9dc8f5d8a1971946723ace4e73389a0e6a078e42b4ba667cc1a7887733e292a7`.
+  Automatic policy SHA256:
+  `6a4def66b32c99466a7f91861b563a079d64d6e969cfdaf1b7f28c39488fc4cd`.
+  Frontend configuration SHA256 remains
+  `144d581172b7048ca716992025c9205ffe8f79bee577d84e43e9a267aea4776b`.
+  Configured frontend remains d3a9cc5 / dpl_FUnss13QtAuWVMQYPoGNPf9ka3RM /
+  aktau.market, explicitly **Owner-pinned configuration, not live Vercel proof**.
+
+#### Actual installation and unattended protocol lifecycle
+
+The private fixed-argv administrative correction passed four isolated filesystem
+tests (exit0): exact update/preservation, root/hash/active-actor/foreign-resource
+refusal, existing-stage no-clobber and backup-write failure without replacement.
+It executed once at21:04:57Z, exit0. Previous Python, policy and current journal
+were preserved under root-only `part32-recovery-d0dfc22`; the earlier incomplete
+controller-only recovery directory was preserved under a distinct failed-recovery
+name. No original runtime attempt/ledger/READY was deleted by that procedure.
+Authority was the explicit Owner-delegated administrative instruction, not an
+invented fresh independent human artifact approval.
+
+Actual systemd protocol checks, without manual ARM/FINALIZE or business sync:
+
+| UTC request | Actual operation | Result |
+| --- | --- | --- |
+| 21:05:02 | Start corrected custodian, recover original interrupted attempt | exit0; armed, genuine READY; old evidence preserved |
+| 21:05:14 | Stop custodian | exit0; INCONCLUSIVE0; READY/lock removed |
+| 21:05:28 | Start another independent attempt | exit0; armed, genuine READY |
+| 21:05:40 | SIGKILL only new C2 cgroup | actual Result=signal/status9; kill command exit1 retained |
+| 21:05:59 | Start without administrative cleanup | exit0; same-boot recovery, genuine READY |
+| 21:06:28 | Stop | exit0; INCONCLUSIVE0; no residual READY/lock |
+| 21:07:09 | Install existing-daily pre-start drop-in and daemon-reload | exit0; exact loaded wiring confirmed |
+| 21:17:36 | Start read-only attempt for boot-recovery test | exit0; armed, genuine READY |
+| 21:18:12 | SIGKILL only C2 cgroup, retain interrupted evidence | Result=signal/status9; kill command exit1 retained |
+| 21:18:55 | One explicitly Owner-authorized `systemctl --no-block reboot` | exit0; one reboot request, no repeat |
+| 21:20:12 | Independent read-only postboot check | changed boot; old armed journal/READY/lock persisted; API auto-healthy |
+| 21:20:48 | Start same installed custodian entrypoint after boot | exit0; actual cross-boot recovery; new live READY |
+| 21:21:34 | Stop completed diagnostic attempt | exit0; terminal INCONCLUSIVE0; READY/lock removed |
+
+Each genuine READY followed the actual restricted Go BEFORE, approved process /
+ELF / UID / cgroup / nonblocking-reader checks. Startup and recovery performed
+the complete internal protocol automatically; no external person supplied an
+ARM or FINALIZE. The postboot test requests exactly the same companion entrypoint
+as the loaded timer pre-start; it **does not claim the future daily publication
+already ran**.
+
+Root-only forensic state now contains seven diagnostic ledger entries, all
+INCONCLUSIVE, **zero event_consumed entries**, three recovered directories and
+the separately preserved earlier failed recovery. Earlier history/count policy
+is retained; no interrupted attempt becomes PASS or replays an HTTP window.
+The historical recovery reason string alone is not boot evidence: actual
+same-boot tests and the later changed-kernel-boot test are distinguished above.
+
+#### Installed scheduling and reboot persistence
+
+- `/etc/systemd/system/aktau-c2-custodian.service`: root Type=notify, fixed
+  Python/Node entrypoints, control-group cleanup, bounded35-minute supervision,
+  no independent timer or restart loop. It is intentionally **static/inactive
+  between eligible publications**, not an always-running daemon.
+- `/etc/systemd/system/aktau-sync.service.d/30-c2-custodian.conf`: root0644,
+  SHA256 `b13d89528998727398460eae201fe9b0755b1dba94c390ae0e429be36fc8ebee`,
+  loaded both before and after reboot. Fixed ignored-error root pre-start:
+  `ExecStartPre=-+/usr/bin/systemctl start aktau-c2-custodian.service`.
+  Failure therefore preserves ordinary sync; C2 itself remains fail-closed.
+- The original daily unit bytes were independently matched to their pre-change
+  hash after removing only the known new systemd-cat drop-in separator. Original
+  User, working directory, environment references, ExecStart and business exit
+  semantics remain. Weekly service, daily/weekly/monitor timers and Cloudflare
+  unit bytes also matched their original hashes.
+- Existing daily, full and monitoring timers remained **enabled/active across
+  the real reboot**. No new scheduler, manual sync, timer stop/start or price
+  publication. Daily last trigger remains21Oct18:00:17+05; next legitimate daily
+  run is **22Oct06:00+05 / 01:00UTC**. Weekly no-publish schedule is unchanged.
+- Reboot preflight verified Docker enabled, API restart-policy unless-stopped,
+  SSH socket enabled on existing port22, Cloudflare/timers enabled, idle sync,
+  no system jobs and no held package-manager locks. An initial conservative
+  preflight refused the persistent unattended-upgrade shutdown helper; its exact
+  idle `--wait-for-signal` identity and clear package locks were then verified.
+  No package operation was killed, bypassed or started.
+- Actual kernel boot-ID hashes changed from
+  `73671e22c5a706d142e0b47ec1c0ecd1163d00f4fe2722e658073fd8d19ed3aa`
+  to `cf34643e5cfe87a06731d00a185ed9b4201270f20513bd4363b32aa19bafc210`.
+  API came back automatically, without Docker start/deploy. Final journal boot
+  matches the new kernel, NTP synchronized. This is **real reboot evidence**, not
+  only a simulated boot or cold process restart. Continuous outage duration was
+  not measured and is not claimed.
+
+#### API, data, reader and rollback postflight
+
+At21:22:11Z: original API revision
+`6a4b4c7a91ec471db54987b689c3c87a785523a3`, image
+`sha256:6ea91b73fbd492bdff70e8f4d346c22c9763568aa7f20c5fc80b89846b773d68`,
+running/healthy, restart0/OOMfalse. Go1.27.3 and Node24.18.0 persisted. The natural
+postboot monitoring service ran22Oct02:24:06–02:24:11+05
+(21Oct21:24:06–21:24:11UTC), Result=success/exit0, with no
+operator-triggered Telegram smoke.
+
+Existing `node scripts/ops/verify-go-production.mjs --live` was run once before
+and once after reboot, each exit0 and **five fixed sequential GET PASS** with
+valid schemas; no retry, POST, HEAD, Voice or Siri test:
+
+| Endpoint | Preboot latency_ms | Postboot latency_ms | HTTP/schema |
+| --- | ---: | ---: | --- |
+| live | 594 | 477 | 200 / valid |
+| ready | 531 | 601 | 200 / valid |
+| categories | 953 | 888 | 200 / valid |
+| products(limit1) | 986 | 1080 | 200 / valid |
+| dashboard | 828 | 840 | 200 / valid |
+
+Both dashboard reads reported snapshotAt2026-10-21T13:01:35.028Z. These **ten
+operator public GET** demonstrate API reachability/schema, not C2 convergence.
+No controlled attempt consumed a publication/FIFO event or admitted observer
+GET. Routine independent monitor traffic is not counted as operator requests.
+
+Reader remains the original single-link0600 inode933613/dev64770, UID999/GID987;
+no DSN value was logged/copied/replaced. Delegated parent ownership/mode remained
+999:987/0755. All18 local data files retained combined content/path/owner/mode /
+inode fingerprint098ee5dc2f721de7d085b7802fc55d1ae76aa3d02930a1b084769d0c4a84b9f5.
+This is **not a fresh full production DB backup/parity claim**.
+
+Rollback retained: prior source d3a9cc5, SCRUM-19 source28cc3fc, old Go1.27.2,
+prior C2 kit/receipt/authority/entry, original custodian/policy and API438ecdfa
+image. To disable automatic C2, first stop only its companion gracefully, verify
+terminal cleanup, then preserve/move only the owned daily drop-in to root rollback
+storage and daemon-reload. Leave daily/full timers and their original unit bytes
+unchanged. Never run the old installer rollback over the current reader/ledger,
+delete forensic evidence, or blindly restore old authority during an active run.
+Unknown cleanup requires reconciliation; ordinary sync must remain fail-open.
+
+#### Backend2 handoff and remaining acceptance
+
+No person/SSH session is needed for future eligible scheduled BEFORE, actual
+process-bound READY, post-COMMIT FIFO/204, AFTER and FINALIZE. Existing local
+joint PoC15/15 and342 Node regressions cover the full event/verdict chain; the
+production tests here deliberately did not invent a publication to force it.
+Watch bounded sanitized custodian journal/status after the next legitimate run;
+inactive between runs is expected. Keep35-minute supervision, original5-second
+acceptance /20-second diagnostics /21 GET /2 sitemap caps unchanged.
+
+**Three genuine qualified consecutive PASS remain0/3.** INCONCLUSIVE does not
+count; FAIL resets the count; historical failures remain. Historical frontend
+latency RCA is not newly established or repaired by this instrumentation.
+Frontend identity is configuration-bound; no new live Vercel attestation is
+claimed. Any future approved configuration change must preserve explicit root
+identity policy rather than silently refreshing an old confirmation timestamp.
+
+No API/Frontend/Siri/DB/ingestion/HMAC/schema source change, artificial apply,
+new publication, secrets disclosure, GitHub Release/tag/draft Release, broker
+deploy or AUTO_DEPLOY_ENABLED activation. The one whole-VPS reboot was separately
+Owner-authorized and is explicitly recorded, not hidden as “no service impact”.
+Fresh main remains421b53ac; AUTO_DEPLOY_ENABLED was independently read as false.
+Final clean full-stack source archive and its SHA256 are supplied with this
+report; private root records, installed ELF and operational scratch are excluded.
+
+Final artifact integrity: `git diff --check` exit0; exact remaining operational
+diff is this report only. Its complete163758-byte pre-goal operational history
+(SHA256 d259a1eca653d6a1a91fa3dace7d635be4dd463b6f74b478bda579f348884bd4)
+is preserved byte-for-byte, as is the later published PR62 report prefix.
+Local Markdown links18/18 and bounded delta privacy scan PASS. Stock full-stack
+archive verification found705 safe regular relative members, all matching source
+bytes;704 non-report files match the merged Git tree exactly. No .git, TODO,
+.env except tracked .env.example, dependencies/build output, private authority,
+credentials, dumps or installed executable artifacts are included. Unique final
+review copy: `adilbaga-part32-c2-auto-enabled-reboot-verified-20261022.tar.gz`.
+Archive SHA256 is reported separately to avoid self-referential report hashing.
+
+## 2026-10-22 — site-content-verification v2: source and local gate
+
+Owner's new task explicitly changes automatic acceptance semantics: actual
+`https://aktau.market` content must converge to canonical S1; changing Vercel
+deployment IDs/frontend SHAs must not require manual repinning. This is a
+versioned private contract change, **not** a claim of fresh Vercel attestation.
+Historical owner-pinned results and all earlier FAIL/BLOCKED text remain intact.
+
+New native worktree `aktau-part32-c2-site-content`, branch
+`feat/backend-1-c2-site-content`, baseline/origin main
+`421b53ac1642b2296a9a5c986d0f4d98993167db`. The Windows checkout's three unrelated
+untracked paths and all other worktrees were left untouched. The complete prior
+operational report from the auto-custodian worktree was copied byte-identically
+before appending this section; it contains the actual PR61/62 install and reboot
+history which was not all committed to main.
+
+### Fail-first, minimal contract and scope
+
+- Python root policy regression:37 tests, one expected ERROR because legacy
+  `validate_pin` required frontend ID/SHA. After correction37/37; subsequent full
+  Python C2 suite91/91 exit0.
+- Go CLI new mode regression: exit1 before correction, then focused package
+  exit0. Go READY-v2 canonical regression likewise exit1 before correction.
+- Node site provenance regression:1 FAIL before correction, then PASS. New
+  supervisor tests exercise real private registry plus safe OS/HTTPS mocks:
+  stable policy, independent BEFORE policy drift before FIFO/GET, AFTER/READY
+  drift, missing/unexpected body markers. Legacy stable/manual-without-pin
+  controls pass. One intermediate new mock assertion incorrectly expected zero
+  CLI executions for rejected **CLI source output**; corrected to require one
+  CLI execution and no trusted projection, matching the existing source test.
+- Scheduled launcher also required narrow private READY-v2 compatibility.
+  Its real factory-boundary regression first failed (23 tests, one ERROR), then
+ 23/23 PASS. This necessary path was identified by reading actual admission,
+  not by changing business sync or adding a parallel launcher.
+
+Root site policy version2 fixes origin and exact six representations. Per-attempt
+identity version3 binds its digest; process-bound READY-v2 replaces frontend
+identity with explicit evidencePolicy/policyVersion/policySha256. Go CLI and
+projection provenance bind the same policy without fabricated frontend fields.
+Legacy formats remain disjoint and byte-compatible for valid v1. SourceSHA still
+identifies the real publisher build. Canonical projection body, SQL, witness
+selection, restricted reader, root/process/nonce/boot custody and private capture
+registry are unchanged. Each new attempt stores policy metadata; an explicit
+policy/digest boundary starts a new counter without deleting old verdicts.
+
+Source scope: Go `cmd/c2projection` source/tests; private revalidation READY
+source/tests and existing PG17 integration; Node provider, supervisor, manifest
+validator and their existing tests/local joint parent; Python custodian/tests;
+scheduled C2 launcher/tests; ops README, FRONTEND_REVALIDATION and this report.
+No Frontend runtime/settings, public API contract, SQL/schema/migration,
+ingestion business logic, HMAC/notifier, timer/service wiring or dependency change.
+
+### Actual local commands/results (all exit0 unless noted)
+
+| Command | Actual evidence |
+| --- | --- |
+| `python3 -B -m unittest discover -s ops/c2 -p 'test_*.py' -v` |91/91 PASS |
+| `python3 -B -m unittest discover -s pipeline/scripts -p 'test_c2_ingest_launch.py' -v` |23/23 PASS |
+| `node --test scripts/revalidation/*.test.mjs scripts/ci/guard.test.mjs` with freshly built Go1.27.3 `C2_LOCAL_PROBE` |357/357 PASS,0 SKIP |
+| `node scripts/ci/run-checks.mjs ops` |Python91; Node180/180 PASS |
+| `node scripts/ci/run-checks.mjs security` |tracked-source/workflow policy and synthetic backup guards PASS |
+| `node scripts/ci/run-checks.mjs go` |gofmt, unit/race/vet, staticcheck normal/integration, govulncheck, API/ingest/relay builds; Node354/354 at that checkpoint,0 SKIP |
+| `node scripts/ci/run-db-integration.mjs` |two owned disposable PG17 clusters, migrations/restricted roles/ACL/RLS and all existing profiles PASS; cleanup PASS |
+| `node scripts/revalidation/joint-poc.mjs` |15/15 PASS,0 SKIP; real Go CLI/FIFO/local HTTP, cleanup PASS |
+| `node scripts/revalidation/verify-part16.mjs` |static boundaries PASS, not production evidence |
+| `node scripts/ci/run-checks.mjs contracts` |command exit0;12 PASS,10 intentionally environment-gated SKIP, not claimed executed |
+| `node scripts/ci/run-ephemeral-staging.mjs` |local runtime/contract/DB outage-recovery/cleanup exit0; its four fixture-Voice HTTP cases per backend are SKIP, not claimed PASS |
+| `bash -n pipeline/scripts/daily-sync.sh` |PASS |
+| `cd backend-go && go test -count=1 ./cmd/c2projection ./internal/revalidation ./internal/ingestion ./cmd/ingest` |all four packages PASS |
+| JS syntax checks on six changed JS files; `git diff --check` |PASS |
+
+The disposable **actual Go BEFORE/Unix READY/Stage/COMMIT/signed204/FIFO/six HTTP
+representations/actual Go AFTER** integration now runs both legacy and site modes.
+Both healthy cases PASS with6 GET. Intervening S0, Stage failure, Publish failure
+and notification failure in each mode are INCONCLUSIVE with0 GET. No production
+publication or HTTP is used for these tests. The unchanged detector retains5s
+acceptance,20s diagnostics,21 GET/2 sitemap,8s BEFORE and35-minute supervision.
+
+### Bounded production preflight, no rollout yet at this checkpoint
+
+Read-only SSH confirmed source `ff567dd438991610a20f800164ed6968ee526b37`,
+Go1.27.3, old automatic policy enabled, original reader0600 inode933613 and
+custodian digest9dc8f5d8…92a7. At01:10:14UTC the genuine daily sync had completed
+Result=success/exit0, both daily/weekly timers and monitor timer were active.
+The C2 companion still owned its eighth attempt:7 historical INCONCLUSIVE,
+one armed, no consumed event, no completed verdict. This is **not** convergence
+evidence; no process was stopped or sync retriggered. API remained Docker healthy
+at unchanged6a4b4c7a revision. AUTO_DEPLOY_ENABLED independently read as false.
+
+At this source checkpoint protected publication, exact-main CI, immutable build,
+new root policy/receipts, actual VPS replacement/postflight and final clean
+archive are **pending**. No new policy is yet claimed deployed. No GitHub
+Release/tag/draft, Vercel access, artificial apply/publication or secret access.

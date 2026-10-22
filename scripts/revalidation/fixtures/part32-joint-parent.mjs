@@ -36,7 +36,7 @@ let consumed=0;
 const relay=await openReadyRelay({child,attemptId:a.attemptId,respond(request,peer){
   assert.equal(peer.pid,process.ppid);assert.equal(peer.uid,process.geteuid());assert.equal(++consumed,1);
   const digest=v=>createHash('sha256').update(JSON.stringify(v)+'\n').digest('hex');
-  return{version:1,status:'READY',attemptId:a.attemptId,nonce:request.nonce,s0:baseline,projectionSha256:digest(before),witnessSha256:digest(prepared.witness),sourceSha:a.sourceSha,frontendSha:a.frontendSha,deploymentId:a.deploymentId,confirmedAt:a.confirmedAt,bootId:a.bootId,expiresAt:a.expiresAt};
+  return{version:a.version,status:'READY',attemptId:a.attemptId,nonce:request.nonce,s0:baseline,projectionSha256:digest(before),witnessSha256:digest(prepared.witness),sourceSha:a.sourceSha,...(a.version===2?{}:{frontendSha:a.frontendSha,deploymentId:a.deploymentId}),confirmedAt:a.confirmedAt,bootId:a.bootId,expiresAt:a.expiresAt,...(a.version===2?{evidencePolicy:a.evidencePolicy,policyVersion:a.policyVersion,policySha256:a.policySha256}:{})};
 }});
 process.stdout.write(JSON.stringify({pid:child.pid,fifo,s0:baseline.snapshotId})+'\n');
 try{

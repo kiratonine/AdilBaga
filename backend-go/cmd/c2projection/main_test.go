@@ -103,6 +103,51 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestSiteContentPolicyCLI(t *testing.T) {
+	args := []string{"-phase", "ready-before", "-attempt", attempt, "-evidence-policy", "site-content-verification", "-policy-sha256", strings.Repeat("d", 64)}
+	if _, ok := parse(args); !ok {
+		t.Fatal("site-content projection must not require a fabricated frontend SHA")
+	}
+	for _, bad := range [][]string{
+		append(append([]string(nil), args...), "-frontend-sha", sha),
+		replace(args, "-policy-sha256", strings.Repeat("D", 64)),
+		replace(args, "-evidence-policy", "unknown"),
+	} {
+		if _, ok := parse(bad); ok {
+			t.Fatal("unqualified or mixed evidence policy accepted")
+		}
+	}
+}
+
+func TestSiteContentDocumentKeepsCanonicalBodyAndNoFrontendIdentity(t *testing.T) {
+	sourceSHA = sha
+	defer func() { sourceSHA = "" }()
+	state := postgres.C2State{SnapshotID: snapshot, Body: postgres.C2Body{DashboardAt: "2026-10-20T00:00:00.000Z"}}
+	legacy, _ := parse(before())
+	site, ok := parse([]string{"-phase", "before", "-attempt", attempt, "-evidence-policy", "site-content-verification", "-policy-sha256", strings.Repeat("d", 64)})
+	if !ok {
+		t.Fatal("site args")
+	}
+	old, err := document(legacy, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := document(site, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var a, b projection
+	if json.Unmarshal(old, &a) != nil || json.Unmarshal(out, &b) != nil {
+		t.Fatal("document")
+	}
+	if !bytes.Equal(a.Body, b.Body) || a.Provenance.CanonicalStateID != b.Provenance.CanonicalStateID || b.Provenance.SourceSHA != sourceSHA || b.Provenance.PolicySHA256 != strings.Repeat("d", 64) || b.Provenance.PolicyVersion != 2 || b.Provenance.EvidencePolicy != "site-content-verification" {
+		t.Fatal("policy changed canonical data or source")
+	}
+	if bytes.Contains(out, []byte(`"frontendSha"`)) || bytes.Contains(out, []byte(`"deploymentId"`)) || len(out) >= 16384 || out[len(out)-1] != '\n' {
+		t.Fatal("mixed identity or size contract")
+	}
+}
+
 func TestReadyBeforePrivatePhase(t *testing.T) {
 	args := replace(before(), "-phase", "ready-before")
 	if _, ok := parse(args); !ok {

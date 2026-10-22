@@ -107,8 +107,10 @@ func TestLocalReadyPublication(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for _, scenario := range []string{"healthy", "intervening", "stage_failure", "publish_failure", "notify_failure"} {
-		t.Run(scenario, func(t *testing.T) {
+	for _, caseName := range []string{"healthy", "intervening", "stage_failure", "publish_failure", "notify_failure", "site_healthy", "site_intervening", "site_stage_failure", "site_publish_failure", "site_notify_failure"} {
+		t.Run(caseName, func(t *testing.T) {
+			scenario := strings.TrimPrefix(caseName, "site_")
+			site := strings.HasPrefix(caseName, "site_")
 			admin, e := pgx.Connect(ctx, adminURL)
 			if e != nil {
 				t.Fatal("local admin")
@@ -146,10 +148,17 @@ INSERT INTO categories(id,slug,name) VALUES('milk','milk','Milk')`); e != nil {
 				t.Fatal(e)
 			}
 			a := readyAuthority{Version: 1, AttemptID: strings.Repeat("a", 32), SourceSHA: source, FrontendSHA: frontend, DeploymentID: "dpl_fixture", ConfirmedAt: time.Now().Add(-time.Second).UTC().Format(readyTime), ExpiresAt: time.Now().Add(time.Minute).UTC().Format(readyTime), OperatorUID: os.Geteuid(), OperatorGID: os.Getegid(), BootID: boot}
+			providerOptions := map[string]any{"directory": directory, "binarySha256": hex.EncodeToString(sum[:]), "sourceSha": source, "frontendSha": frontend, "databaseURL": readerURL}
+			if site {
+				a.Version, a.FrontendSHA, a.DeploymentID = 2, "", ""
+				a.EvidencePolicy, a.PolicyVersion, a.PolicySHA256 = "site-content-verification", 2, strings.Repeat("d", 64)
+				delete(providerOptions, "frontendSha")
+				providerOptions["sitePolicy"] = map[string]any{"evidencePolicy": a.EvidencePolicy, "policyVersion": a.PolicyVersion, "policySha256": a.PolicySHA256}
+			}
 			config := struct {
-				Authority readyAuthority    `json:"authority"`
-				Provider  map[string]string `json:"provider"`
-			}{a, map[string]string{"directory": directory, "binarySha256": hex.EncodeToString(sum[:]), "sourceSha": source, "frontendSha": frontend, "databaseURL": readerURL}}
+				Authority readyAuthority `json:"authority"`
+				Provider  map[string]any `json:"provider"`
+			}{a, providerOptions}
 			raw, _ := json.Marshal(config)
 			childCtx, childCancel := context.WithTimeout(ctx, 30*time.Second)
 			defer childCancel()

@@ -27,8 +27,8 @@ type readyAuthority struct {
 	Version              int    `json:"version"`
 	AttemptID            string `json:"attemptId"`
 	SourceSHA            string `json:"sourceSha"`
-	FrontendSHA          string `json:"frontendSha"`
-	DeploymentID         string `json:"deploymentId"`
+	FrontendSHA          string `json:"frontendSha,omitempty"`
+	DeploymentID         string `json:"deploymentId,omitempty"`
 	ConfirmedAt          string `json:"confirmedAt"`
 	BootID               string `json:"bootId"`
 	OperatorUID          int    `json:"operatorUid"`
@@ -42,6 +42,9 @@ type readyAuthority struct {
 	IngestSHA256         string `json:"ingestSha256"`
 	RelaySHA256          string `json:"relaySha256"`
 	ExpiresAt            string `json:"expiresAt"`
+	EvidencePolicy       string `json:"evidencePolicy,omitempty"`
+	PolicyVersion        int    `json:"policyVersion,omitempty"`
+	PolicySHA256         string `json:"policySha256,omitempty"`
 }
 
 func rootReadyFile(path string, limit int64) ([]byte, error) {
@@ -166,7 +169,7 @@ func loadReadyAuthority(ctx context.Context, id string) (readyAuthority, []byte,
 		return fail()
 	}
 	var a readyAuthority
-	if !canonicalReady(raw, &a) || a.Version != 1 || a.AttemptID != id || !ValidAttemptID(id) || a.OperatorUID <= 0 || a.OperatorUID != os.Geteuid() || a.OperatorGID != os.Getegid() || a.SupervisorPID < 1 || !nsPattern.MatchString(a.SupervisorStartTicks) {
+	if !canonicalReady(raw, &a) || !validReadyPolicy(a.Version, a.FrontendSHA, a.DeploymentID, a.EvidencePolicy, a.PolicyVersion, a.PolicySHA256) || a.AttemptID != id || !ValidAttemptID(id) || a.OperatorUID <= 0 || a.OperatorUID != os.Geteuid() || a.OperatorGID != os.Getegid() || a.SupervisorPID < 1 || !nsPattern.MatchString(a.SupervisorStartTicks) {
 		return fail()
 	}
 	for _, d := range []string{a.NodeSHA256, a.CommandSHA256, a.SupervisorSHA256, a.IngestSHA256, a.RelaySHA256} {
@@ -176,7 +179,7 @@ func loadReadyAuthority(ctx context.Context, id string) (readyAuthority, []byte,
 	}
 	confirmed, c := exactReadyTime(a.ConfirmedAt)
 	expiry, e := exactReadyTime(a.ExpiresAt)
-	if !c || !e || confirmed.After(time.Now()) || !expiry.After(time.Now()) || expiry.Sub(confirmed) <= 0 || expiry.Sub(confirmed) > 35*time.Minute || !readySHA.MatchString(a.SourceSHA) || !readySHA.MatchString(a.FrontendSHA) || !readyDeployment.MatchString(a.DeploymentID) || !uuidPattern.MatchString(a.BootID) {
+	if !c || !e || confirmed.After(time.Now()) || !expiry.After(time.Now()) || expiry.Sub(confirmed) <= 0 || expiry.Sub(confirmed) > 35*time.Minute || !readySHA.MatchString(a.SourceSHA) || !uuidPattern.MatchString(a.BootID) {
 		return fail()
 	}
 	boot, err := BootID()
@@ -372,7 +375,7 @@ func requestReady(ctx context.Context, path, id string, a readyAuthority, unchan
 		return nil
 	}
 	var r ReadyResponse
-	if !canonicalReady(payload, &r) || !validReadyResponse(r, req, time.Now()) || r.SourceSHA != a.SourceSHA || r.FrontendSHA != a.FrontendSHA || r.DeploymentID != a.DeploymentID || r.ConfirmedAt != a.ConfirmedAt || r.BootID != a.BootID || r.ExpiresAt != a.ExpiresAt || !unchanged() || ctx.Err() != nil {
+	if !canonicalReady(payload, &r) || !validReadyResponse(r, req, time.Now()) || r.Version != a.Version || r.EvidencePolicy != a.EvidencePolicy || r.PolicyVersion != a.PolicyVersion || r.PolicySHA256 != a.PolicySHA256 || r.SourceSHA != a.SourceSHA || r.FrontendSHA != a.FrontendSHA || r.DeploymentID != a.DeploymentID || r.ConfirmedAt != a.ConfirmedAt || r.BootID != a.BootID || r.ExpiresAt != a.ExpiresAt || !unchanged() || ctx.Err() != nil {
 		return nil
 	}
 	after, safe = socketReadyStat(path)

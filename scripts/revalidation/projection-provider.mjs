@@ -23,6 +23,22 @@ const clockPath = '/usr/local/libexec/aktau-c2/relayprobe';
 const exact = (v, names) => v && Object.getPrototypeOf(v) === Object.prototype
   && Reflect.ownKeys(v).length === names.length && names.every(k => Object.hasOwn(v, k));
 const hex = (v, n) => typeof v === 'string' && new RegExp(`^[a-f0-9]{${n}}$`).test(v) && v.length === n;
+const siteNames=['product_ru','product_kk','sitemap','catalog','dashboard','category'];
+function sitePolicy() {
+  const policy=rootJSON('/etc/aktau-c2/frontend.json');
+  if(!exact(policy,['version','evidence','origin','representations']) || policy.version!==2
+    || policy.evidence!=='site-content-verification' || policy.origin!=='https://aktau.market'
+    || JSON.stringify(policy.representations)!==JSON.stringify(siteNames))throw Error('site_policy');
+  return {evidencePolicy:policy.evidence,policyVersion:2,policySha256:createHash('sha256').update(JSON.stringify(policy)+'\n').digest('hex')};
+}
+
+// Registry-backed policy only. Callers cannot supply an approval or manufacture
+// production custody by passing a policy object to a factory.
+export function productionEvidencePolicy(provider) {
+  const state=production.get(provider);
+  if(!state)throw Error('authority');
+  return state.evidencePolicy();
+}
 
 // POSIX ACL write permission for named users/groups is bounded by the group
 // class mask represented in st_mode. Rejecting both group/other write also
@@ -86,7 +102,8 @@ export function productionBeforeIdentity(provider, before) {
   const state = production.get(provider);
   if (!state || !ownsProviderBefore(provider, before)) throw Error('deployment_unverified');
   const identity = state.beforeIdentity();
-  if (!identity || identity.attemptId !== before.attemptId || identity.frontendSha !== before.provenance.frontendSha) throw Error('deployment_unverified');
+  if (!identity || identity.attemptId !== before.attemptId || identity.frontendSha !== before.provenance.frontendSha
+    || (identity.identityEvidence==='site-content-verification' && ['policyVersion','policySha256'].some(k=>identity[k]!==before.provenance[k]))) throw Error('deployment_unverified');
   return identity;
 }
 export async function productionClock(provider, signal) {
@@ -117,13 +134,15 @@ export function providerBeforeBaseline(provider, before) {
 export function productionReadyAuthority(provider, before) {
   const initial = productionBeforeIdentity(provider, before);
   const a = rootJSON('/etc/aktau-c2/ready.json');
-  const names = ['version', 'attemptId', 'sourceSha', 'frontendSha', 'deploymentId', 'confirmedAt', 'bootId',
+  const site=initial.identityEvidence==='site-content-verification';
+  const names = ['version', 'attemptId', 'sourceSha', ...(site?[]:['frontendSha', 'deploymentId']), 'confirmedAt', 'bootId',
     'operatorUid', 'operatorGid', 'supervisorPid', 'supervisorStartTicks', 'nodeExecutable', 'nodeSha256', 'commandSha256',
-    'supervisorSha256', 'ingestSha256', 'relaySha256', 'expiresAt'];
+    'supervisorSha256', 'ingestSha256', 'relaySha256', 'expiresAt',...(site?['evidencePolicy','policyVersion','policySha256']:[])];
   const now = Date.now(), expires = Date.parse(a?.expiresAt), confirmed = Date.parse(a?.confirmedAt);
-  if (!exact(a, names) || Object.keys(a).join() !== names.join() || a.version !== 1
+  if (!exact(a, names) || Object.keys(a).join() !== names.join() || a.version !== (site?2:1)
     || a.attemptId !== before.attemptId || a.sourceSha !== before.provenance.sourceSha
     || a.frontendSha !== initial.frontendSha || a.deploymentId !== initial.deploymentId
+    || (site && (a.evidencePolicy!=='site-content-verification' || a.policyVersion!==2 || a.policySha256!==initial.policySha256))
     || a.confirmedAt !== new Date(initial.confirmedAt).toISOString() || a.operatorUid !== process.geteuid()
     || a.operatorGid !== process.getegid() || a.supervisorPid !== process.pid
     || process.getuid()!==process.geteuid() || process.getgid()!==process.getegid()
@@ -170,7 +189,13 @@ export function createProductionProjectionProvider(options = {}) {
     if (identityDrift || !['before', 'after'].includes(stage)) throw Error('deployment_changed');
     verify();
     let d = rootJSON(deploymentPath);
-    if (d.version === 2) {
+    if(d.version===3){
+      const policy=sitePolicy();
+      if(!exact(d,['version','attemptId','stage','origin','optInInactive','legitimatePublication','identityEvidence','policyVersion','policySha256','checkedAt'])
+        || d.origin!=='https://aktau.market' || d.identityEvidence!==policy.evidencePolicy || d.policyVersion!==policy.policyVersion
+        || d.policySha256!==policy.policySha256)throw Error('deployment_unverified');
+      d={...d,confirmedAt:d.checkedAt};
+    } else if (d.version === 2) {
       // Owner-approved automation policy, NOT a fresh Vercel API attestation.
       // Keep historical Owner confirmation separate from this attempt's actual
       // root configuration check. Only this fixed root file can supply the pin.
@@ -186,9 +211,9 @@ export function createProductionProjectionProvider(options = {}) {
       d = { ...d, confirmedAt: d.checkedAt, ownerConfirmedAt: pin.ownerConfirmedAt };
     } else if (d.version !== 1 || !exact(d, ['version', 'attemptId', 'stage', 'alias', 'deploymentId', 'frontendSha', 'ready', 'target', 'confirmedAt', 'optInInactive', 'legitimatePublication'])
       || d.ready !== true || d.target !== 'Production') throw Error('deployment_unverified');
-    if (d.attemptId !== attemptId || d.stage !== stage || d.alias !== 'aktau.market'
-      || d.legitimatePublication !== true || !hex(d.frontendSha, 40)
-      || !/^dpl_[a-zA-Z0-9]{1,80}$/.test(d.deploymentId) || !Number.isSafeInteger(d.confirmedAt)
+    if (d.attemptId !== attemptId || d.stage !== stage || (d.version!==3 && (d.alias !== 'aktau.market'
+      || !hex(d.frontendSha, 40) || !/^dpl_[a-zA-Z0-9]{1,80}$/.test(d.deploymentId)))
+      || d.legitimatePublication !== true || !Number.isSafeInteger(d.confirmedAt)
       || typeof d.optInInactive !== 'boolean' || (stage === 'after' && !d.optInInactive)
       || Date.now() - d.confirmedAt < 0 || Date.now() - d.confirmedAt > 35 * 60 * 1000) throw Error('deployment_unverified');
     if (stage === 'before') {
@@ -201,7 +226,7 @@ export function createProductionProjectionProvider(options = {}) {
       return agreedBefore;
     }
     const invariant = ['version', 'attemptId', 'alias', 'deploymentId', 'frontendSha', 'ready', 'target', 'legitimatePublication',
-      'identityEvidence', 'configurationSha256', 'ownerConfirmedAt'];
+      'identityEvidence', 'configurationSha256', 'ownerConfirmedAt','origin','policyVersion','policySha256'];
     if (!agreedBefore || invariant.some(k => d[k] !== agreedBefore[k]) || d.confirmedAt < agreedBefore.confirmedAt) {
       identityDrift = true; throw Error('deployment_changed');
     }
@@ -241,13 +266,26 @@ export function createProductionProjectionProvider(options = {}) {
       const current = rootJSON(deploymentPath);
       identity(attemptId, current.stage); // same bound deployment, before or after attestation
     }
-    args = args.map((v, i) => args[i - 1] === '-frontend-sha' ? initial.frontendSha : v);
+    if(initial.identityEvidence==='site-content-verification'){
+      const at=args.indexOf('-frontend-sha');
+      args=[...args.slice(0,at),'-evidence-policy','site-content-verification','-policy-sha256',initial.policySha256,...args.slice(at+2)];
+    }else args = args.map((v, i) => args[i - 1] === '-frontend-sha' ? initial.frontendSha : v);
     return execute(binaryPath, args, { env: { APP_ENV: 'production', C2_PROJECTION_DATABASE_URL: databaseURL },
       timeout: 10000, maxBuffer: 64 * 1024, encoding: 'utf8', windowsHide: true });
-  }, frontendIdentity: () => initial?.frontendSha });
+  }, frontendIdentity: () => initial?.frontendSha, policyIdentity:()=>initial?.identityEvidence==='site-content-verification'?{
+    evidencePolicy:'site-content-verification',policyVersion:2,policySha256:initial.policySha256}:null });
   production.set(provider, { verify, identity, beforeIdentity: () => {
     if (!initial || identityDrift) return null;
     return identity(initial.attemptId, 'before');
+  }, evidencePolicy:()=>{
+    let pin;
+    try{pin=rootJSON('/etc/aktau-c2/frontend.json')}
+    catch(e){if(e?.code==='ENOENT')return Object.freeze({evidencePolicy:'owner-pinned-configuration',policyVersion:1});throw e}
+    if(pin.version===2)return deepFreeze(sitePolicy());
+    if(pin.version!==1 || pin.evidence!=='owner-pinned-configuration')throw Error('site_policy');
+    // Legacy policy is identified separately; it cannot contribute to the
+    // site-content series after an explicit policy transition.
+    return Object.freeze({evidencePolicy:'owner-pinned-configuration',policyVersion:1});
   }, checkApproval: () => {
     if (JSON.stringify(rootJSON(authorityPath)) !== JSON.stringify(approved)) throw Error('authority');
   } });
@@ -279,7 +317,7 @@ export function createSyntheticProjectionProvider({ scenario = 'valid', failureP
 
 // Registry remains private. Only these reviewed factories mint custody, never
 // JSON, files, flags or caller-supplied execution callbacks.
-function createProvider({ run, sourceSha, frontendSha, frontendIdentity }) {
+function createProvider({ run, sourceSha, frontendSha, frontendIdentity, policyIdentity }) {
   const custody = {};
   const settled = new WeakSet();
   async function load(args, phase, attemptId, ready = false) {
@@ -297,7 +335,9 @@ function createProvider({ run, sourceSha, frontendSha, frontendIdentity }) {
         baseline = p.baseline; p = p.projection;
       }
       validateProjectionV2(p, phase, attemptId);
-      if (p.provenance.sourceSha !== sourceSha || p.provenance.frontendSha !== (frontendIdentity ? frontendIdentity() : frontendSha)
+      const policy=policyIdentity?.();
+      if (p.provenance.sourceSha !== sourceSha || (policy ? ['evidencePolicy','policyVersion','policySha256'].some(k=>p.provenance[k]!==policy[k])
+        : p.provenance.frontendSha !== (frontendIdentity ? frontendIdentity() : frontendSha))
         || p.provenance.canonicalStateId !== createHash('sha256').update(JSON.stringify(p.body)).digest('hex')) throw Error();
       const result = deepFreeze(structuredClone(p)); trusted.set(result, custody);
       if (baseline) beforeBaselines.set(result, deepFreeze(structuredClone(baseline)));
@@ -337,13 +377,16 @@ function createProvider({ run, sourceSha, frontendSha, frontendIdentity }) {
 
 // Production-disabled: exact disposable credentials/DB, loopback, private owned
 // temporary directory and pinned ELF only. No general executable/DSN adapter.
-export function createLocalGoProjectionProvider({ directory, binarySha256, sourceSha, frontendSha, databaseURL }) {
+export function createLocalGoProjectionProvider({ directory, binarySha256, sourceSha, frontendSha, databaseURL, sitePolicy:policy }) {
   const reject = () => { throw Error('invalid_local_projection_profile') };
+  const site=policy!==undefined;
+  if(site && (!exact(policy,['evidencePolicy','policyVersion','policySha256']) || policy.evidencePolicy!=='site-content-verification'
+    || policy.policyVersion!==2 || !hex(policy.policySha256,64) || frontendSha!==undefined))reject();
   if (process.platform !== 'linux' || typeof directory !== 'string' || !path.isAbsolute(directory)
     || path.normalize(directory) !== directory || !directory.startsWith(os.tmpdir() + '/aktau-c2-joint-')
     || binarySha256?.length !== 64 || !/^[0-9a-f]{64}$/.test(binarySha256 ?? '')
     || sourceSha?.length !== 40 || !/^[0-9a-f]{40}$/.test(sourceSha ?? '')
-    || frontendSha?.length !== 40 || !/^[0-9a-f]{40}$/.test(frontendSha ?? '')) reject();
+    || (!site && (frontendSha?.length !== 40 || !/^[0-9a-f]{40}$/.test(frontendSha ?? '')))) reject();
   let url;
   try { url = new URL(databaseURL) } catch { reject() }
   if (url.protocol !== 'postgres:' || !['127.0.0.1', '[::1]'].includes(url.hostname) || !url.port
@@ -369,8 +412,10 @@ export function createLocalGoProjectionProvider({ directory, binarySha256, sourc
     } finally { fs.closeSync(fd) }
   }
   try { identity() } catch { reject() }
-  return createProvider({ sourceSha, frontendSha, run: args => {
+  policy=site?deepFreeze(structuredClone(policy)):null;
+  return createProvider({ sourceSha, frontendSha, policyIdentity:()=>policy, run: args => {
     identity();
+    if(site){const at=args.indexOf('-frontend-sha');args=[...args.slice(0,at),'-evidence-policy','site-content-verification','-policy-sha256',policy.policySha256,...args.slice(at+2)]}
     return execute(binary, args, { env: { APP_ENV: 'production', C2_PROJECTION_DATABASE_URL: databaseURL },
       timeout: 10000, maxBuffer: 64 * 1024, encoding: 'utf8', windowsHide: true });
   } });

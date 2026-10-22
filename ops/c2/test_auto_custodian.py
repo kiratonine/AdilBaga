@@ -43,6 +43,39 @@ class Model:
 
 
 class CycleTests(unittest.TestCase):
+    def test_site_content_policy_has_no_deployment_identity(self):
+        policy={'version':2,'evidence':'site-content-verification','origin':'https://aktau.market',
+                'representations':['product_ru','product_kk','sitemap','catalog','dashboard','category']}
+        record=m.deployment_record(policy,'a'*32,'before',2000,False)
+        self.assertEqual(record['identityEvidence'],'site-content-verification')
+        self.assertEqual(record['policySha256'],m.digest(m.canonical(policy)))
+        self.assertEqual(record['origin'],'https://aktau.market')
+        self.assertNotIn('deploymentId',record)
+        self.assertNotIn('frontendSha',record)
+
+    def test_site_content_policy_rejects_changed_origin_matrix_or_fake_identity(self):
+        policy={'version':2,'evidence':'site-content-verification','origin':'https://aktau.market',
+                'representations':['product_ru','product_kk','sitemap','catalog','dashboard','category']}
+        for change in [{'origin':'https://other.invalid'}, {'representations':['dashboard']},
+                       {'frontendSha':'c'*40}, {'deploymentId':'dpl_fake'}, {'version':True}]:
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                m.deployment_record({**policy,**change},'a'*32,'before',2000,False)
+
+    def test_policy_boundary_does_not_relabel_or_combine_legacy_passes(self):
+        def entry(n,verdict,policy=None):
+            states=['prepared','armed','event_consumed','completed'] if verdict!='INCONCLUSIVE' else ['prepared','inconclusive']
+            return {'attemptId':format(n,'032x'),'state':states[-1],'transitions':states,
+                    'history':[{'state':s,'atUTC':n} for s in states],'verdict':verdict,'evidence':{'acceptance':verdict},
+                    **({'evidencePolicy':policy} if policy else {})}
+        policy={'evidencePolicy':'site-content-verification','policyVersion':2,'policySha256':'d'*64}
+        entries=[entry(1,'PASS'),entry(2,'PASS'),entry(3,'INCONCLUSIVE',policy)]
+        self.assertEqual(m.ledger_verdict(entries,entries[-1]['attemptId']),('INCONCLUSIVE',0))
+        entries.extend([entry(4,'PASS',policy),entry(5,'INCONCLUSIVE',policy),entry(6,'PASS',policy)])
+        self.assertEqual(m.ledger_verdict(entries,entries[-1]['attemptId']),('PASS',2))
+        entries.append(entry(7,'FAIL',policy))
+        self.assertEqual(m.ledger_verdict(entries,entries[-1]['attemptId']),('FAIL',0))
+        self.assertNotIn('evidencePolicy',entries[0])
+
     def test_automatic_real_barriers_and_no_business_publish(self):
         io=Model(); result=m.run_cycle(io)
         self.assertEqual(result['state'],'FINALIZED')

@@ -7,7 +7,7 @@ import { mock } from 'node:test';
 import { openAttemptLedger } from './c2-production-supervisor.mjs';
 import { execFileSync } from 'node:child_process';
 
-for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 'armOnly', 'missingReadyAuthority', 'wrongPeer', 'noReady', 'helperCrash', 'nonceReplay', 'unprotected', 'changedReady', 'afterReadyDrift', 'finalReadyDrift', 'cleanupFailure', 'cancelPrepared', 'cancelArmed', 'cancelCleanupFailure']) {
+for (const scenario of ['siteStable','siteMissingMarker','siteUnexpectedMarker','siteBeforePolicyDrift','siteAfterPolicyDrift','siteReadyPolicyDrift','manualNoPin','frontendSha', 'deploymentId', 'confirmedAt', 'stable', 'armOnly', 'missingReadyAuthority', 'wrongPeer', 'noReady', 'helperCrash', 'nonceReplay', 'unprotected', 'changedReady', 'afterReadyDrift', 'finalReadyDrift', 'cleanupFailure', 'cancelPrepared', 'cancelArmed', 'cancelCleanupFailure']) {
   test(`isolated supervisor BEFORE attestation: ${scenario}`, () => {
     const script = String.raw`
       import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import cp from 'node:child_process';
@@ -23,6 +23,9 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
       const bytes=Buffer.from([127,69,76,70,1]),digest=createHash('sha256').update(bytes).digest('hex');
       const approval={version:1,approved:true,sourceSha:'b'.repeat(40),binarySha256:digest,clockSha256:digest,buildId:'test',platform:'linux/amd64'};
       const deployment={version:1,attemptId:null,stage:'before',alias:'aktau.market',deploymentId:'dpl_test',frontendSha:'c'.repeat(40),ready:true,target:'Production',confirmedAt:Date.now(),optInInactive:false,legitimatePublication:true};
+      const site=scenario.startsWith('site'),policy={version:2,evidence:'site-content-verification',origin:'https://aktau.market',representations:['product_ru','product_kk','sitemap','catalog','dashboard','category']};
+      const policyHash=createHash('sha256').update(JSON.stringify(policy)+'\n').digest('hex');
+      if(site){for(const key of Object.keys(deployment))delete deployment[key];Object.assign(deployment,{version:3,attemptId:null,stage:'before',origin:'https://aktau.market',optInInactive:false,legitimatePublication:true,identityEvidence:'site-content-verification',policyVersion:2,policySha256:policyHash,checkedAt:Date.now()})}
       const original={};for(const k of ['lstatSync','statSync','openSync','fstatSync','readFileSync','closeSync','readSync','renameSync','unlinkSync','readdirSync','existsSync'])original[k]=fs[k];
       const base='/var/lib/aktau-sync/c2',map=p=>typeof p==='string'&&p.startsWith(base)?dir+p.slice(base.length):p;
       const modulePath=path.resolve('scripts/revalidation/c2-production-supervisor.mjs');
@@ -35,20 +38,22 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
         if(root(p)||ancestor(p)||['/etc','/usr','/usr/local','/usr/local/libexec','/var','/var/lib','/var/lib/aktau-sync'].includes(p))return stats(p,true);
         return original.lstatSync(map(p),...a);
       };
-      fs.openSync=(p,...a)=>{if(root(p)){files.set(++serial,p);return serial}const fd=original.openSync(map(p),...a);if(typeof p==='string'&&p.endsWith('/event.fifo')){readerOpens++;fifoFD=fd}return fd};
+      fs.openSync=(p,...a)=>{if(root(p)){if(scenario==='manualNoPin'&&p.endsWith('frontend.json')){const e=Error('missing');e.code='ENOENT';throw e}files.set(++serial,p);return serial}const fd=original.openSync(map(p),...a);if(typeof p==='string'&&p.endsWith('/event.fifo')){readerOpens++;fifoFD=fd}return fd};
       fs.fstatSync=(fd,...a)=>files.has(fd)?stats(files.get(fd)):original.fstatSync(fd,...a);
       fs.statSync=(p,...a)=>typeof p==='string'&&/^\/proc\/(?:self|\d+)(?:\/status)?$/.test(p)?{uid:p==='/proc/self/status'&&scenario==='unprotected'?uid:0}:original.statSync(p,...a);
       fs.closeSync=(fd,...a)=>files.has(fd)?files.delete(fd):original.closeSync(fd,...a);
       fs.readFileSync=(fd,...a)=>{
         if(!files.has(fd))return original.readFileSync(map(fd),...a);
         const p=files.get(fd);if(p.endsWith('authorization.json'))return Buffer.from(JSON.stringify(approval)+'\n');
+        if(p.endsWith('frontend.json'))return Buffer.from(JSON.stringify(site?policy:{version:1,evidence:'owner-pinned-configuration',alias:'aktau.market',deploymentId:'dpl_test',frontendSha:'c'.repeat(40),ownerConfirmedAt:1})+'\n');
         if(p.endsWith('ready.json')&&scenario==='missingReadyAuthority')throw Error('synthetic_missing_authority');
         if(p.endsWith('ready.json')){
-          readyConfirmedAt??=deployment.confirmedAt;
+          readyConfirmedAt??=site?deployment.checkedAt:deployment.confirmedAt;
           const drift=(scenario==='changedReady'&&++readyReads>1)||(scenario==='afterReadyDrift'&&afterDrift)||(scenario==='finalReadyDrift'&&deployment.stage==='after');
-          return Buffer.from(JSON.stringify({version:1,attemptId:deployment.attemptId,sourceSha:drift?'d'.repeat(40):approval.sourceSha,frontendSha:deployment.frontendSha,deploymentId:deployment.deploymentId,confirmedAt:new Date(readyConfirmedAt).toISOString(),bootId:boot,operatorUid:uid,operatorGid:process.getegid(),supervisorPid:process.pid,supervisorStartTicks:original.readFileSync('/proc/self/stat','utf8').replace(/^.*\) /,'').trim().split(/\s+/)[19],nodeExecutable:process.execPath,nodeSha256:digest,commandSha256:createHash('sha256').update(original.readFileSync('/proc/self/cmdline')).digest('hex'),supervisorSha256:digest,ingestSha256:digest,relaySha256:digest,expiresAt:new Date(readyConfirmedAt+60000).toISOString()})+'\n');
+          return Buffer.from(JSON.stringify({version:site?2:1,attemptId:deployment.attemptId,sourceSha:drift?'d'.repeat(40):approval.sourceSha,...(site?{}:{frontendSha:deployment.frontendSha,deploymentId:deployment.deploymentId}),confirmedAt:new Date(readyConfirmedAt).toISOString(),bootId:boot,operatorUid:uid,operatorGid:process.getegid(),supervisorPid:process.pid,supervisorStartTicks:original.readFileSync('/proc/self/stat','utf8').replace(/^.*\) /,'').trim().split(/\s+/)[19],nodeExecutable:process.execPath,nodeSha256:digest,commandSha256:createHash('sha256').update(original.readFileSync('/proc/self/cmdline')).digest('hex'),supervisorSha256:digest,ingestSha256:digest,relaySha256:digest,expiresAt:new Date(readyConfirmedAt+60000).toISOString(),...(site?{evidencePolicy:'site-content-verification',policyVersion:2,policySha256:scenario==='siteReadyPolicyDrift'?'0'.repeat(64):policyHash}:{})})+'\n');
         }
         if(p.endsWith('deployment.json')){
+          if(site&&((scenario==='siteBeforePolicyDrift'&&reads===1)||(scenario==='siteAfterPolicyDrift'&&deployment.stage==='after')))deployment.policySha256='e'.repeat(64);
           if(++reads===2&&scenario!=='stable'){
             if(scenario==='frontendSha')deployment.frontendSha='d'.repeat(40);
             if(scenario==='deploymentId')deployment.deploymentId='dpl_drift';
@@ -70,6 +75,7 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
           const phase=args[args.indexOf('-phase')+1],before=['before','ready-before'].includes(phase);if(before)goBefore++;
           if(phase==='after')afterDrift=true;
           const p=structuredClone(before?pair.before:pair.after);p.provenance.frontendSha=deployment.frontendSha;
+          if(site){delete p.provenance.frontendSha;Object.assign(p.provenance,{evidencePolicy:'site-content-verification',policyVersion:2,policySha256:policyHash});assert.ok(!args.includes('-frontend-sha'))}
           p.provenance.canonicalStateId=createHash('sha256').update(JSON.stringify(p.body)).digest('hex');return{stdout:JSON.stringify(phase==='ready-before'?{projection:p,baseline:{snapshotId:p.snapshotId,publishedAt:'2026-10-16T13:00:00.000Z'}}:p)+'\n'};
       };cp.execFile=fake;
       cp.spawn=()=>{
@@ -83,7 +89,10 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
       };
       https.request=(opts,callback)=>{gets++;assert.equal(opts.method,'GET');const req=new EventEmitter();req.destroy=()=>{};req.end=()=>queueMicrotask(()=>{
         const res=new EventEmitter();res.statusCode=200;res.headers={};res.destroy=()=>{};callback(res);
-        res.emit('data',Buffer.from(fixtureBody(manifest.targets.find(t=>t.path===opts.path))));res.emit('end');
+        let text=fixtureBody(manifest.targets.find(t=>t.path===opts.path));
+        if(scenario==='siteMissingMarker')text='<html>no qualified marker</html>';
+        if(scenario==='siteUnexpectedMarker')text=text.replaceAll('2026-10-17','2026-10-19');
+        res.emit('data',Buffer.from(text));res.emit('end');
       });return req};syncBuiltinESMExports();
       try{
         const {prepareObservation}=await import('./scripts/revalidation/c2-production-supervisor.mjs');
@@ -104,16 +113,16 @@ for (const scenario of ['frontendSha', 'deploymentId', 'confirmedAt', 'stable', 
             assert.ok(JSON.parse(original.readFileSync(path.join(dir,'ledger','attempts.json'),'utf8'))[0].transitions.includes('armed'));allowEvent=true;
           }
         const provisional=await session.observe();assert.equal(provisional.acceptance,'INCONCLUSIVE');
-        deployment.stage='after';deployment.confirmedAt=Date.now();deployment.optInInactive=true;
+        deployment.stage='after';if(site)deployment.checkedAt=Date.now();else deployment.confirmedAt=Date.now();deployment.optInInactive=true;
         const final=session.finalize();const records=JSON.parse(original.readFileSync(path.join(dir,'ledger','attempts.json'),'utf8'));
-          if(scenario==='stable'||scenario==='armOnly'){
+          if(scenario==='stable'||scenario==='armOnly'||scenario==='siteStable'||scenario==='manualNoPin'){
           assert.equal(goBefore,1);assert.equal(readerOpens,1);assert.equal(gets,6);assert.equal(final.acceptance,'PASS');assert.equal(final.qualifiedPassCount,1);
           assert.ok(records[0].transitions.includes('armed'));assert.ok(records[0].transitions.includes('event_consumed'));
-          }else if(['frontendSha','deploymentId','confirmedAt'].includes(scenario)){
+          }else if(['frontendSha','deploymentId','confirmedAt','siteBeforePolicyDrift'].includes(scenario)){
           assert.equal(reads>=2,true);assert.equal(goBefore,0);assert.equal(readerOpens,0);assert.equal(gets,0);assert.equal(final.acceptance,'INCONCLUSIVE');assert.equal(final.qualifiedPassCount,0);
           assert.deepEqual(records[0].transitions,['prepared','inconclusive']);
           }else{
-            assert.equal(goBefore,1);assert.equal(readerOpens,1);assert.equal(gets,['afterReadyDrift','finalReadyDrift','cleanupFailure'].includes(scenario)?6:0);assert.equal(final.acceptance,'INCONCLUSIVE');assert.equal(final.qualifiedPassCount,0);
+            assert.equal(goBefore,1);assert.equal(readerOpens,1);assert.equal(gets,['afterReadyDrift','finalReadyDrift','cleanupFailure','siteAfterPolicyDrift','siteMissingMarker','siteUnexpectedMarker'].includes(scenario)?6:0);assert.equal(final.acceptance,'INCONCLUSIVE');assert.equal(final.qualifiedPassCount,0);
             assert.deepEqual(records[0].transitions,gets?['prepared','armed','event_consumed','inconclusive']:['prepared','armed','inconclusive']);
             assert.ok((records[0].checkpoints??[]).filter(x=>x.evidence?.state==='ready_consumed').length<=1);
             if(scenario==='cleanupFailure'){assert.equal(final.reconciliationRequired,true);assert.equal(original.existsSync(path.join(dir,'ledger','operator.lock')),true);assert.equal(records[0].checkpoints.at(-1).evidence.result.events.length,6)}
@@ -144,6 +153,19 @@ test('durable chronological PASS / INCONCLUSIVE / FAIL series, unique attempts a
   assert.equal(stored.length, 7); assert.equal(stored[3].verdict, 'FAIL');
   assert.equal(stored[0].history[2].evidence.status, 204);
   assert.equal(fs.statSync(path.join(dir, 'attempts.json')).mode & 0o777, 0o600);
+});
+test('policy transition preserves historical PASS but starts a disjoint site-content series', t=>{
+  const dir=fixture(t),policy={evidencePolicy:'site-content-verification',policyVersion:2,policySha256:'d'.repeat(64)};
+  const entries=[];
+  for(const [p,verdict,count] of [[null,'PASS',1],[null,'PASS',2],[policy,'INCONCLUSIVE',0],[policy,'PASS',1],[policy,'INCONCLUSIVE',1],[policy,'FAIL',0],[policy,'PASS',1],[{...policy,policySha256:'e'.repeat(64)},'PASS',1]]){
+    const ledger=openAttemptLedger(dir,p),id=ledger.prepare();
+    ledger.transition('armed');ledger.transition('event_consumed');
+    ledger.transition(verdict==='INCONCLUSIVE'?'inconclusive':'completed',{acceptance:verdict});
+    assert.equal(ledger.series(),count);ledger.close();entries.push(id);
+  }
+  const stored=JSON.parse(fs.readFileSync(path.join(dir,'attempts.json')));
+  assert.equal(stored.length,entries.length);assert.equal(stored[0].verdict,'PASS');
+  assert.equal(stored[0].evidencePolicy,undefined);assert.deepEqual(stored[2].evidencePolicy,policy);
 });
 test('lock contention / crash after consumed never re-arms or counts imported PASS', t => {
   const dir = fixture(t), l = openAttemptLedger(dir); l.prepare(); l.transition('armed'); l.transition('event_consumed');
