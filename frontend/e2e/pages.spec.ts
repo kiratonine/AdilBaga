@@ -101,7 +101,9 @@ test('search from the header and sort keep the query', async ({ page, isMobile }
   // На мобильном сортировка — чип и шторка с вариантами
   if (isMobile) {
     await page.getByTestId('sort-chip').click()
-    await page.getByTestId('sort-sheet').getByRole('radio', { name: 'Атауы бойынша' }).check()
+    // Шторка закрывается сразу по выбору, а отмеченность радио берётся из URL, который обновляется чуть позже:
+    // .check() после клика требует, чтобы радио осталось отмеченным, и на next 16.4 это гонка. Поведение проверяют URL и список ниже.
+    await page.getByTestId('sort-sheet').getByRole('radio', { name: 'Атауы бойынша' }).click()
     await expect(page.getByTestId('sort-sheet')).toBeHidden()
   } else {
     await page.getByTestId('sort-select').selectOption('name_asc')

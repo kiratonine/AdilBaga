@@ -98,7 +98,8 @@ test('category first page, dynamic filter, URL and sorting match live API', asyn
   await expectProducts(page, await api<ProductCardDto[]>(request, `/products?${query}`))
   if (isMobile) {
     await page.getByTestId('sort-chip').click()
-    await page.getByTestId('sort-sheet').getByRole('radio', { name: 'Сначала дорогие' }).check()
+    // См. комментарий в pages.spec.ts: шторка закрывается по выбору, результат проверяют URL и список ниже
+    await page.getByTestId('sort-sheet').getByRole('radio', { name: 'Сначала дорогие' }).click()
   } else await page.getByTestId('sort-select').selectOption('price_desc')
   await expect.poll(() => new URL(page.url()).searchParams.get('sort')).toBe('price_desc')
   query.set('sort', 'price_desc')
