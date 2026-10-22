@@ -35,7 +35,7 @@ export function Baskets({ baskets }: { baskets: BasketSummary[] }) {
             </p>
             <p
               data-testid="basket-total"
-              className={`mt-2 font-display text-[26px] leading-tight font-bold tracking-[-0.02em] tabular md:text-[32px] ${basket.best ? 'text-accent' : ''} ${basket.empty ? 'text-muted' : ''}`}
+              className={`mt-2 font-display text-[26px] leading-tight font-bold tracking-[-0.02em] tabular md:text-[32px] ${basket.best ? 'text-accent' : ''} ${basket.missing > 0 ? 'text-muted' : ''}`}
             >
               {/* total = 0 у пустой корзины — не цена */}
               {basket.empty ? t('dashboard.basketNoData') : formatPrice(basket.total)}
