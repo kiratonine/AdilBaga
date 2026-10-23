@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { assertAktauShop, mapDinaItem, scrapeDina } from '../src/scrapers/dina.js'
+import { assertAktauShop, DINA_PER_KG_MIN_PRICE, dinaPriceUnit, mapDinaItem, scrapeDina, type DinaItem } from '../src/scrapers/dina.js'
 
 const page = JSON.parse(readFileSync(new URL('./fixtures/dina-page.json', import.meta.url), 'utf8'))
 const edges: unknown[] = page.data.products.edges
@@ -163,5 +163,39 @@ describe('assertAktauShop', () => {
   })
   it('rejects missing shop', () => {
     expect(() => assertAktauShop([{ id: '14', city: { name: 'Актобе' } }], '28')).toThrow(/not found/)
+  })
+})
+
+const w = (o: Partial<DinaItem>): DinaItem => ({ id: '1', name: 'X', price_type: 'weight', isWeightProduct: true, ...o })
+
+describe('dina weight price unit', () => {
+  it('keeps a weight price that Dina already returns per kg', () => {
+    const p = mapDinaItem(w({ id: '5902', name: 'Мандарины медовые', price: 1155, oldPrice: 0 }))!
+    expect(p.price).toBe(1155)
+    expect(p.rawPayload).toMatchObject({ priceUnit: 'kg' })
+  })
+  it('still converts a per-gram weight price to per kg', () => {
+    const p = mapDinaItem(w({ id: '1000', name: 'Имбирь', price: 3.12 }))!
+    expect(p.price).toBe(3120)
+    expect(p.rawPayload).toMatchObject({ priceUnit: 'g' })
+  })
+  it('applies the name weight to a per-kg price', () => {
+    expect(mapDinaItem(w({ name: 'Сыр круг 2кг', price: 1500 }))!.price).toBe(3000)
+  })
+  it('normalizes oldPrice by its own unit', () => {
+    expect(mapDinaItem(w({ price: 1155, oldPrice: 1.4 }))!.oldPrice).toBe(1400)
+    expect(mapDinaItem(w({ price: 1155, oldPrice: 1400 }))!.oldPrice).toBe(1400)
+  })
+  it('splits units at DINA_PER_KG_MIN_PRICE', () => {
+    expect(DINA_PER_KG_MIN_PRICE).toBe(100)
+    expect(dinaPriceUnit(99.99)).toBe('g')
+    expect(dinaPriceUnit(100)).toBe('kg')
+    expect(mapDinaItem(w({ price: 99.99 }))!.price).toBe(99990)
+    expect(mapDinaItem(w({ price: 100 }))!.price).toBe(100)
+  })
+  it('leaves piece items untouched', () => {
+    const p = mapDinaItem({ id: '2', name: 'Масло 1000мл', price: 1155, price_type: 'piece', isWeightProduct: false })!
+    expect(p.price).toBe(1155)
+    expect(p.rawPayload).toMatchObject({ priceUnit: null, pricePerUnitMultiplier: 1 })
   })
 })
