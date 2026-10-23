@@ -1,5 +1,22 @@
 # C2 inactive provisioning kit (Part25)
 
+## Coordinated publisher promotion (2026-10-23)
+
+See the standalone [Backend2 handoff](../../docs/production/BACKEND2_SYNC_C2_AUTOMATED_PROMOTION_HANDOFF.md)
+and [Owner evidence report](../../docs/production/reports/SYNC_C2_PROMOTION_OWNER_REPORT.md).
+The new fixed root executor is `publisher-promotion.py`; `promotion-runtime-gate.py`
+holds a shared lock around the existing daily, weekly and C2 entrypoints. Root
+promotion holds both exclusive runtime and existing controller locks.
+The source protocol verifies independent GitHub artifact digest/producer metadata
+and root-pinned producer bytes before replacing any live artifact. It replaces all
+12 immutable files plus provider/automatic authority together with publisher HEAD.
+Site policy, reader, ledger, HMAC and ordinary publish semantics stay unchanged.
+Unknown recovery state blocks promotion; crash recovery preserves all evidence.
+Only root can use `--initial-reviewed`, `--rollback-interrupted`, or `--rollback-last`.
+The restricted SSH wrapper accepts zero arguments and cannot request these modes.
+Never replace source pins alone, manufacture READY, or count alignment as PASS.
+Installation/activation evidence is tracked separately from source tests in the report.
+
 This is an installation candidate, not production authorization. Default
 `node scripts/ops/c2-provisioning-plan.mjs` performs no file/env/network reads.
 No automatic service, publisher hook, observation or cache invalidation exists
