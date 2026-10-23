@@ -46,7 +46,14 @@ export type DinaItem = {
   images?: { url?: string }[]; stock?: { amount?: number } | null; categories?: { id: string; name: string }[]
 }
 
-/** Весовой товар: API отдаёт цену за грамм → приводим к цене за кг (или за вес из названия) */
+/** Цена весового товара ≥ 100 — уже за кг (мандарины, яблоки); у цены за грамм максимум ~11 (сыр) */
+export const DINA_PER_KG_MIN_PRICE = 100
+
+export function dinaPriceUnit(raw: number): 'g' | 'kg' {
+  return raw >= DINA_PER_KG_MIN_PRICE ? 'kg' : 'g'
+}
+
+/** Весовой товар: обычно цена за грамм; ≥ 100 — уже за кг (мандарины, яблоки) → приводим к цене за кг (или за вес из названия) */
 function weightMultiplier(name: string): number {
   const kg = name.match(/(\d+(?:[.,]\d+)?)\s*(?:кг|kg)/i)
   if (kg) return parseFloat(kg[1]!.replace(',', '.')) * 1000
@@ -61,8 +68,10 @@ export function mapDinaItem(item: DinaItem): SourceProduct | null {
   if (!name || !Number.isFinite(raw) || raw <= 0) return null
   const weight = item.price_type === 'weight' || item.isWeightProduct === true
   const k = weight ? weightMultiplier(name) : 1
-  const price = Math.round(raw * k)
-  const old = item.oldPrice ? Math.round(Number(item.oldPrice) * k) : null
+  // у весового товара price и oldPrice приводим к цене за грамм каждый по своей единице
+  const scaled = (v: number) => (weight ? Math.round((dinaPriceUnit(v) === 'kg' ? v / 1000 : v) * k) : Math.round(v * k))
+  const price = scaled(raw)
+  const old = item.oldPrice ? scaled(Number(item.oldPrice)) : null
   if (price <= 0) return null
   return {
     sourceProductId: String(item.id ?? item.xid),
@@ -73,7 +82,7 @@ export function mapDinaItem(item: DinaItem): SourceProduct | null {
     sourceUrl: item.slug ? `https://dinamarket.kz/product/${item.slug}` : null,
     brand: null,
     sourceCategoryPath: (item.categories ?? []).map((c) => c.name),
-    rawPayload: { ...item, pricePerUnitMultiplier: k },
+    rawPayload: { ...item, pricePerUnitMultiplier: k, priceUnit: weight ? dinaPriceUnit(raw) : null },
   }
 }
 
