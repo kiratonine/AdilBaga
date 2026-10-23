@@ -90,6 +90,17 @@ sudo systemctl enable --now aktau-sync.timer aktau-sync-full.timer
 
 ## Обновление кода на VPS
 
+Новый протокол согласованного promotion описан в
+[Backend2 handoff](../../docs/production/BACKEND2_SYNC_C2_AUTOMATED_PROMOTION_HANDOFF.md).
+Датированная сверка выше сохраняется как история; актуальный результат установки
+следует брать из handoff и [Owner report](../../docs/production/reports/SYNC_C2_PROMOTION_OWNER_REPORT.md).
+Source-кандидат добавляет отдельные build/promotion workflows, root executor и
+shared/exclusive runtime gate. Готовность source не означает готовность установки.
+`AUTO_DEPLOY_ENABLED` не используется и остаётся `false`.
+Publisher automation управляется только `SYNC_C2_PROMOTION_ENABLED`.
+Frontend/docs/API-only push не должен переключать publisher.
+Source/kit alignment не является C2 convergence PASS.
+
 Сначала только readback (без fetch/pull/checkout и без запуска sync):
 
 ```bash

@@ -1,0 +1,47 @@
+name: Promote sync publisher and C2
+on:
+  workflow_run:
+    workflows: [Build sync publisher artifact]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful exact-main sync build run ID
+        required: true
+        type: string
+      artifact_id:
+        description: Exact immutable artifact ID
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: aktau-sync-production-promotion
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: >-
+      github.repository == 'kiratonine/AdilBaga' && vars.SYNC_C2_PROMOTION_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == 'kiratonine/AdilBaga'))
+    environment: sync-publisher
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: main, persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: {node-version: '24.18.0', package-manager-cache: false}
+      - name: Independently authorized bounded publisher transaction
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SYNC_C2_PROMOTION_ENABLED: ${{ vars.SYNC_C2_PROMOTION_ENABLED }}
+          PROMOTE_HOST: ${{ vars.PROMOTE_HOST }}
+          PROMOTE_USER: ${{ vars.PROMOTE_USER }}
+          PROMOTE_PORT: ${{ vars.PROMOTE_PORT }}
+          PROMOTE_SSH_KEY: ${{ secrets.PROMOTE_SSH_KEY }}
+          PROMOTE_KNOWN_HOSTS: ${{ secrets.PROMOTE_KNOWN_HOSTS }}
+        run: node scripts/ops/sync-promotion.mjs promote

@@ -1,0 +1,91 @@
+name: Build sync publisher artifact
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [build-only, promote]
+        default: build-only
+      sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      ci_run:
+        description: Successful push-main CI run ID
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: aktau-sync-immutable-build
+  cancel-in-progress: false
+jobs:
+  eligibility:
+    name: Verify sync release eligibility
+    if: >-
+      github.repository == 'kiratonine/AdilBaga' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (vars.SYNC_C2_PROMOTION_ENABLED == 'true' && github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == 'kiratonine/AdilBaga'))
+    environment: sync-publisher
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      eligible: ${{ steps.verify.outputs.eligible }}
+      sha: ${{ steps.verify.outputs.sha }}
+      ci_run: ${{ steps.verify.outputs.ci_run }}
+      ci_attempt: ${{ steps.verify.outputs.ci_attempt }}
+      kind: ${{ steps.verify.outputs.kind }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: main, fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: {node-version: '24.18.0', package-manager-cache: false}
+      - id: verify
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SYNC_C2_PROMOTION_ENABLED: ${{ vars.SYNC_C2_PROMOTION_ENABLED }}
+          PROMOTE_HOST: ${{ vars.PROMOTE_HOST }}
+          PROMOTE_USER: ${{ vars.PROMOTE_USER }}
+          PROMOTE_PORT: ${{ vars.PROMOTE_PORT }}
+          PROMOTE_SSH_KEY: ${{ secrets.PROMOTE_SSH_KEY }}
+          PROMOTE_KNOWN_HOSTS: ${{ secrets.PROMOTE_KNOWN_HOSTS }}
+        run: node scripts/ops/sync-promotion.mjs gate
+  build:
+    name: Build immutable sync + C2
+    needs: eligibility
+    if: needs.eligibility.outputs.eligible == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {ref: '${{ needs.eligibility.outputs.sha }}', fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with: {go-version: '1.27.3', cache: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: {node-version: '24.18.0', package-manager-cache: false}
+      - name: Build exact public bytes off-host
+        env:
+          SOURCE_SHA: ${{ needs.eligibility.outputs.sha }}
+          CI_RUN: ${{ needs.eligibility.outputs.ci_run }}
+          CI_ATTEMPT: ${{ needs.eligibility.outputs.ci_attempt }}
+          RELEASE_KIND: ${{ needs.eligibility.outputs.kind }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          mkdir -m 700 "$RUNNER_TEMP/sync-release"
+          python3 -B scripts/ops/build-sync-promotion.py "$SOURCE_SHA" "$RUNNER_TEMP/sync-release/promotion.tar" "$CI_RUN" "$CI_ATTEMPT" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RELEASE_KIND"
+      - name: Upload immutable sync + C2 artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aktau-sync-c2-${{ needs.eligibility.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sync-release/promotion.tar
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 7
