@@ -35,8 +35,7 @@
     "class-validator": "^0.14.2",
     "dotenv": "^16.4.7",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "zod": "^3.24.1"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
@@ -44,5 +43,12 @@
     "tsx": "^4.19.2",
     "typescript": "^5.8.0"
   },
-  "packageManager": "pnpm@10.32.1"
+  "packageManager": "pnpm@10.32.1",
+  "pnpm": {
+    "overrides": {
+      "express@5.2.1>body-parser": "2.4.0",
+      "@nestjs/platform-express@11.2.6>multer": "2.5.0",
+      "cheerio@1.2.0>undici": "7.30.1"
+    }
+  }
 }
