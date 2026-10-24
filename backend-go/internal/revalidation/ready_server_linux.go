@@ -142,6 +142,8 @@ func serveReadySocket(parentCtx context.Context, path, id string, input io.Reade
 	defer conn.Close()
 	stopConn := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stopConn()
+	// The reviewed READY-only5000ms starts at accept, never resets the client's
+	// earlier admission deadline, and cannot extend the original35min parent.
 	deadline := time.Now().Add(ReadyBudget)
 	if end, ok := ctx.Deadline(); ok && end.Before(deadline) {
 		deadline = end

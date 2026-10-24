@@ -162,59 +162,72 @@ func protectedReadyProcess(pid int) (start, cmd string, parent int, err error) {
 	return fields[19], hex.EncodeToString(sum[:]), parent, nil
 }
 
-func loadReadyAuthority(ctx context.Context, id string) (readyAuthority, []byte, error) {
-	fail := func() (readyAuthority, []byte, error) { return readyAuthority{}, nil, errors.New("authority") }
+func loadReadyAuthority(ctx context.Context, id string, p *readyProgress) (readyAuthority, []byte, error) {
+	fail := func(reason readyReason) (readyAuthority, []byte, error) {
+		return readyAuthority{}, nil, readyFailure(reason)
+	}
+	p.enter(phaseAuthorityRead)
 	raw, err := rootReadyFile(readyAuthorityPath, ReadyLimit)
 	if err != nil {
-		return fail()
+		return fail(reasonAuthorityUnavailable)
 	}
+	p.enter(phaseAuthorityValidate)
 	var a readyAuthority
 	if !canonicalReady(raw, &a) || !validReadyPolicy(a.Version, a.FrontendSHA, a.DeploymentID, a.EvidencePolicy, a.PolicyVersion, a.PolicySHA256) || a.AttemptID != id || !ValidAttemptID(id) || a.OperatorUID <= 0 || a.OperatorUID != os.Geteuid() || a.OperatorGID != os.Getegid() || a.SupervisorPID < 1 || !nsPattern.MatchString(a.SupervisorStartTicks) {
-		return fail()
+		return fail(reasonAuthorityInvalid)
 	}
 	for _, d := range []string{a.NodeSHA256, a.CommandSHA256, a.SupervisorSHA256, a.IngestSHA256, a.RelaySHA256} {
 		if !readyDigest.MatchString(d) {
-			return fail()
+			return fail(reasonAuthorityInvalid)
 		}
 	}
 	confirmed, c := exactReadyTime(a.ConfirmedAt)
 	expiry, e := exactReadyTime(a.ExpiresAt)
-	if !c || !e || confirmed.After(time.Now()) || !expiry.After(time.Now()) || expiry.Sub(confirmed) <= 0 || expiry.Sub(confirmed) > 35*time.Minute || !readySHA.MatchString(a.SourceSHA) || !uuidPattern.MatchString(a.BootID) {
-		return fail()
+	if !readySHA.MatchString(a.SourceSHA) || !uuidPattern.MatchString(a.BootID) {
+		return fail(reasonAuthorityInvalid)
+	}
+	if !c || !e || confirmed.After(time.Now()) || !expiry.After(time.Now()) || expiry.Sub(confirmed) <= 0 || expiry.Sub(confirmed) > 35*time.Minute {
+		return fail(reasonLifetime)
 	}
 	boot, err := BootID()
 	if err != nil || boot != a.BootID {
-		return fail()
+		return fail(reasonBoot)
 	}
 	if !filepath.IsAbs(a.NodeExecutable) || filepath.Clean(a.NodeExecutable) != a.NodeExecutable || len(a.NodeExecutable) > 256 || strings.IndexFunc(a.NodeExecutable, func(r rune) bool {
 		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./-", r))
 	}) >= 0 {
-		return fail()
+		return fail(reasonAuthorityInvalid)
 	}
+	p.enter(phaseNodeHash)
 	node, err := rootReadyFile(a.NodeExecutable, 256<<20)
 	if err != nil || len(node) < 4 || string(node[:4]) != "\x7fELF" {
-		return fail()
+		return fail(reasonFile)
 	}
 	nodeSum := sha256.Sum256(node)
+	if hex.EncodeToString(nodeSum[:]) != a.NodeSHA256 {
+		return fail(reasonDigest)
+	}
+	p.enter(phaseRelayHash)
 	relay, err := rootReadyFile("/usr/local/libexec/aktau-c2/relayprobe", 64<<20)
 	if err != nil {
-		return fail()
+		return fail(reasonFile)
 	}
 	relaySum := sha256.Sum256(relay)
-	if hex.EncodeToString(nodeSum[:]) != a.NodeSHA256 || hex.EncodeToString(relaySum[:]) != a.RelaySHA256 {
-		return fail()
+	if hex.EncodeToString(relaySum[:]) != a.RelaySHA256 {
+		return fail(reasonDigest)
 	}
+	p.enter(phaseSupervisorIdentity)
 	start, cmd, parent, err := protectedReadyProcess(a.SupervisorPID)
 	if err != nil || start != a.SupervisorStartTicks || cmd != a.CommandSHA256 {
-		return fail()
+		return fail(reasonProcess)
 	}
 	var parentStat unix.Stat_t
 	if unix.Stat("/proc/"+strconv.Itoa(parent), &parentStat) != nil || parentStat.Uid != 0 {
-		return fail()
+		return fail(reasonProcess)
 	}
 	status, err := os.ReadFile("/proc/" + strconv.Itoa(a.SupervisorPID) + "/status")
 	if err != nil || !strings.Contains(string(status), "TracerPid:\t0\n") {
-		return fail()
+		return fail(reasonProcess)
 	}
 	for prefix, want := range map[string]int{"Uid:": a.OperatorUID, "Gid:": a.OperatorGID} {
 		found := false
@@ -224,31 +237,36 @@ func loadReadyAuthority(ctx context.Context, id string) (readyAuthority, []byte,
 			}
 			fields := strings.Fields(line)
 			if len(fields) != 5 {
-				return fail()
+				return fail(reasonProcess)
 			}
 			for _, v := range fields[1:] {
 				n, e := strconv.Atoi(v)
 				if e != nil || n != want {
-					return fail()
+					return fail(reasonProcess)
 				}
 			}
 			found = true
 		}
 		if !found {
-			return fail()
+			return fail(reasonProcess)
 		}
 	}
+	p.enter(phaseSupervisorHash)
 	module, err := rootReadyFile(readySupervisorPath, 2<<20)
 	if err != nil {
-		return fail()
+		return fail(reasonFile)
 	}
 	sum := sha256.Sum256(module)
 	if hex.EncodeToString(sum[:]) != a.SupervisorSHA256 {
-		return fail()
+		return fail(reasonDigest)
 	}
+	p.enter(phaseSelfIdentity)
 	_, _, self, _, err := processReadyIdentity(os.Getpid())
-	if err != nil || self != a.IngestSHA256 || ctx.Err() != nil {
-		return fail()
+	if err != nil || readyContextEnded(ctx) {
+		return fail(reasonProcess)
+	}
+	if self != a.IngestSHA256 {
+		return fail(reasonDigest)
 	}
 	return a, raw, nil
 }
@@ -273,68 +291,119 @@ func socketReadyStat(path string) (unix.Stat_t, bool) {
 	return st, true
 }
 
-// RequestReady does zero I/O for absent/malformed opt-in, and never returns a
-// publication error. The original context is passed unchanged to Stage.
-func RequestReady(parent context.Context, fifo, id string) (*ReadyTicket, string) {
+// Fixed production dependencies. Only package-private tests can supply an OS
+// model to the core; no exported authority/path/factory/env override is added.
+func RequestReadyDetailed(parent context.Context, fifo, id string) (*ReadyTicket, ReadyDiagnostic) {
+	return requestReadyAdmission(parent, fifo, id, loadReadyAuthority, requestReadyObserved)
+}
+
+type readyLoader func(context.Context, string, *readyProgress) (readyAuthority, []byte, error)
+type readyExchange func(context.Context, string, string, readyAuthority, func() bool, *readyProgress) (*ReadyTicket, readyReason)
+
+// Zero I/O for absent/malformed opt-in. One deadline, worker and terminal
+// snapshot; Stage keeps its original parent context and never waits for a late
+// diagnostic worker. The buffered result permits that worker to finish safely.
+func requestReadyAdmission(parent context.Context, fifo, id string, load readyLoader, exchange readyExchange) (*ReadyTicket, ReadyDiagnostic) {
+	started := time.Now()
+	p := &readyProgress{}
+	finish := func(outcome readyOutcome, reason readyReason) (*ReadyTicket, ReadyDiagnostic) {
+		return nil, ReadyDiagnostic{phase: p.snapshot(), reason: reason, outcome: outcome, elapsedMS: min(ReadyBudget.Milliseconds(), max(int64(0), time.Since(started).Milliseconds())), deadlineOrCancelled: reason == reasonDeadline || reason == reasonParentDeadline || reason == reasonCancelled}
+	}
+	contextReason := func() readyReason {
+		if errors.Is(parent.Err(), context.Canceled) {
+			return reasonCancelled
+		}
+		deadline, hasDeadline := parent.Deadline()
+		if errors.Is(parent.Err(), context.DeadlineExceeded) || hasDeadline && !time.Now().Before(deadline) {
+			return reasonParentDeadline
+		}
+		return reasonDeadline
+	}
 	if fifo == "" || !ValidAttemptID(id) {
-		return nil, "disabled"
+		return finish(outcomeDisabled, reasonDisabled)
 	}
 	expected := "/var/lib/aktau-sync/c2/" + id + "/event.fifo"
-	if fifo != expected || parent.Err() != nil {
-		return nil, "not_armed"
+	if fifo != expected {
+		return finish(outcomeNotArmed, reasonConfiguration)
+	}
+	if readyContextEnded(parent) {
+		return finish(outcomeNotArmed, contextReason())
 	}
 	ctx, cancel := context.WithTimeout(parent, ReadyBudget)
 	defer cancel()
 	// Admission file/proc reads are also inside the caller's wall-clock budget.
 	// A canceled caller never waits for a slow local filesystem. One bounded
 	// worker only; no retry, no additional request and no publication ownership.
-	done := make(chan *ReadyTicket, 1)
+	type result struct {
+		ticket *ReadyTicket
+		reason readyReason
+	}
+	done := make(chan result, 1)
 	go func() {
-		a, raw, err := loadReadyAuthority(ctx, id)
-		if err != nil || ctx.Err() != nil {
-			done <- nil
+		a, raw, err := load(ctx, id, p)
+		if err != nil || readyContextEnded(ctx) {
+			reason := reasonRejected
+			var failure readyFailure
+			if errors.As(err, &failure) {
+				reason = readyReason(failure)
+			}
+			done <- result{nil, reason}
 			return
 		}
-		done <- requestReady(ctx, filepath.Join(filepath.Dir(fifo), "ready.sock"), id, a, func() bool {
+		ticket, reason := exchange(ctx, filepath.Join(filepath.Dir(fifo), "ready.sock"), id, a, func() bool {
+			p.enter(phaseAuthorityRecheck)
 			current, e := rootReadyFile(readyAuthorityPath, ReadyLimit)
-			return e == nil && string(current) == string(raw) && ctx.Err() == nil
-		})
+			return e == nil && string(current) == string(raw) && !readyContextEnded(ctx)
+		}, p)
+		done <- result{ticket, reason}
 	}()
 	select {
 	case <-ctx.Done():
-		return nil, "not_armed"
-	case ticket := <-done:
-		if ticket == nil || ctx.Err() != nil {
-			return nil, "not_armed"
+		return finish(outcomeNotArmed, contextReason())
+	case result := <-done:
+		if readyContextEnded(ctx) {
+			return finish(outcomeNotArmed, contextReason())
 		}
-		return ticket, "armed"
+		if result.ticket == nil {
+			return finish(outcomeNotArmed, result.reason)
+		}
+		p.enter(phaseComplete)
+		_, diagnostic := finish(outcomeArmed, reasonReady)
+		return result.ticket, diagnostic
 	}
 }
 
 func requestReady(ctx context.Context, path, id string, a readyAuthority, unchanged func() bool) *ReadyTicket {
+	ticket, _ := requestReadyObserved(ctx, path, id, a, unchanged, nil)
+	return ticket
+}
+func requestReadyObserved(ctx context.Context, path, id string, a readyAuthority, unchanged func() bool, p *readyProgress) (*ReadyTicket, readyReason) {
+	p.enter(phaseSocketCheck)
 	before, safe := socketReadyStat(path)
-	if !safe || ctx.Err() != nil {
-		return nil
+	if !safe || readyContextEnded(ctx) {
+		return nil, reasonSocket
 	}
+	p.enter(phaseConnect)
 	c, err := (&net.Dialer{}).DialContext(ctx, "unix", path)
 	if err != nil {
-		return nil
+		return nil, reasonTransport
 	}
 	defer c.Close()
 	stop := context.AfterFunc(ctx, func() { _ = c.Close() })
 	defer stop()
 	deadline, ok := ctx.Deadline()
 	if !ok || c.SetDeadline(deadline) != nil {
-		return nil
+		return nil, reasonTransport
 	}
 	conn, ok := c.(*net.UnixConn)
 	if !ok {
-		return nil
+		return nil, reasonTransport
 	}
 	control, err := conn.SyscallConn()
 	if err != nil {
-		return nil
+		return nil, reasonTransport
 	}
+	p.enter(phasePeerCheck)
 	peerOK := false
 	if control.Control(func(fd uintptr) {
 		peer, e := unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
@@ -350,37 +419,51 @@ func requestReady(ctx context.Context, path, id string, a readyAuthority, unchan
 		expected := sha256.Sum256([]byte("/usr/local/libexec/aktau-c2/relayprobe\x00ready-server\x00" + id + "\x00"))
 		peerOK = identityErr == nil && parent == a.SupervisorPID && command == hex.EncodeToString(expected[:])
 	}) != nil || !peerOK {
-		return nil
+		return nil, reasonPeer
 	}
+	p.enter(phaseSocketRecheck)
 	after, safe := socketReadyStat(path)
-	if !safe || before.Dev != after.Dev || before.Ino != after.Ino || before.Mode != after.Mode || !unchanged() {
-		return nil
+	if !safe || before.Dev != after.Dev || before.Ino != after.Ino || before.Mode != after.Mode {
+		return nil, reasonSocketChanged
 	}
+	if !unchanged() {
+		return nil, reasonAuthorityChanged
+	}
+	p.enter(phaseRequestWrite)
 	var nonce [16]byte
 	if _, err = rand.Read(nonce[:]); err != nil {
-		return nil
+		return nil, reasonNonce
 	}
 	req := ReadyRequest{1, id, hex.EncodeToString(nonce[:])}
 	encoded, err := json.Marshal(req)
 	if err != nil {
-		return nil
+		return nil, reasonTransport
 	}
 	encoded = append(encoded, '\n')
 	n, err := conn.Write(encoded)
 	if err != nil || n != len(encoded) || conn.CloseWrite() != nil {
-		return nil
+		return nil, reasonTransport
 	}
+	p.enter(phaseResponseRead)
 	payload, err := io.ReadAll(io.LimitReader(conn, ReadyLimit+1))
 	if err != nil {
-		return nil
+		return nil, reasonTransport
 	}
+	p.enter(phaseResponseValidate)
 	var r ReadyResponse
-	if !canonicalReady(payload, &r) || !validReadyResponse(r, req, time.Now()) || r.Version != a.Version || r.EvidencePolicy != a.EvidencePolicy || r.PolicyVersion != a.PolicyVersion || r.PolicySHA256 != a.PolicySHA256 || r.SourceSHA != a.SourceSHA || r.FrontendSHA != a.FrontendSHA || r.DeploymentID != a.DeploymentID || r.ConfirmedAt != a.ConfirmedAt || r.BootID != a.BootID || r.ExpiresAt != a.ExpiresAt || !unchanged() || ctx.Err() != nil {
-		return nil
+	if !canonicalReady(payload, &r) || !validReadyResponse(r, req, time.Now()) || r.Version != a.Version || r.EvidencePolicy != a.EvidencePolicy || r.PolicyVersion != a.PolicyVersion || r.PolicySHA256 != a.PolicySHA256 || r.SourceSHA != a.SourceSHA || r.FrontendSHA != a.FrontendSHA || r.DeploymentID != a.DeploymentID || r.ConfirmedAt != a.ConfirmedAt || r.BootID != a.BootID || r.ExpiresAt != a.ExpiresAt {
+		return nil, reasonResponse
 	}
+	if !unchanged() || readyContextEnded(ctx) {
+		return nil, reasonAuthorityChanged
+	}
+	p.enter(phaseSocketRecheck)
 	after, safe = socketReadyStat(path)
 	if !safe || before.Dev != after.Dev || before.Ino != after.Ino {
-		return nil
+		return nil, reasonSocketChanged
 	}
-	return &ReadyTicket{response: r}
+	if readyContextEnded(ctx) {
+		return nil, reasonDeadline
+	}
+	return &ReadyTicket{response: r}, reasonReady
 }
