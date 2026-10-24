@@ -1,11 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {spawnSync} from 'node:child_process';
 import {connection,validateCI,parseRootReply} from './sync-promotion.mjs';
 const sha='a'.repeat(40);
 const ci={id:1,run_attempt:1,repository:{full_name:'kiratonine/AdilBaga'},head_repository:{full_name:'kiratonine/AdilBaga'},
   head_sha:sha,head_branch:'main',event:'push',status:'completed',conclusion:'success',path:'.github/workflows/ci.yml'};
 const jobs=['Contracts','Go Quality','Nest Reference','Frontend','Pipeline Quality','Security','PostgreSQL Integration','Ephemeral Staging','CI Gate'].map(name=>({name,status:'completed',conclusion:'success'}));
+test('manual artifact gate: authenticated CI without CD flag, SSH secrets or remote call',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'manual-promotion-test-'));
+  try {
+    const actual=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).stdout.trim();
+    const event=path.join(dir,'event.json'),output=path.join(dir,'output');
+    fs.writeFileSync(event,JSON.stringify({inputs:{mode:'manual-artifact',sha:actual,ci_run:'1'}}));
+    const responses={'actions/runs/1':{...ci,head_sha:actual},'actions/runs/1/jobs?per_page=100':{jobs},'git/ref/heads/main':{object:{sha:actual}}};
+    const preload=()=>'const v='+JSON.stringify(responses)+';globalThis.fetch=async u=>{const k=String(u).split("/repos/kiratonine/AdilBaga/")[1];if(!Object.hasOwn(v,k))throw Error("unexpected_network");return new Response(JSON.stringify(v[k]),{status:200})};';
+    const invoke=()=>spawnSync(process.execPath,['--import','data:text/javascript;base64,'+Buffer.from(preload()).toString('base64'),'scripts/ops/sync-promotion.mjs','gate'],{
+      env:{PATH:process.env.PATH,HOME:process.env.HOME,GITHUB_REPOSITORY:'kiratonine/AdilBaga',GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_TOKEN:'synthetic',GITHUB_EVENT_PATH:event,GITHUB_OUTPUT:output},encoding:'utf8',timeout:10000});
+    const good=invoke();assert.equal(good.status,0,good.stderr);assert.match(fs.readFileSync(output,'utf8'),/kind=promote/);
+    assert.match(fs.readFileSync(output,'utf8'),/eligible=true/);
+    for(const mode of ['unknown','promote']) {
+      fs.writeFileSync(event,JSON.stringify({inputs:{mode,sha:actual,ci_run:'1'}}));
+      assert.notEqual(invoke().status,0);
+    }
+    fs.writeFileSync(event,JSON.stringify({inputs:{mode:'manual-artifact',sha:actual,ci_run:'1'}}));
+    responses['actions/runs/1'].conclusion='failure';assert.notEqual(invoke().status,0);
+    responses['actions/runs/1'].conclusion='success';
+    responses['git/ref/heads/main'].object.sha='b'.repeat(40);assert.notEqual(invoke().status,0);
+  } finally {fs.rmSync(dir,{recursive:true,force:true})}
+});
 test('exact main / nine successful current CI jobs only',()=>{
   assert.doesNotThrow(()=>validateCI(sha,ci,jobs,sha));
   for(const change of [{event:'pull_request'},{head_branch:'other'},{head_sha:'b'.repeat(40)},
@@ -34,7 +59,7 @@ test('separate workflows: immutable build has no production credential environme
   const p=fs.readFileSync('.github/workflows/sync-publisher-promote.yml','utf8');
   const builder=b.slice(b.indexOf('\n  build:'));
   assert.ok(!builder.includes('secrets.')&&!builder.includes('PROMOTE_SSH_KEY'));
-  assert.ok(b.includes("mode:")&&b.includes('options: [build-only, promote]'));
+  assert.ok(b.includes("mode:")&&b.includes('options: [build-only, promote, manual-artifact]'));
   assert.ok(p.includes('workflows: [Build sync publisher artifact]'));
   for(const text of [b,p]){
     assert.ok(!/AUTO_DEPLOY_ENABLED|pull_request_target|contents: write|actions: write/.test(text));

@@ -323,3 +323,79 @@ See the [Owner report](reports/SYNC_C2_PROMOTION_OWNER_REPORT.md) for exact resu
 ## 18. Installation/readback evidence
 
 PENDING: this section will be updated only from actual authenticated readback.
+
+## 19. Reviewed manual artifact path (2026-10-25 source candidate)
+
+This supersedes section13's assumption that manual promotion needs the CD transport.
+`manual-artifact` is a new **build-only operation**, producing a genuine
+`kind=promote` artifact; it does not deploy. It is permitted only by an explicit
+main workflow_dispatch after authenticated exact push-main CI9 validation.
+It neither calls SSH nor requires/enables either deployment variable. The normal
+`promote` build mode and the separate activation workflow retain their existing
+CD flag/transport guards. Keep those variables disabled/unset for manual use.
+The eligibility job still uses `environment: sync-publisher`; any actual GitHub
+environment protection must be satisfied normally, never bypassed.
+
+**Not installed or approved by this document.** Before use, independently review
+and merge this source, verify exact-main CI9, and approve the resulting producer
+workflow digest. Existing root admission pins the workflow bytes, builder and
+executor; changing the workflow intentionally fails `producer_source_changed`
+until that independent administrative provisioning occurs. No executor self-upgrade
+or admission bypass is added. Existing executor, builder, wrappers and runtime
+digests must remain unchanged; if any differs, STOP for separate reviewed upgrade.
+
+Independent root-pin provisioning packet must contain exact old/new full policy
+SHA256 and old/new workflow SHA256 derived from authenticated reviewed Git source.
+An authorized admin must verify installed executor/wrappers/policy and idle locks,
+retain a root-only no-clobber backup, construct a reviewed policy differing **only**
+in `producerFiles[".github/workflows/sync-publisher-build.yml"]`, validate it with
+the installed `validate_policy`, recheck original inode/hash, and atomically replace
+the root-controlled policy with original metadata plus fsync/readback. No uploaded
+artifact may supply that policy. Any unexpected byte, active attempt, unknown
+receipt or stale source is STOP. Revert that policy from its known backup only
+before any transaction; unknown transaction outcome requires journal reconciliation.
+This TASK does not perform or authorize that production provisioning.
+
+After that gate and separate production permission, from a reviewed local checkout:
+
+```bash
+# SHA and CI_RUN are independently verified exact current main / successful push CI9.
+gh workflow run sync-publisher-build.yml --ref main \
+  -f mode=manual-artifact -f sha="$SHA" -f ci_run="$CI_RUN"
+```
+
+Wait for the exact producer run/attempt to complete successfully. Independently
+read GitHub artifact metadata, expected name/source/run/expiry/size and SHA256 digest;
+download the original ZIP with `gh api repos/kiratonine/AdilBaga/actions/artifacts/ID/zip`.
+Do not rezip, relabel build-only bytes, use a source review archive, or build on VPS.
+Verify ZIP digest against authenticated GitHub metadata, one `promotion.tar`, exact
+manifest/source tree/toolchain/12 hashes and all existing admission predicates.
+
+The existing root wire request is exactly one canonical JSON line plus original ZIP:
+
+```text
+{"artifactId":ID,"buildRunId":BUILD_RUN,"ciRunId":CI_RUN,"operation":"promote","size":ZIP_BYTES,"sourceSha":"EXACT_MAIN","version":1}\n
+<original authenticated GitHub ZIP bytes; no trailing bytes>
+```
+
+IDs/size are positive JSON integers. A local checked framing file may be constructed
+using Python `json.dumps(request,sort_keys=True,separators=(',',':'))+'\n'` followed
+by `Path(zip).read_bytes()`; none of these public inputs grants root authority.
+Root independently fetches GitHub metadata and enforces every pin/hash before
+obtaining exclusive locks and changing the publisher. Framing is the existing
+protocol, not a new generic root command or sourceSha override.
+
+```bash
+# Future execution only after separate approval, exactly once; no automatic retry.
+ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes -o ForwardAgent=no \
+  my-vps 'sudo -n /usr/local/sbin/aktau-sync-promote' < reviewed-request.bin
+```
+
+Use the existing personal admin alias/agent; no new CI SSH principal/key/env is
+needed. Keep host-key verification. Use the installed fixed zero-argument wrapper,
+never a Python script from the upload. Inspect only the bounded sanitized reply.
+On disconnect/timeout, reconcile the root journal/receipt using approved read-only
+checks before any retry. Preserve source refs, all rollback bytes, reader inode,
+ledger/history, site policy, API and timers. Existing coupled rollback entrypoints
+in section14 remain unchanged; never hand-edit authority/sourceSha or replay
+`--initial-reviewed`. Alignment remains distinct from actual READY/convergence.
