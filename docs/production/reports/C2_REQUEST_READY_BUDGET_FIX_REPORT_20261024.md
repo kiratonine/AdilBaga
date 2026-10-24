@@ -300,3 +300,20 @@ members only, source/report byte-match against final Git HEAD, no private materi
 or generated build/test outputs. The actual external SHA256 is supplied with the
 archive rather than embedded into itself. No merge, deployment or production
 access has occurred. Production C2 acceptance remains unverified.
+
+## 13. Hosted CI blocker (independent dependency audit)
+
+Hosted [run40121756893](https://github.com/kiratonine/AdilBaga/actions/runs/40121756893)
+for `dee8fa57eb1e1a57a1eda2a32ae45fca59069bb5` reports `Nest Reference`
+FAILURE: install, Prisma generation, build and 28 tests pass, then the unchanged
+`backend audit --prod` exits1. The preceding source run40121730222 records six
+advisories (four high, two moderate), including zod/body-parser/undici. This is
+not a READY test failure. Backend package/lockfile bytes match base; changing
+NestJS is explicitly outside this TASK. No dependency bump, audit bypass or CI
+guard weakening is included. Thus **9/9 SUCCESS is not achieved**; source is
+qualified for independent review with a separate CI dependency blocker.
+
+The first archive at the report's previous revision verified all725 included
+files against both worktree and Git HEAD. The final uniquely named review copy
+is rebuilt after this append-only CI record; its checksum and final-head job
+statuses are supplied externally. No local result is promoted to production PASS.
