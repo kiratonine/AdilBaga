@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -270,4 +271,79 @@ func TestReadyRealGoNodeRoundTrip(t *testing.T) {
 		t.Fatal("Node fixture failed")
 	}
 	t.Logf("actual Go/Node IPC duration_ms=%d (synthetic namespace, not production authority)", time.Since(begin).Milliseconds())
+}
+
+func TestReadyServerAcceptedWindowAndParentLimit(t *testing.T) {
+	for _, kind := range []string{"accepted_ceiling", "short_parent", "cancelled"} {
+		t.Run(kind, func(t *testing.T) {
+			dir, e := os.MkdirTemp("", "c2r-")
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer os.RemoveAll(dir)
+			path := filepath.Join(dir, "ready.sock")
+			in, input := io.Pipe()
+			out, output := io.Pipe()
+			defer in.Close()
+			defer input.Close()
+			defer out.Close()
+			defer output.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), ReadyBudget+2*time.Second)
+			defer cancel()
+			if kind == "short_parent" {
+				ctx, cancel = context.WithTimeout(context.Background(), 500*time.Millisecond)
+				defer cancel()
+			}
+			if kind == "cancelled" {
+				ctx, cancel = context.WithCancel(context.Background())
+				defer cancel()
+			}
+			result := make(chan error, 1)
+			go func() { result <- serveReadySocket(ctx, path, strings.Repeat("a", 32), in, output) }()
+			reader := bufio.NewReader(out)
+			if line, e := reader.ReadString('\n'); e != nil || line != "{\"state\":\"listening\"}\n" {
+				t.Fatal("not listening")
+			}
+			c, e := net.DialUnix("unix", nil, &net.UnixAddr{Name: path, Net: "unix"})
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer c.Close()
+			begin := time.Now()
+			_, _ = c.Write([]byte("{\"version\":1,\"attemptId\":\"" + strings.Repeat("a", 32) + "\",\"nonce\":\"" + strings.Repeat("b", 32) + "\"}\n"))
+			_ = c.CloseWrite()
+			// The actual helper verifies the test client's SO_PEERCRED/executable;
+			// consume its one parent request but deliberately provide no timely ack.
+			if _, e := reader.ReadString('\n'); e != nil {
+				t.Fatal("actual peer/request frame missing")
+			}
+			if kind == "cancelled" {
+				cancel()
+			}
+			select {
+			case e := <-result:
+				if e == nil {
+					t.Fatal("unanswered READY accepted")
+				}
+			case <-time.After(ReadyBudget + time.Second):
+				t.Fatal("helper exceeded bound")
+			}
+			if time.Since(begin) > ReadyBudget+500*time.Millisecond {
+				t.Fatal("helper renewed acceptance window")
+			}
+			late := ReadyResponse{Version: 1, Status: "READY", AttemptID: strings.Repeat("a", 32), Nonce: strings.Repeat("b", 32), S0: ReadyBaseline{"bbbbbbbb-0000-4000-8000-000000000000", "2026-10-21T00:00:00.000Z"}, ProjectionSHA256: strings.Repeat("d", 64), WitnessSHA256: strings.Repeat("e", 64), SourceSHA: strings.Repeat("c", 40), FrontendSHA: strings.Repeat("c", 40), DeploymentID: "dpl_local", ConfirmedAt: time.Now().Add(-time.Second).UTC().Format(readyTime), BootID: "11111111-1111-1111-1111-111111111111", ExpiresAt: time.Now().Add(time.Minute).UTC().Format(readyTime)}
+			b, _ := json.Marshal(late)
+			_, _ = input.Write(append(b, '\n'))
+			_ = c.SetReadDeadline(time.Now().Add(time.Second))
+			raw, _ := io.ReadAll(c)
+			if len(raw) != 0 {
+				t.Fatal("late response granted")
+			}
+			if _, e := os.Lstat(path); !os.IsNotExist(e) {
+				t.Fatal("owned socket leaked")
+			}
+			// Late parent data cannot resurrect a consumed/rejected server.
+			_ = input.Close()
+		})
+	}
 }

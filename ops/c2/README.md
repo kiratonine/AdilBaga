@@ -392,8 +392,30 @@ UTF-8 canonical compact JSON + one LF, no other frames/trailing bytes, max4096
 bytes including LF, exact ordered own fields, strict types; reserialization must
 equal original bytes (also rejects duplicate/unknown keys, unsafe escaping,
 whitespace, numbers and malformed Unicode). One Unix dial/write/read, no retry,
-poll, sleep or HTTP in the ingest critical path; **1500ms total IPC budget**,
-below the approved2000ms ceiling, promptly canceled by the parent context.
+poll, sleep or HTTP in the ingest critical path. Owner-approved source contract
+change **C2-READY-BUDGET-20261024** replaces the former1500ms admission / approved
+2000ms ceiling with a **5000ms READY-only ceiling**. One client deadline covers
+all authority/ELF/proc admission and Unix exchange, min(parent deadline, now+5s).
+The helper's post-accept limit uses the same ceiling, capped by its original
+35-minute parent; it does not restore time already spent by the client. Late
+responses/checkpoints cannot issue a ticket. Node's separate1500ms startup wait
+for the first listening frame is unchanged. Ingest5min and C2 original35min
+lifetimes are unchanged. The observer's **5s AFTER accepted HTTP204**, diagnostics
+20s,21 GET/2 sitemap and three qualified PASS contract are unchanged.
+
+One `c2_ready_admission` log is emitted immediately after admission, BEFORE Stage.
+Only fixed `phase`, `reason`, `outcome`, bounded `elapsed_ms` (0..5000), and
+`deadline_or_cancelled` are added to ordinary logger metadata. No path, error text,
+authority JSON, PID/nonce, credential, hash or provider/body data is emitted.
+Timeout captures an atomic phase and one terminal value snapshot; a late worker
+cannot log armed, retry IPC, produce an accepted ticket or delay ordinary Stage.
+Synchronous filesystem reads may finish later; this is not a claim of instant
+kernel-I/O cancellation. `c2_ready` after Stage is retained for baseline binding;
+`ready_consumed` alone still does not prove delivered, event_consumed or PASS.
+The public class-only RequestReady wrapper remains compatible. New diagnostics
+distinguish authority read/validation, Node/relay/supervisor/self work, socket,
+dial/peer, request/response, authority/socket rechecks and complete; reasons are
+finite rejection/identity/hash/transport/response/clock/cancellation enums.
 
 Request ordered fields: `version:1`, `attemptId:hex32`, `nonce:hex32`.
 Nonce is cryptographically random per ingest request, echoed exactly once.
@@ -688,7 +710,7 @@ appends `evidencePolicy`, `policyVersion:2`, `policySha256` after `expiresAt`.
 All other fields retain their order and semantics. The version1 nonce request is
 unchanged; versioned response is selected by the independently checked authority.
 Go verifies exact response/authority policy equality. No mixed v1/v2 fields are
-allowed. Max4096 bytes,1500ms admission, kernel peers, actual process/boot/source,
+allowed. Max4096 bytes,5000ms READY-only admission, kernel peers, actual process/boot/source,
 one-use nonce and locked S0 baseline checks remain. The immutable ingest ELF and
 relay must therefore be rebuilt alongside the provider, not just Node copied.
 

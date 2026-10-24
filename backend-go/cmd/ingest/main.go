@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"log/slog"
 	"math"
 	"os"
 	"os/signal"
@@ -19,6 +20,10 @@ import (
 	"adilbaga/backend-go/internal/revalidation"
 	"github.com/jackc/pgx/v5"
 )
+
+func logReadyAdmission(logger *slog.Logger, d revalidation.ReadyDiagnostic) {
+	logger.Info("c2_ready_admission", "phase", d.Phase(), "reason", d.Reason(), "outcome", d.Outcome(), "elapsed_ms", d.ElapsedMS(), "deadline_or_cancelled", d.DeadlineOrCancelled())
+}
 
 func run() (resultErr error) {
 	start := time.Now()
@@ -121,7 +126,11 @@ func run() (resultErr error) {
 		phase = "staging"
 		fifo := os.Getenv("C2_EVENT_FIFO")
 		requestedAttempt := c2AttemptID()
-		readyTicket, readyClass := revalidation.RequestReady(ctx, fifo, requestedAttempt)
+		readyTicket, readyDiagnostic := revalidation.RequestReadyDetailed(ctx, fifo, requestedAttempt)
+		readyClass := readyDiagnostic.Outcome()
+		if fifo != "" {
+			logReadyAdmission(logger, readyDiagnostic)
+		}
 		staged, err := engine.Stage(ctx, bundle)
 		if err != nil {
 			return err

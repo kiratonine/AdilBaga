@@ -1,10 +1,16 @@
 package main
 
 import (
+	"adilbaga/backend-go/internal/observability"
+	"adilbaga/backend-go/internal/revalidation"
+	"bytes"
+	"context"
+	"encoding/json"
 	"flag"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -15,12 +21,47 @@ func TestPart32ReadyBeforeStageAndBoundRelay(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := string(raw)
-	ready, stage := strings.Index(source, "revalidation.RequestReady("), strings.Index(source, "engine.Stage(")
+	ready, stage := strings.Index(source, "revalidation.RequestReadyDetailed("), strings.Index(source, "engine.Stage(")
 	if ready < 0 || stage < ready {
 		t.Fatal("missing real pre-Stage READY exchange")
 	}
+	log := strings.Index(source, "logReadyAdmission(logger, readyDiagnostic)")
+	if log < ready || log > stage {
+		t.Fatal("READY diagnostic must be emitted before Stage")
+	}
 	if !strings.Contains(source, "staged.Baseline()") || !strings.Contains(source, "readyTicket.BindBaseline(") {
 		t.Fatal("missing locked baseline binding")
+	}
+}
+
+func TestReadyAdmissionLogPrivacy(t *testing.T) {
+	const secret = "private-dsn-nonce-credentials-RAW-AUTHORITY"
+	_, d := revalidation.RequestReadyDetailed(context.Background(), secret, strings.Repeat("a", 32))
+	var b bytes.Buffer
+	logReadyAdmission(observability.New(&b, "info"), d)
+	if strings.Contains(b.String(), secret) {
+		t.Fatal("private input leaked")
+	}
+	var record map[string]any
+	if json.Unmarshal(b.Bytes(), &record) != nil {
+		t.Fatal("invalid log")
+	}
+	for key := range record {
+		switch key {
+		case "timestamp", "level", "msg", "phase", "reason", "outcome", "elapsed_ms", "deadline_or_cancelled":
+		default:
+			t.Fatal("unexpected telemetry field")
+		}
+	}
+	phase, reason := "opt_in", "configuration_invalid"
+	if runtime.GOOS != "linux" {
+		phase, reason = "unsupported", "unsupported"
+	}
+	if len(record) != 8 || record["msg"] != "c2_ready_admission" || record["phase"] != phase || record["reason"] != reason || record["outcome"] != "not_armed" {
+		t.Fatal("unsafe or missing fixed diagnostic")
+	}
+	if n, ok := record["elapsed_ms"].(float64); !ok || n < 0 || n > 5000 {
+		t.Fatal("unbounded elapsed")
 	}
 }
 
