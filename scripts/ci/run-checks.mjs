@@ -22,6 +22,20 @@ if (group === 'contracts') {
   for (const args of [['mod', 'verify'], ['test', '-count=1', './...'], ['test', '-count=1', '-race', './...'],
     ['vet', './...'], ['tool', 'staticcheck', './...'], ['tool', 'staticcheck', '-tags=integration', './...'],
     ['tool', 'govulncheck', './...']]) console.log(go(args));
+  // Explicit full-size READY qualification, with two actual allowed CPUs for
+  // the Go client AND its helper/Node descendants. No production authority.
+  const allowed = readFileSync('/proc/self/status','utf8').match(/^Cpus_allowed_list:\s*([0-9,-]+)$/m)?.[1];
+  if (!allowed) throw new Error('READY qualification CPU affinity unavailable');
+  const cpus=[];
+  for(const part of allowed.split(',')) {
+    const [first,last=first]=part.split('-').map(Number);
+    for(let id=first;id<=Math.min(last,first+1)&&cpus.length<2;id++)cpus.push(id);
+    if(cpus.length===2)break;
+  }
+  if(cpus.length!==2)throw new Error('READY qualification requires two CPUs');
+  console.log(run('READY full-size2CPU qualification (fixtures only)', 'taskset', ['-c',cpus.join(','),'go','test','-count=1',
+    '-tags=readyqualification','-run','^TestReadyLargeELF','-v','./internal/revalidation'],
+    {cwd:cwd('backend-go'),env:{...env,GOMAXPROCS:'2'}}));
   for (const name of ['api', 'ingest']) go(['build', '-o', join(temporary, name), `./cmd/${name}`]);
   const relay = join(temporary, 'relayprobe');
   go(['build', '-o', relay, './internal/revalidation/testdata/relayprobe']);
