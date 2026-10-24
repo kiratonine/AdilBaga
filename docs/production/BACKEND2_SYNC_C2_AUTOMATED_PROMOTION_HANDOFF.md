@@ -387,7 +387,9 @@ protocol, not a new generic root command or sourceSha override.
 
 ```bash
 # Future execution only after separate approval, exactly once; no automatic retry.
-ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes -o ForwardAgent=no \
+timeout --signal=TERM --kill-after=5s 360s \
+  ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes -o ForwardAgent=no \
+  -o ConnectionAttempts=1 -o ConnectTimeout=10 \
   my-vps 'sudo -n /usr/local/sbin/aktau-sync-promote' < reviewed-request.bin
 ```
 

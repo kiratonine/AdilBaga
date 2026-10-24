@@ -2,6 +2,7 @@
 
 ## Status, authority and baselines
 
+**CI_REPAIRED_PR72_READY_FOR_REVIEW / READY_FOR_INDEPENDENT_REVIEW**.
 SOURCE REVIEW CANDIDATE; production promotion **BLOCKED pending independent review
 and root producer-pin provisioning**. No merge of PR72, deployment, SSH connection,
 production request, authority/credential/variable change or artificial publication.
@@ -161,3 +162,84 @@ updated pin allows authenticated fixture, but build-only still rejects.
 Python suite rerun **123/123 PASS**,exit0; Node ops185/185 prior PASS; Part16 PASS.
 Root executor, gate, entry wrapper, builder and activation workflow bytes match
 main. Local Markdown links PASS. No existing report changed in this branch.
+
+### E2. PR72 post-main local checks and source review pins
+
+Updated PR72 head `752d759889edddc2e5dd4f189b8900530980d041`.
+Focused Go unit/race/vet exit0. Full Go profile first invocation exited1 at the
+existing FIFO test `pre-armed receiver learns actual Go snapshot`: INCONCLUSIVE
+instead of PASS (356/357). Its code/runtime bytes are unchanged. Exact rejecting
+reason was not logged by that assertion; contention/timing is a hypothesis, not
+confirmed RCA. Isolated test rerun passed. Full Go profile rerun after concurrent
+heavy work completed exited0: all unit/race/vet/staticcheck/govulncheck and
+**357/357 Node,0SKIP**. No assertion, guard, timeout or test code was weakened.
+Both observed outcomes are retained here; this is not a claim of eliminated flake.
+Real2CPU qualification passed in both invocations (shared2579/2576ms;
+core2460/2367ms;5000ms ceiling). PR72 ops122Python+184Node PASS; security PASS;
+disposable PG17 runner exit0, restricted roles and actual local Go BEFORE/READY/
+Stage/COMMIT/FIFO/AFTER scenarios pass, own containers cleaned. No production DB.
+
+Manual source PR [#74](https://github.com/kiratonine/AdilBaga/pull/74) initial head
+`f35f8bd8a7d72a5d5093ae1ef08ce7e14509cd8c`. Its root code is unchanged; only
+client/workflow, regressions, handoff and this report differ from new main.
+Git-source SHA256 values below are **not live VPS readback**:
+
+| Pin | Main47eda0b / candidate |
+|---|---|
+|build workflow old|`2437a807970c17d865e164ba668d3c3e1c69ba51ec8b414a88e49d0b02dee9aa`|
+|build workflow candidate|`1d7764798c1c78ac616e4615ef46ba7fd810b1f192692318cdf1a3aa66da6312`|
+|builder unchanged|`308504c27ee7ceed871b1044d88a20a1f45a9525c9e4f3cca9d9b8382240b9b4`|
+|root executor unchanged|`fca92db4cda0d94d25f6b7afbe314cb9bac94fff024f619eb94a24a365330670`|
+|entry wrapper unchanged|`a44f926e8d2bf930f1015930421dd4e6751c7963aaf9caf1fc35a99f4ad21048`|
+|runtime gate unchanged|`2feee48afb5bd8382c32c4e20a37296bf561e7e12b02fef267eb4ed74db71d88`|
+
+Before future provisioning, independently obtain the actual old root-policy bytes,
+metadata/inode and all pins; derive/approve full candidate policy hash with only
+the workflow entry changed. Those live values are intentionally NOT_VERIFIED in
+this offline task. Never overwrite a different installed executor/policy blindly.
+
+### E3. Completed exact-head CI and final review handoff
+
+| Job | Nest PR73 c53406f | main47eda0b | PR72 752d759 | Manual PR74 f35f8bd |
+|---|---|---|---|---|
+|Contracts|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|Go Quality|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|Nest Reference|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|Frontend|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|Pipeline Quality|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|Security|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|PostgreSQL Integration|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|Ephemeral Staging|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+|CI Gate|SUCCESS|SUCCESS|SUCCESS|SUCCESS|
+
+Runs: [Nest40125440019](https://github.com/kiratonine/AdilBaga/actions/runs/40125440019),
+[main40125929434](https://github.com/kiratonine/AdilBaga/actions/runs/40125929434),
+[PR72 40125961758](https://github.com/kiratonine/AdilBaga/actions/runs/40125961758),
+[manual source40126012502](https://github.com/kiratonine/AdilBaga/actions/runs/40126012502).
+All runs completed SUCCESS,9/9; no skipped/pending checks counted. PR72 remains
+OPEN,MERGEABLE,CLEAN, **not merged**. PR73 alone was merged as expressly authorized.
+
+The final follow-up commit changes only this report and handoff (bounded360s
+local SSH timeout/connect cap added); manual source/runtime/tests remain identical
+to the qualified source head above. Its separate final-head CI is available in
+[PR74 checks](https://github.com/kiratonine/AdilBaga/pull/74/checks); the final external
+handoff records its actual exact SHA/run, never infers success from the earlier run.
+
+Manual path classification: **source candidate supports authenticated manual
+artifact creation + existing fixed root wire transaction**, pending independent
+review/merge and producer-pin provisioning. It is not yet an approved/installed
+production path. No new root trust protocol is needed or weakened: changed producer
+workflow bytes must still be independently approved. Actual installed policy/hash,
+environment controls, current locks/publisher/rollback/reader/ledger and future
+immutable artifact are NOT_VERIFIED here and must pass at the later authorized
+window. Those are explicit deployment blockers, not CI blockers.
+
+Final privacy/source checks: known fixed root executor/builder/wrappers and
+activation workflow unchanged; only6 manual PR paths; reviewed12 PR72 paths
+unchanged after main merge; old reports preserved; local Markdown links and
+diff-check PASS. Clean source review archives are generated after report freeze,
+safe members and full file byte-match verified, SHA256 delivered externally.
+Archives remain review inputs only, never authenticated promotion install kits.
+
+STOP before PR72/manual PR merge or any VPS action. No production READY/C2 PASS,
+timer/API/data changes, flags, secrets, root policy changes or reused approval.
