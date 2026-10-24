@@ -79,11 +79,15 @@ async function gate() {
   const id=manual?e.inputs?.ci_run:e.workflow_run?.id;
   assert.match(String(id),/^[1-9][0-9]{0,15}$/);
   const buildOnly=manual&&e.inputs?.mode==='build-only';
+  const manualArtifact=manual&&e.inputs?.mode==='manual-artifact';
+  if(manual)assert.ok(['build-only','promote','manual-artifact'].includes(e.inputs?.mode));
   const ci=await api('actions/runs/'+id),jobs=(await api('actions/runs/'+id+'/jobs?per_page=100')).jobs;
   validateCI(sha,ci,jobs,(await api('git/ref/heads/main')).object.sha);
   assert.equal(run('git',['rev-parse','HEAD']).toString().trim(),sha);
-  let eligible=buildOnly;
-  if(!buildOnly) {
+  // Explicit artifact creation only: no remote status, transport or activation.
+  // Root independently authenticates the resulting promote artifact at admission.
+  let eligible=buildOnly||manualArtifact;
+  if(!buildOnly&&!manualArtifact) {
     assert.equal(process.env.SYNC_C2_PROMOTION_ENABLED,'true');
     if(!manual) {
       const commit=await api('git/commits/'+sha);assert.ok(commit.parents?.length);

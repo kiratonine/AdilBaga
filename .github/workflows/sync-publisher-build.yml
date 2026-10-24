@@ -8,7 +8,7 @@ on:
     inputs:
       mode:
         type: choice
-        options: [build-only, promote]
+        options: [build-only, promote, manual-artifact]
         default: build-only
       sha:
         description: Exact current main SHA
