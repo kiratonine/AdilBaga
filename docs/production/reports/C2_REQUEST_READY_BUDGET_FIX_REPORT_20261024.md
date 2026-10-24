@@ -283,3 +283,20 @@ as available time merely because its context timer has not fired yet.
 
 All local gates described above completed before publication. Hosted exact-head
 results remain a separate gate and are recorded through the PR checks below.
+
+## 12. Published source candidate and independent-review handoff
+
+PR: [#72](https://github.com/kiratonine/AdilBaga/pull/72), base `main`, head
+`fix/c2-ready-admission-budget`. Implementation commit:
+`a23baaa3f42f8fbf7b30efda000a32dce5cfb69a`; subsequent publication metadata is
+report-only. Exact final HEAD and completed hosted results must be read from
+the [PR checks](https://github.com/kiratonine/AdilBaga/pull/72/checks), not inferred
+from local PASS or a previous commit's checks. At this report's commit time,
+hosted checks are pending; the final external handoff records their actual result.
+
+Local source qualification is complete. Review artifact uses the unique filename
+in section10 and is verified after this report is frozen: safe regular-file
+members only, source/report byte-match against final Git HEAD, no private material
+or generated build/test outputs. The actual external SHA256 is supplied with the
+archive rather than embedded into itself. No merge, deployment or production
+access has occurred. Production C2 acceptance remains unverified.
