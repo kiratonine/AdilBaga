@@ -154,3 +154,13 @@ Known backups restore exactly fca92db4… + aea14e7d…, with new registered res
 - Helpers are source-only until independent review, exact-source installation and specific Owner authorization. No change in dataset, legitimate sync, C2 authority, secrets, flags or services is authorized by the test result.
 
 **ROOT_UPGRADE_HELPER_READY_FOR_REVIEW. STOP before merge and all production operations.**
+
+
+## 9. Publication evidence — append-only
+
+- Source-only PR: [#78](https://github.com/kiratonine/AdilBaga/pull/78), base main, branch `feat/c2-root-executor-pair-upgrade-helper`; no merge or deployment.
+- Tested implementation HEAD: **`d64de55127b97cba4bbf2961741f0c460302289d`**.
+- Exact-head [CI40218599910](https://github.com/kiratonine/AdilBaga/actions/runs/40218599910): **9/9 completed SUCCESS** — Go Quality (mandatory root aggregate included), Frontend, Security, Pipeline Quality, Contracts, Nest Reference, PostgreSQL Integration, Ephemeral Staging, CI Gate. No mandatory pending/skipped job counted as success.
+- Baseline FAIL-FIRST was also replayed as actual **UID0** in the network-disabled root container, using the same real single-file primitive/SIGKILL regression without the new helper in an owned temporary source copy: exit1, expected new/old mixed-pair assertion. This supplements the native-WSL baseline, not a mocked UID claim.
+- This documentation follow-up changes only this report. Helper SHA256 remains `98d1d5a4311a2e45b6ceb543558b40f2fc5d2c4826e064ed3f4ec5712a85fe68`; all implementation bytes equal the tested HEAD above. Final documentation-head SHA and exact CI run/status are recorded in [PR checks](https://github.com/kiratonine/AdilBaga/pull/78/checks), the PR body and final handoff because a document cannot contain its own Git hash.
+- Source history, previous reports and all production resources remain untouched. **ROOT_UPGRADE_HELPER_READY_FOR_REVIEW — STOP before merge/install/policy mutation/artifact/promotion.**
