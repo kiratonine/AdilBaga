@@ -87,3 +87,12 @@ Replace the root-controlled executor only via reviewed no-clobber/backup/inode/h
 Residual deployment risk: real VPS runuser/Git/kernel versions and installed executor/policy require separate compatibility/readback checks. Local root proof establishes the Linux FD boundary, not live authorization, installation, readiness or a production C2 PASS. Until that later approved task, production stays as historically reported and acceptance remains unverified.
 
 STOP for independent Code Review before merge or deployment.
+
+
+## Publication evidence — append-only, 2026-10-25
+
+- Source implementation commit: `9b28f92ba34d4ed1e4ef6d522b86f4df6afe4366`.
+- PR: [#77 — verified FD source import](https://github.com/kiratonine/AdilBaga/pull/77), base main, branch `fix/c2-root-bundle-fd-import`; no merge.
+- Exact implementation-head hosted [CI40202344073](https://github.com/kiratonine/AdilBaga/actions/runs/40202344073): **9/9 SUCCESS** — Contracts, Security, Nest Reference, Pipeline Quality, Frontend, Go Quality, PostgreSQL Integration, Ephemeral Staging, CI Gate. The mandatory distinct-UID root integration step inside Go Quality is SUCCESS, not skipped.
+- Only this publication-evidence section is added after the reviewed/tested implementation commit. The documentation follow-up head is rechecked through the same required CI; its immutable SHA/run and final statuses are recorded in the [PR checks](https://github.com/kiratonine/AdilBaga/pull/77/checks) and final handoff. A document cannot embed its own Git commit hash.
+- Initial clean archive verification:730 regular safe members, all byte-identical; final archive is regenerated after this append. Historical execution reports remain byte-unchanged. No production access or trust changes occurred.
