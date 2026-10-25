@@ -59,9 +59,9 @@ def run(old_tar, new_tar):
             return {p.name:[p.stat().st_dev,p.stat().st_ino,p.stat().st_mode,m.digest(p.read_bytes())] for p in [reader,ledger]}
         baseline=unchanged()
         class LocalHost(m.Host):
-            def git(self,args):
+            def git(self,args, *, pass_fds=()):
                 return real_command(['/usr/bin/git','--no-replace-objects','-c','core.fsmonitor=false',
-                                     '-c','core.hooksPath=/dev/null','-C',str(publisher)]+args,timeout=30,cap=2<<20).decode()
+                                     '-c','core.hooksPath=/dev/null','-C',str(publisher)]+args,timeout=30,cap=2<<20,pass_fds=pass_fds).decode()
             def idle(self): pass  # explicit OS model; never queries host services
             def runtime_wiring(self,*args): pass  # explicit local unit model
             def check_release(self,*args,**kwargs): pass  # no GitHub/HTTP in PoC
