@@ -367,6 +367,20 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(set(contents), set(m.FILES) | {'source.bundle', 'promotion.json'})
         self.assertEqual(policy, self.policy)
 
+    def test_manual_workflow_requires_independently_updated_producer_pin(self):
+        raw = self.archive()
+        updated_workflow = b'reviewed manual-artifact workflow fixture\n'
+        path = 'contents/' + m.BUILD_WORKFLOW + '?ref=' + self.sha
+        self.replies[path]['content'] = base64.b64encode(updated_workflow).decode()
+        with self.assertRaisesRegex(m.Blocked, 'producer_source_changed'):
+            self.admit(raw)
+        # Explicit synthetic independent admin policy model; never a host write.
+        self.policy['producerFiles'][m.BUILD_WORKFLOW] = m.digest(updated_workflow)
+        self.assertEqual(self.admit(raw)[3], 'build-9-1')
+        self.manifest['kind'] = 'build-only'
+        with self.assertRaisesRegex(m.Blocked, 'build_only_not_authorized'):
+            self.admit(self.archive())
+
     def test_self_consistent_unapproved_zip_wrong_digest_or_unavailable_authority_rejected(self):
         raw = self.archive()
         with self.assertRaises(m.Blocked): self.admit(raw + b'changed')
