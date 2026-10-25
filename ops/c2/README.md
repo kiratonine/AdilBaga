@@ -811,3 +811,31 @@ services or real credentials enter that sandbox; business/GitHub authority there
 is explicitly modeled. Existing distinct-UID runuser/Git/Go tests remain. Root
 prerequisites missing means failure, not SKIP. Neither test PASS nor helper
 source approval proves VPS installation, READY or production C2 convergence.
+
+
+## Fixed helper installation transaction (SOURCE ONLY, 2026-10-26)
+
+`install-root-executor-helper.py` installs only the previously reviewed
+`root-executor-pair-upgrade.py` bytes from exact GitHub commit
+`f38941cf1e007fef251c4b1964629ee523a15327`, SHA256
+`98d1d5a4311a2e45b6ceb543558b40f2fc5d2c4826e064ed3f4ec5712a85fe68`.
+The installer itself needs independent source/digest review and a trusted root
+bootstrap; a writable upload is never an executable authority. Its production
+CLI has only `--install`, `--readback`, `--rollback-install`; no path/env/UID,
+source, sandbox, shell command, or credential override. Candidate helper bytes
+come from bounded GitHub HTTPS metadata/CI proof, never stdin, and are syntax
+compiled without execution. Existing installed executor definitions are loaded
+only after exact predecessor hash/custody verification for read-only admission.
+
+It holds existing ingress/runtime/controller locks; checks the frozen old
+executor/policy, complete closure/retained releases, idle runtime, reader metadata
+and validated ledger; then creates a separate root0700 install backup/intent
+and append-only root0600 receipt. Same-parent exclusive staging, inode/hash CAS,
+no-clobber hardlink publication, file/directory fsync and postchecks preserve
+existing resources. Unknown namespaces, unregistered crash gaps, torn receipts,
+foreign inodes or ACL/xattrs block and retain evidence. No automatic cleanup or
+retry is allowed. Explicit install rollback removes only registered own helper
+inodes; receipts/source copy remain and prevent reinstall. It never invokes any
+helper mode or modifies executor/policy pins. Root-pair upgrade and publisher
+promotion remain separately authorized later operations. See the installation
+qualification report for exact commands, bootstrap pins and limitations.
