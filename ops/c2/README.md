@@ -767,3 +767,47 @@ does not authorize live pin migration or installation. The existing producer
 workflow pin is unchanged; do not reuse a failed release identity, artifact or
 `--initial-reviewed`. A later reviewed deployment needs a new exact-main CI9 and
 authenticated manual artifact.
+
+## One reviewed executor/policy pair upgrade (SOURCE ONLY, 2026-10-25)
+
+`root-executor-pair-upgrade.py` is a separate root-admin tool, not a publisher
+promotion endpoint. Its only production modes are `--verify`, `--apply`,
+`--recover`, `--rollback`, invoked with isolated Python `-I -B` from its fixed
+root-controlled installation path. There is no CLI/env path, UID, command,
+source, approval or sandbox override, and no new sudo/restricted-key grant.
+Installation and any real invocation require separate independent review and
+Owner authorization; adding this source file does not install it.
+
+The fixed packet binds reviewed commit `8cff133be30a8c31f4d5e06d297dcf9af5e97847`,
+its push CI40208958302/all9 jobs and exact executor/workflow/builder bytes obtained
+independently through the existing bounded GitHub HTTPS client. Downloaded code
+is syntax-compiled and hashed, never executed as a candidate. This is a frozen
+reviewed-code source, not permission to follow/adopt latest main. A later
+publisher artifact needs its own then-current-main/CI/provenance approval.
+
+The helper takes existing ingress→runtime→controller locks, checks idle source,
+12-file/authority closure, site policy, reader metadata, validated ledger history,
+loaded wrappers/timers and retained release/backups. It replaces only the fixed
+root executor and exactly two linked policy hashes. Both old complete files are
+backed up under a new root0700 namespace before staging. No-follow directory/file
+FD custody, mode/owner/nlink/xattr/ACL checks, exclusive creates, inode/hash CAS,
+file/directory fsync and a separate root0600 journal guard each rename. The
+existing promotion interlock/receipts and previous workflow backup are untouched.
+Two renames are not a physically atomic pair.
+
+An interrupted registered transaction is explicitly rolled back by `--recover`;
+a verified pair is retained. `--rollback` is a separate explicit pair rollback,
+never publisher `--rollback-last`/`--rollback-interrupted`. Unknown state,
+unregistered mkdir/temp gaps, changed history, missing/tampered backup or unknown
+inode fail closed and preserve evidence for manual reconciliation. The helper
+never guesses ownership, deletes unknown resources, or automatically retries an
+apply. Even after rollback its one-off journal prevents a second apply. Ledger
+inodes are captured freshly; a valid append across a stopped operation is retained,
+while original history rewrites or changes inside the protected window reject.
+
+The mandatory existing `run-root-bundle-integration.mjs` runner now also runs real
+root filesystem pair/crash/recovery tests. No network/host Docker socket/live
+services or real credentials enter that sandbox; business/GitHub authority there
+is explicitly modeled. Existing distinct-UID runuser/Git/Go tests remain. Root
+prerequisites missing means failure, not SKIP. Neither test PASS nor helper
+source approval proves VPS installation, READY or production C2 convergence.

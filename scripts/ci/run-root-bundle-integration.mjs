@@ -16,13 +16,14 @@ try {
   run('Build owned isolated root fixture', 'docker', ['build', '--tag', id,
     dirname(join(root, 'ops/c2/fixtures/bundle-root/Dockerfile'))]);
   built = true;
-  console.log(run('Real root/runuser/Git FD and coupled transaction qualification (0 SKIP)', 'docker', [
+  console.log(run('Real root/runuser/Git FD + executor pair crash/recovery qualification (0 SKIP)', 'docker', [
     'run', '--name', id, '--rm', '--network', 'none', '--cap-drop', 'ALL',
     ...['SETUID', 'SETGID', 'CHOWN', 'DAC_OVERRIDE', 'KILL'].flatMap(c => ['--cap-add', c]),
     '--security-opt', 'no-new-privileges', '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=1073741824',
     '--memory', '2g', '--cpus', '2', '--pids-limit', '128',
     '--mount', `type=bind,src=${root},dst=/src,readonly`,
     '--mount', `type=bind,src=${goRoot},dst=/usr/local/go,readonly`, id,
+    'python3', '-B', 'ops/c2/root_executor_pair_integration.py',
   ]));
 } finally {
   // Only this invocation's random, owned resources; never prune/reuse host containers.
