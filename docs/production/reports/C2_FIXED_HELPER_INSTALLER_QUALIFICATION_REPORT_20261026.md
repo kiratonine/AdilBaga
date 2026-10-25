@@ -20,7 +20,7 @@ The approved helper `ops/c2/root-executor-pair-upgrade.py` remains byte-identica
 
 ## 2. Concrete installer and trust boundary
 
-Installer SHA256: `536208d38dacf0d8878c19e21f068f80eccd27f9f1956f20f0325fea1ab7afc6` (32491 bytes); Git blob `6cad634c07228eaa07bdefe70def7f18a1217fb5`. This digest identifies the installer code, **not** the helper payload. Future execution additionally requires independent review/approval of this exact installer and its CI/source commit. PR source approval does not install anything.
+Installer SHA256: `9391c04d55946e72fbc1232ec8becdb82494a673b9d553c78d00d66e82bfaa31` (32511 bytes); Git blob `f900f3e50c861fce8c0646aa3645eeda4a004306`. This digest identifies the installer code, **not** the helper payload. Future execution additionally requires independent review/approval of this exact installer and its CI/source commit. PR source approval does not install anything.
 
 Production CLI accepts only `--install`, `--readback`, `--rollback-install`, requires real/effective UID0 and isolated `python3 -I -B`, with a 120-second overall alarm and cancellation handling. There is no stdin/upload execution, path/source/UID/credential/sandbox/env override or general shell command. Tests inject filesystem/business models through Python objects only; those injection hooks are not exposed by CLI/env.
 
@@ -83,7 +83,7 @@ Earlier local root runs66/66 and68/68 passed before additional coverage; final69
 
 Requires a new explicit Owner production authorization, independent exact installer source/digest approval, completed source CI, and a fresh read-only idle/preflight window. No authorization is created by this report. The helper remains sourcef389; delivery of the installer from its separately reviewed PR commit does not rewrite the helper's frozen source or policy.
 
-The following root bootstrap fetches the **installer** itself independently from exact GitHub source. It never trusts an uploaded executable. Before execution Owner/admin must compare `b047be17354dae93675add2d9ad95315573f34dc` and digest with independent review; immutable commit is fixed below after the source commit is created. The bootstrap is a fixed reviewed literal run by the existing Owner admin channel, not a new sudo/SSH grant.
+The following root bootstrap fetches the **installer** itself independently from exact GitHub source. It never trusts an uploaded executable. Before execution Owner/admin must compare `1909103206a39cfca349e6e0ddce803a26b04edf` and digest with independent review; immutable commit is fixed below after the source commit is created. The bootstrap is a fixed reviewed literal run by the existing Owner admin channel, not a new sudo/SSH grant.
 
 ```sh
 ROOT_COMMAND=$(python3 -I -B - <<'BUILD_FIXED_COMMAND'
@@ -94,16 +94,16 @@ signal.alarm(20)
 if os.getuid() != 0 or os.geteuid() != 0: raise SystemExit(1)
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args): raise RuntimeError("redirect_blocked")
-url = "https://api.github.com/repos/kiratonine/AdilBaga/contents/ops/c2/install-root-executor-helper.py?ref=b047be17354dae93675add2d9ad95315573f34dc"
+url = "https://api.github.com/repos/kiratonine/AdilBaga/contents/ops/c2/install-root-executor-helper.py?ref=1909103206a39cfca349e6e0ddce803a26b04edf"
 request = urllib.request.Request(url, headers={"Accept":"application/vnd.github+json","User-Agent":"AdilBaga-Reviewed-Helper-Installer/1"})
 with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect()).open(request, timeout=8) as response:
     if response.status != 200 or "application/json" not in response.headers.get("Content-Type",""): raise SystemExit(1)
     data = response.read(131073)
 if len(data) > 131072: raise SystemExit(1)
 value = json.loads(data)
-if value.get("path") != "ops/c2/install-root-executor-helper.py" or value.get("type") != "file" or value.get("encoding") != "base64" or value.get("size") != 32491 or value.get("sha") != "6cad634c07228eaa07bdefe70def7f18a1217fb5": raise SystemExit(1)
+if value.get("path") != "ops/c2/install-root-executor-helper.py" or value.get("type") != "file" or value.get("encoding") != "base64" or value.get("size") != 32511 or value.get("sha") != "f900f3e50c861fce8c0646aa3645eeda4a004306": raise SystemExit(1)
 raw = base64.b64decode(value["content"].replace(chr(10),""), validate=True)
-if len(raw) != 32491 or hashlib.sha256(raw).hexdigest() != "536208d38dacf0d8878c19e21f068f80eccd27f9f1956f20f0325fea1ab7afc6": raise SystemExit(1)
+if len(raw) != 32511 or hashlib.sha256(raw).hexdigest() != "9391c04d55946e72fbc1232ec8becdb82494a673b9d553c78d00d66e82bfaa31": raise SystemExit(1)
 sys.argv = ["independently-verified-installer","--install"]
 exec(compile(raw,"independently-verified-installer","exec"),{"__name__":"__main__"})"""
 compile(body, 'reviewed-bootstrap', 'exec')
@@ -138,7 +138,7 @@ No merge or production operation is performed. STOP for independent source/insta
 
 ## 8. Source publication gate and final integrity
 
-Immutable installer-source commit: `b047be17354dae93675add2d9ad95315573f34dc`. The separate report commit pins that already-created source commit in section6 to avoid a self-referential report/commit hash. The installer code digest is identical across both commits. Source-only PR base=main; no merge/deployment authorized.
+Immutable installer-source commit: `1909103206a39cfca349e6e0ddce803a26b04edf`. The separate report commit pins that already-created source commit in section6 to avoid a self-referential report/commit hash. The final installer-source commit includes explicit `umask077` at the CLI boundary; its regression asserts this precedes filesystem construction. Earlier source commit b047be17 is superseded; the command uses only final19091032 source/digest. Source-only PR base=main; no merge/deployment authorized.
 
 Hosted exact-head CI is an independent publication gate, not inferred from local tests. The final handoff must identify the actual PR HEAD/run and all9 job conclusions; pending/skipped/failure must not be reported as success. Review the authoritative [branch CI checks](https://github.com/kiratonine/AdilBaga/actions/workflows/ci.yml?query=branch%3Afeat%2Fc2-fixed-helper-installer). The final delivery records the observed exact-head result separately; this immutable source report does not pre-assert the outcome of a queued CI run.
 
