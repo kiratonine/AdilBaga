@@ -739,3 +739,31 @@ dry-run/apply pair. A policy/authority error excludes C2, never retries apply.
 Rollout must preserve prior kit/receipts/root records, reader inode and all
 evidence under safe no-clobber replacement; do not edit old approvals to claim
 new bytes were independently reviewed. No running sync may be interrupted.
+
+## Root-private source bundle import (source-only correction, 2026-10-25)
+
+`publisher-promotion.py` keeps `releases` root-owned 0700. Only the authenticated
+public `source.bundle` crosses the root→`aktau-sync` boundary: root opens its fixed
+release directory without following links, verifies the single-link 0444 regular
+file, bounded size, SHA256 and directory/file identity, then passes one read-only
+descriptor to the fixed `runuser`/Git fetch via `/proc/self/fd/N`. The descriptor
+closes on success, rejection, timeout and cancellation. Tree/blob/ancestry,
+dependency/Dina, transaction, rollback and reader/ledger checks remain required.
+No public staging copy, parent permission change, path/FD override or extra
+credential access is introduced.
+
+Run `node scripts/ci/run-root-bundle-integration.mjs` with Docker and Go1.27.3.
+The mandatory Go Quality CI step runs an isolated, network-disabled root sandbox
+with real UID1999, runuser, Git, valid bundles and coupled promotion/rollback.
+Missing prerequisites fail; same-UID mocks do not substitute for this proof.
+Service/GitHub/reader/ledger authority in that disposable test is explicitly
+synthetic, never production authorization or C2 convergence evidence.
+
+Future installation requires independent review of both linked executor pins:
+`producerFiles['ops/c2/publisher-promotion.py']` and
+`runtimeFiles['/usr/local/libexec/aktau-sync-promotion/publisher-promotion.py']`,
+plus a safely backed-up root executor replacement and readback. This source fix
+does not authorize live pin migration or installation. The existing producer
+workflow pin is unchanged; do not reuse a failed release identity, artifact or
+`--initial-reviewed`. A later reviewed deployment needs a new exact-main CI9 and
+authenticated manual artifact.

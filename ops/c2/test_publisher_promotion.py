@@ -423,10 +423,16 @@ class AdmissionTests(unittest.TestCase):
             with self.assertRaises(m.Blocked): self.admit(raw)
 
     def test_real_git_boundary_blocks_unknown_dependencies_and_protected_delta(self):
-        host = m.Host(None)
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        root = pathlib.Path(temp.name); root.chmod(0o700); fs = m.Filesystem(root)
+        directory = m.BASE + '/releases/dependency-test'; fs.path(directory).mkdir(parents=True)
+        fs.write(directory + '/source.bundle', b'public mocked transport fixture', 0o444)
+        bundle = str(fs.path(directory + '/source.bundle')); host = m.Host(fs)
         old, new = 'b' * 40, 'a' * 40
-        def git(args):
-            if args[:1] == ['fetch']: return ''
+        def git(args, *, pass_fds=()):
+            if args[:1] == ['fetch']:
+                self.assertEqual(len(pass_fds), 1); self.assertEqual(args[2], '/proc/self/fd/' + str(pass_fds[0])); return ''
+            self.assertEqual(pass_fds, ())
             if args == ['rev-parse', new+'^{tree}']: return 'f'*40+'\n'
             if args == ['merge-base', old, new]: return old+'\n'
             if args[:1] == ['diff']: return 'pipeline/src/cli/sync.ts\n' if '--' not in args else ''
@@ -434,18 +440,118 @@ class AdmissionTests(unittest.TestCase):
                 sha, path = args[1].split(':',1)
                 return m.PIPELINE_TOOLING_BRIDGE[path][0 if sha==old else 1]+'\n'
             raise AssertionError(args)
-        manifest = {'sourceSha':new,'sourceTree':'f'*40}
+        manifest = {'sourceSha':new,'sourceTree':'f'*40,'sourceBundleSha256':m.digest(b'public mocked transport fixture')}
         with patch.object(host,'publisher',return_value={'sha':old}), patch.object(m,'source_paths',return_value={}):
-            with patch.object(host,'git',side_effect=git): host.import_source('/fixture/source.bundle',manifest,{'initialBridge':{}})
-            def unknown(args):
+            with patch.object(host,'git',side_effect=git): host.import_source(bundle,manifest,{'initialBridge':{}})
+            def unknown(args, **kwargs):
                 if args[:1] == ['rev-parse'] and ':pipeline/package.json' in args[1] and args[1].startswith(new): return 'c'*40+'\n'
-                return git(args)
+                return git(args, **kwargs)
             with patch.object(host,'git',side_effect=unknown), self.assertRaisesRegex(m.Blocked,'dependency_provisioning_required'):
-                host.import_source('/fixture/source.bundle',manifest,{'initialBridge':{}})
-            def protected(args):
-                return 'contracts/openapi.yaml\n' if args[:1]==['diff'] and '--' in args else git(args)
+                host.import_source(bundle,manifest,{'initialBridge':{}})
+            def protected(args, **kwargs):
+                return 'contracts/openapi.yaml\n' if args[:1]==['diff'] and '--' in args else git(args, **kwargs)
             with patch.object(host,'git',side_effect=protected), self.assertRaisesRegex(m.Blocked,'protected_delta'):
-                host.import_source('/fixture/source.bundle',manifest,{'initialBridge':{}})
+                host.import_source(bundle,manifest,{'initialBridge':{}})
+
+
+class BundleDescriptorTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        root = pathlib.Path(self.temp.name); root.chmod(0o700); self.fs = m.Filesystem(root)
+        self.directory = m.BASE + '/releases/unit-fd'; self.fs.path(self.directory).mkdir(parents=True)
+        self.raw = b'public authenticated fixture bytes\n'; self.path = self.fs.path(self.directory+'/source.bundle')
+        self.fs.write(self.directory+'/source.bundle', self.raw, 0o444)
+
+    def opened(self, expected=None):
+        return self.fs.source_bundle_fd(str(self.path), expected or m.digest(self.raw))
+
+    def test_readonly_cloexec_digest_and_success_close(self):
+        before = len(os.listdir('/proc/self/fd'))
+        with self.opened() as fd:
+            self.assertFalse(os.get_inheritable(fd)); self.assertEqual(os.read(fd, len(self.raw)), self.raw)
+            with self.assertRaises(OSError): os.write(fd, b'bad')
+        with self.assertRaises(OSError): os.fstat(fd)
+        self.assertEqual(len(os.listdir('/proc/self/fd')), before)
+
+    def test_digest_and_fixed_namespace_reject_without_fd_leak(self):
+        before = len(os.listdir('/proc/self/fd'))
+        for path, digest in [(str(self.path), '0'*64), ('/etc/other',m.digest(self.raw)),
+                             (str(self.path.parent/'other'),m.digest(self.raw)),
+                             (str(self.path.parent/'..'/'unit-fd'/'source.bundle'),m.digest(self.raw)),
+                             (str(self.path),True)]:
+            with self.subTest(path=path), self.assertRaises(m.Blocked):
+                with self.fs.source_bundle_fd(path,digest): self.fail('admitted')
+        self.assertEqual(len(os.listdir('/proc/self/fd')), before)
+
+    def test_mode_link_empty_and_sparse_capacity_reject(self):
+        for mode in [0o644,0o555,0o600,0o666]:
+            self.path.chmod(mode)
+            with self.assertRaises(m.Blocked):
+                with self.opened(): self.fail('mode accepted')
+        self.path.chmod(0o444); os.link(self.path,self.path.parent/'alias')
+        with self.assertRaises(m.Blocked):
+            with self.opened(): self.fail('hardlink accepted')
+        (self.path.parent/'alias').unlink(); self.path.chmod(0o600)
+        for size in [0,m.MAX_TAR+1]:
+            os.truncate(self.path,size); self.path.chmod(0o444)
+            with self.assertRaises(m.Blocked):
+                with self.opened(): self.fail('size accepted')
+            self.path.chmod(0o600)
+
+    def test_symlink_and_fifo_never_block_or_follow(self):
+        self.path.unlink(); self.path.symlink_to('/etc/passwd')
+        with self.assertRaises(OSError):
+            with self.opened(): self.fail('symlink accepted')
+        self.path.unlink(); os.mkfifo(self.path,0o444)
+        with self.assertRaises(m.Blocked):
+            with self.opened(): self.fail('fifo accepted')
+
+    def test_path_swap_during_hash_rejected(self):
+        original = os.read; swapped = False
+        def read(fd,n):
+            nonlocal swapped
+            data=original(fd,n)
+            if not swapped:
+                swapped=True; other=self.path.parent/'swapped'; other.write_bytes(self.raw); other.chmod(0o444); os.replace(other,self.path)
+            return data
+        with patch.object(m.os,'read',side_effect=read), self.assertRaises(m.Blocked):
+            with self.opened(): self.fail('swapped path admitted')
+
+    def test_postfetch_swap_rejected_and_descriptor_closed(self):
+        with self.assertRaises(m.Blocked):
+            with self.opened() as fd:
+                self.path.rename(self.path.parent/'old'); self.path.write_bytes(self.raw); self.path.chmod(0o444)
+        with self.assertRaises(OSError): os.fstat(fd)
+
+    def test_same_inode_tamper_with_restored_mtime_rejected(self):
+        original = self.path.stat()
+        with self.assertRaises(m.Blocked):
+            with self.opened() as fd:
+                self.path.chmod(0o600); self.path.write_bytes(b'x'*len(self.raw)); self.path.chmod(0o444)
+                os.utime(self.path, ns=(original.st_atime_ns, original.st_mtime_ns))
+        with self.assertRaises(OSError): os.fstat(fd)
+
+    def test_release_directory_swap_rejected(self):
+        with self.assertRaises(m.Blocked):
+            with self.opened() as fd:
+                parent=self.path.parent; parent.rename(parent.with_name('old-release'))
+                parent.mkdir(); self.path.write_bytes(self.raw); self.path.chmod(0o444)
+        with self.assertRaises(OSError): os.fstat(fd)
+
+    def test_failure_cancellation_and_unknown_cleanup_preserve_original_error(self):
+        for error in [m.Blocked('command_failed'),m.Blocked('command_cleanup_unverified'),KeyboardInterrupt()]:
+            with self.assertRaises(type(error)) as result:
+                with self.opened() as fd: raise error
+            self.assertIs(result.exception,error)
+            with self.assertRaises(OSError): os.fstat(fd)
+
+    def test_git_fd_only_for_single_fixed_fetch(self):
+        host=m.Host(self.fs)
+        for args,fds in [(['status'],(4,)),(['fetch','--no-tags','/tmp/other','a'*40],(4,)),
+                         (['fetch','--no-tags','/proc/self/fd/4','a'*40],(4,5)),
+                         (['fetch','--no-tags','/proc/self/fd/4','not-sha'],(4,))]:
+            with patch.object(m,'command') as call,self.assertRaises(m.Blocked):host.git(args,pass_fds=fds)
+            call.assert_not_called()
 
 
 if __name__ == '__main__': unittest.main()
