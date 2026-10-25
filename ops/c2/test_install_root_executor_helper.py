@@ -338,6 +338,14 @@ class HelperInstallerTests(unittest.TestCase):
             r=subprocess.run([sys.executable,'-I','-B',str(HERE/'install-root-executor-helper.py'),option],capture_output=True,text=True,timeout=3)
             self.assertEqual(r.returncode,1);self.assertEqual(json.loads(r.stdout)['status'],'BLOCKED')
             self.assertEqual(r.stderr,'')
+        import types
+        with patch.object(m.sys,'argv',['reviewed-installer','--install']), \
+             patch.object(m.sys,'flags',types.SimpleNamespace(isolated=True)), \
+             patch.object(m.sys,'dont_write_bytecode',True), \
+             patch.object(m.os,'umask') as mask, \
+             patch.object(m,'Filesystem',side_effect=m.Blocked('synthetic_fs_boundary')):
+            with self.assertRaisesRegex(m.Blocked,'synthetic_fs_boundary'):m.main()
+            mask.assert_called_once_with(0o077)
 
     def test_independent_source_metadata_ci_and_sha_fail_closed(self):
         names=['Contracts','Go Quality','Nest Reference','Frontend','Pipeline Quality','Security','PostgreSQL Integration','Ephemeral Staging','CI Gate']

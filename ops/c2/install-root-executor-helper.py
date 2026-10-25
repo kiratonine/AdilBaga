@@ -512,6 +512,7 @@ class Installer:
 def main():
     need(len(sys.argv) == 2 and sys.argv[1] in ['--install', '--readback', '--rollback-install'], 'fixed_entry')
     need(sys.flags.isolated and sys.dont_write_bytecode, 'isolated_python_required')
+    os.umask(0o077)
     fs = Filesystem(); code, _ = fs.read(EXECUTOR, 0o755)
     need(len(code) == 56173 and digest(code) == OLD, 'installed_executor_digest')
     p = types.ModuleType('pinned_old_executor'); p.__file__ = EXECUTOR
