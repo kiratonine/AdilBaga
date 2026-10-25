@@ -31,7 +31,7 @@ def digest(b):return hashlib.sha256(b).hexdigest()
 def old_source():
     """Strict public reverse patch + fixed digest; no Git/network in root sandbox."""
     original=(HERE/'publisher-promotion.py').read_text().splitlines(keepends=True)
-    lines=(HERE/'fixtures/pair-upgrade/executor-before.patch').read_text().splitlines(keepends=True)
+    lines=json.loads((HERE/'fixtures/pair-upgrade/executor-before.json').read_text())
     result=[];index=0;at=0
     while at<len(lines):
         if not lines[at].startswith('@@ '):at+=1;continue

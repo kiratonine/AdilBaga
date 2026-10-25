@@ -75,7 +75,7 @@ Authority/business/GitHub responses in helper transaction tests are explicit loc
 
 Negative cases cover wrong old/new digest or length, third policy field, stale inode/parent, symlink/hardlink, actual foreign owner, writable ancestor, named POSIX ACL/xattr despite superficially safe mode, busy/nonempty locks, runtime busy, Source/CI/repo/workflow mismatch/skipped jobs/unavailable authority/invalid encoding, missing or altered backups, journal corruption/unknown phase/extra keys, unknown mixed pair, unexpected stages, root space/read-only mounts, partial/zero write, backup/directory fsync failure, cancellation, historical ledger rewrite, current-window resource change, duplicate apply, missing journal, wrong CLI mode/override, FD leakage and real runuser descendant timeout/cleanup. Unknown state never returns verified.
 
-Intermediate **fixture** corrections are recorded honestly: a directory context assertion was initially placed inside rather than around the context; a nonroot mutation injector tried writing its own0444 fixture without first temporarily setting owner-write. These were corrected without relaxing helper assertions. Root real-owner tests remain mandatory, not replaced by mocks.
+Intermediate **fixture** corrections are recorded honestly: a directory context assertion was initially placed inside rather than around the context; a nonroot mutation injector tried writing its own0444 fixture without first temporarily setting owner-write. These were corrected without relaxing helper assertions. Staged diff-check also rejected raw unified-patch blank context whitespace; that public fixture was encoded as a JSON line array, preserving the exact reconstructed old hash, before any push. No runtime helper bytes changed for that formatting correction. Root real-owner tests remain mandatory, not replaced by mocks.
 
 ## 5. Local verification (actual commands / exit codes)
 
@@ -105,7 +105,7 @@ The expected duplicate-ZIP Python fixture warning is retained. Tests without tes
 1. `ops/c2/root-executor-pair-upgrade.py` — fixed-purpose bootstrap/source/guard/FS/pair journal/recovery CLI.
 2. `ops/c2/test_root_executor_pair_upgrade.py` —31 regression tests, real temporary FS and SIGKILL cases, explicit legacy fail-first path.
 3. `ops/c2/root_executor_pair_integration.py` — mandatory root/real-owner/child integration aggregate including original FD tests.
-4. `ops/c2/fixtures/pair-upgrade/executor-before.patch` — small public reverse patch; exact fca92db4… baseline reconstructed offline, digest asserted (not another installed executor).
+4. `ops/c2/fixtures/pair-upgrade/executor-before.json` — small public reverse patch encoded as JSON lines (no whitespace drift); exact fca92db4… baseline reconstructed offline, digest asserted (not another installed executor).
 5. `ops/c2/fixtures/pair-upgrade/policy-before.json` — approved public1557byte metadata fixture, exact old digest, no credential/approval creation.
 6. `scripts/ci/run-root-bundle-integration.mjs` — same isolated runner/image and cleanup, aggregates old and new mandatory root qualification. CI9 topology/workflow bytes unchanged.
 7. `ops/c2/README.md` — source-only invocation/authority/recovery limits.
