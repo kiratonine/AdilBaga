@@ -7,7 +7,8 @@ import { isTrustedProductionEvent } from './fifo-adapter.mjs';
 
 export const LIMITS = Object.freeze({ acceptanceMs: 5000, endMs: 20000,
   timeoutMs: 4000, maxRequests: 21, bodyBytes: 2 * 1024 * 1024,
-  sitemapBytes: 4 * 1024 * 1024, offsets: [0, 2500, 7500, 15000] });
+  // Fixed8MiB: ~97% headroom above the observed4252947-byte sitemap.
+  sitemapBytes: 8 * 1024 * 1024, offsets: [0, 2500, 7500, 15000] });
 const names = ['product_ru', 'product_kk', 'sitemap', 'catalog', 'dashboard', 'category'];
 const safeHeaders = ['date', 'cache-control', 'etag', 'age', 'vary', 'x-nextjs-cache', 'x-vercel-cache', 'cf-cache-status', 'x-vercel-id'];
 const iso = value => typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value));
@@ -257,7 +258,13 @@ export function verdictCapture(capture, before, after) {
   const stored = captures.get(capture);
   if (!stored || JSON.stringify(before) !== JSON.stringify(stored.before)) return inconclusive('untrusted_capture');
   if (!sameProviderCustody(before, after)) return inconclusive('untrusted_projection');
-  if (capture.acceptance !== 'capture_complete') return inconclusive('capture_failed');
+  if (capture.acceptance !== 'capture_complete') {
+    // Only registry-held, frozen capture errors may cross into durable evidence.
+    // Preserve the existing reason/envelope; never persist raw response/error text.
+    const failure = capture.events.find(e => names.includes(e.target)
+      && ['timeout', 'redirect', 'non200', 'oversized_body', 'missing_marker', 'unexpected_revision', 'encoded_body', 'transport'].includes(e.error));
+    return { ...inconclusive('capture_failed'), ...(failure ? { failedTarget: failure.target, failureClass: failure.error } : {}) };
+  }
   const event = stored.event, receipt = event.receipt;
   if (!receipt || receipt.status !== 204 || receipt.attemptId !== before.attemptId || receipt.snapshotId !== after?.snapshotId
     || receipt.attemptId !== after?.attemptId) return inconclusive('event_mismatch');
