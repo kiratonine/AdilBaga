@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import https from 'node:https';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { marker, observeProduction, validatePlan, publicGet, createEventSource, LIMITS } from './production-observer.mjs';
 import { isTrustedProductionEvent } from './fifo-adapter.mjs';
 import { isProductionProvider, admitsProductionCapture } from './projection-provider.mjs';
@@ -237,4 +242,68 @@ test('actual transport fixed GET/TLS, bounded streaming, no credentials/proxy/co
   assert.deepEqual(r.headers, { etag: 'safe', date: 'Fri, 16 Oct 2026 00:00:00 GMT' });
   const hanging = () => { const req = new EventEmitter(); req.end = () => {}; req.destroy = () => {}; return req };
   await assert.rejects(publicGet('/ru/catalog', 5, 4, hanging), /timeout/);
+});
+
+// Exercise actual Node TLS sockets/streams; the test-only request adapter pins
+// every request to this owned loopback server, never a production hostname.
+test('real TLS streaming: large sitemap, exact8MiB cap, chunked overflow, timeout and HTTP failures', async t => {
+  assert.equal(LIMITS.sitemapBytes, 8 * 1024 * 1024);
+  assert.equal(LIMITS.bodyBytes, 2 * 1024 * 1024);
+  assert.equal(LIMITS.timeoutMs, 4000); assert.equal(LIMITS.acceptanceMs, 5000);
+  assert.equal(LIMITS.endMs, 20000); assert.equal(LIMITS.maxRequests, 21);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'c2-large-sitemap-'));
+  const key = path.join(dir, 'key.pem'), cert = path.join(dir, 'cert.pem');
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-days', '1',
+    '-subj', '/CN=localhost', '-addext', 'subjectAltName=IP:127.0.0.1', '-keyout', key, '-out', cert], { stdio: 'ignore', timeout: 10000 });
+  const ca = fs.readFileSync(cert), sockets = new Set();
+  const target = plan().targets.find(t => t.name === 'sitemap');
+  const small = body(target, after), entry = '<url><loc>https://aktau.market/ru/products/unrelated</loc><lastmod>2026-10-15T00:00:00.000Z</lastmod></url>';
+  const large = small.replace('</urlset>', entry.repeat(Math.ceil((4252947 - small.length) / entry.length)) + '</urlset>');
+  assert.ok(Buffer.byteLength(large) >= 4252947);
+  let mode = 'large', requests = 0, sent = 0;
+  const server = https.createServer({ key: fs.readFileSync(key), cert: ca }, async (req, res) => {
+    requests++;
+    assert.equal(req.method, 'GET'); assert.equal(req.url, '/sitemap.xml');
+    assert.equal(req.headers['accept-encoding'], 'identity');
+    assert.equal(req.headers.cookie, undefined); assert.equal(req.headers.authorization, undefined);
+    if (mode === 'timeout') { res.writeHead(200); res.write('partial'); return }
+    if (mode === 'redirect') { res.writeHead(302, { location: 'https://untrusted.invalid' }); res.end(); return }
+    if (mode === 'non200') { res.writeHead(503); res.end(); return }
+    if (mode === 'encoded') { res.writeHead(200, { 'content-encoding': 'gzip' }); res.end('not-decoded'); return }
+    // No Content-Length: limit must count chunks, never trust an announced size.
+    res.writeHead(200, { 'content-type': 'application/xml' });
+    const data = mode === 'large' ? Buffer.from(large) : Buffer.alloc(LIMITS.sitemapBytes + (mode === 'overflow' ? 1 : 0), 120);
+    sent = 0;
+    for (let offset = 0; offset < data.length && !res.destroyed; offset += 16384) {
+      const chunk = data.subarray(offset, offset + 16384); sent += chunk.length;
+      if (!res.write(chunk)) await new Promise(resolve => {
+        const done = () => { res.off('drain', done); res.off('close', done); resolve() };
+        res.once('drain', done); res.once('close', done);
+      });
+    }
+    if (!res.destroyed) res.end();
+  });
+  server.on('connection', s => { sockets.add(s); s.on('close', () => sockets.delete(s)) });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { for (const s of sockets) s.destroy(); await new Promise(resolve => server.close(resolve)) });
+  const transport = (options, callback) => {
+    assert.equal(options.hostname, 'aktau.market'); assert.equal(options.port, 443);
+    assert.equal(options.rejectUnauthorized, true); assert.equal(options.agent, false);
+    assert.deepEqual(Object.keys(options.headers).sort(), ['Accept', 'Accept-Encoding', 'User-Agent']);
+    return https.request({ ...options, hostname: '127.0.0.1', port: server.address().port, ca }, callback);
+  };
+  const get = (timeout = LIMITS.timeoutMs) => publicGet('/sitemap.xml', timeout, LIMITS.sitemapBytes, transport);
+  await assert.rejects(publicGet('/sitemap.xml', LIMITS.timeoutMs, 4 * 1024 * 1024, transport), /^Error: oversized_body$/);
+  const start = performance.now(), r = await get();
+  assert.equal(r.status, 200); assert.equal(Buffer.byteLength(r.text), Buffer.byteLength(large));
+  assert.deepEqual(marker(r.text, target), Array(8).fill(after));
+  t.diagnostic(`LOCAL TLS XML bytes=${Buffer.byteLength(large)} duration_ms=${(performance.now()-start).toFixed(2)}`);
+  mode = 'exact'; assert.equal(Buffer.byteLength((await get()).text), LIMITS.sitemapBytes);
+  mode = 'overflow'; await assert.rejects(get(), /^Error: oversized_body$/); assert.ok(sent <= LIMITS.sitemapBytes + 16384);
+  mode = 'timeout'; await assert.rejects(get(40), /^Error: timeout$/);
+  mode = 'redirect'; assert.equal((await get()).status, 302);
+  mode = 'non200'; assert.equal((await get()).status, 503);
+  mode = 'encoded'; await assert.rejects(get(), /^Error: encoded_body$/);
+  assert.equal(requests, 8); // Explicit legacy-cap probe; no retries, redirect follow or HEAD/POST.
 });

@@ -7,6 +7,10 @@ import { createEventSource, captureBefore, verdictCapture, LIMITS } from './prod
 import { createSyntheticProjectionProvider } from './projection-provider.mjs';
 import * as providerModule from './projection-provider.mjs';
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { openAttemptLedger } from './c2-production-supervisor.mjs';
 
 test('site-content provenance binds the same policy without frontend placeholders', () => {
   const pair=projectionPair();
@@ -356,4 +360,61 @@ test('same event cannot restart capture or request another HTTP window', async (
     return { status: 200, headers: {}, text: fixtureBody(t) } };
   await source.capture(p.before, { get });
   assert.equal((await source.capture(p.before, { get })).reason, 'capture_already_started'); assert.equal(calls, 6);
+});
+
+// Synthetic XML only; exact RU/KK witness locs plus unrelated catalog entries.
+function currentSizedSitemap(target) {
+  const base = fixtureBody(target);
+  const entry = '<url><loc>https://aktau.market/ru/products/unrelated</loc><lastmod>2026-10-17T11:00:00.123Z</lastmod></url>';
+  const count = Math.ceil((4252947 - Buffer.byteLength(base)) / entry.length);
+  return base.replace('</urlset>', entry.repeat(count) + '</urlset>');
+}
+test('current-size XML over4.25MB captures all RU/KK markers and qualifies only against AFTER', async () => {
+  const r = await capture({ response: t => {
+    const text = t.name === 'sitemap' ? currentSizedSitemap(t) : fixtureBody(t);
+    if (t.name === 'sitemap') assert.ok(Buffer.byteLength(text) >= 4252947)
+    return { status: 200, text, headers: {} };
+  } });
+  assert.equal(r.captured.acceptance, 'capture_complete');
+  assert.equal(r.captured.events.find(e => e.target === 'sitemap').markers.length, 8);
+  assert.equal((await r.provider.after(r.captured, r.before)).acceptance, 'PASS');
+  assert.equal(r.calls, 6);
+});
+for (const [failureClass, response] of [
+  ['oversized_body', () => ({ status: 200, text: 'x'.repeat(LIMITS.sitemapBytes + 1), headers: {} })],
+  ['timeout', () => { throw Error('timeout') }],
+  ['redirect', () => ({ status: 302, text: '', headers: {} })],
+  ['non200', () => ({ status: 503, text: '', headers: {} })],
+  ['missing_marker', () => ({ status: 200, text: '<urlset/>', headers: {} })],
+  ['transport', () => { throw Error('private-provider-payload') }],
+]) test(`sitemap ${failureClass} survives trusted verdict as bounded diagnostics only`, async () => {
+  const r = await capture({ response: t => t.name === 'sitemap' ? response() : { status: 200, text: fixtureBody(t), headers: {} } });
+  assert.equal(r.captured.acceptance, 'capture_failed');
+  const verdict = await r.provider.after(r.captured, r.before);
+  assert.equal(verdict.acceptance, 'INCONCLUSIVE'); assert.equal(verdict.reason, 'capture_failed');
+  assert.equal(verdict.failedTarget, 'sitemap'); assert.equal(verdict.failureClass, failureClass);
+  assert.deepEqual(verdict.events, []); assert.deepEqual(verdict.results, []);
+  assert.ok(!JSON.stringify(verdict).includes('private-provider-payload'));
+  assert.ok(!JSON.stringify(verdict).includes('<urlset'));
+  assert.ok(r.calls <= 6);
+  const fake = structuredClone(r.captured);
+  const untrusted = verdictCapture(fake, r.before, r.p.after);
+  assert.equal(untrusted.reason, 'untrusted_capture'); assert.equal(untrusted.failedTarget, undefined);
+});
+
+test('capture failure diagnostics persist and reopen in existing ledger without changing series semantics', async t => {
+  const r = await capture({ response: target => {
+    if (target.name === 'sitemap') throw Error('timeout');
+    return { status: 200, text: fixtureBody(target), headers: {} };
+  } });
+  const verdict = await r.provider.after(r.captured, r.before);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'c2-capture-ledger-')); fs.chmodSync(dir, 0o700);
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const ledger = openAttemptLedger(dir);
+  ledger.prepare(); ledger.transition('armed'); ledger.transition('event_consumed'); ledger.transition('inconclusive', verdict);
+  assert.equal(ledger.series(), 0); ledger.close();
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, 'attempts.json')))[0];
+  assert.equal(saved.evidence.failedTarget, 'sitemap'); assert.equal(saved.evidence.failureClass, 'timeout');
+  const reopened = openAttemptLedger(dir); assert.equal(reopened.series(), 0);
+  reopened.prepare(); reopened.transition('inconclusive', { acceptance: 'INCONCLUSIVE' }); reopened.close();
 });
