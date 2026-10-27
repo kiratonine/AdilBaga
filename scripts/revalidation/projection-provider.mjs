@@ -307,7 +307,8 @@ export function ownsProviderBefore(provider, before) {
 }
 export function createSyntheticProjectionProvider({ scenario = 'valid', failurePhase = 'before' } = {}) {
   if (!['valid', 'timeout', 'invalid_json', 'oversized', 'unchanged', 'wrong_previous', 'wrong_witness', 'wrong_sha',
-    'wrong_attempt', 'wrong_snapshot', 'bad_hash', 'unqualified'].includes(scenario)) throw Error('invalid_synthetic_scenario');
+    'wrong_attempt', 'wrong_snapshot', 'bad_hash', 'unqualified', 'go_identity', 'go_chain', 'go_timeout',
+    'go_projection', 'go_output', 'private_error'].includes(scenario)) throw Error('invalid_synthetic_scenario');
   if (!['before', 'after'].includes(failurePhase)) throw Error('invalid_synthetic_scenario');
   return createProvider({ sourceSha: 'b'.repeat(40), frontendSha: 'c'.repeat(40),
     run: (args, phase) => execute(executable, [script, ...args], { env: { C2_SYNTHETIC_SCENARIO:
@@ -320,9 +321,11 @@ export function createSyntheticProjectionProvider({ scenario = 'valid', failureP
 function createProvider({ run, sourceSha, frontendSha, frontendIdentity, policyIdentity }) {
   const custody = {};
   const settled = new WeakSet();
-  async function load(args, phase, attemptId, ready = false) {
+  async function load(args, phase, attemptId, ready = false, diagnostic = null) {
+    let stage = 'execution';
     try {
       const { stdout } = await run(args, phase);
+      stage = 'validation';
       let p = JSON.parse(stdout), baseline;
       // Go's one compact JSON + LF protocol also rejects duplicate keys,
       // multiple objects/trailing data; body digest is of those exact bytes.
@@ -342,7 +345,22 @@ function createProvider({ run, sourceSha, frontendSha, frontendIdentity, policyI
       const result = deepFreeze(structuredClone(p)); trusted.set(result, custody);
       if (baseline) beforeBaselines.set(result, deepFreeze(structuredClone(baseline)));
       return result;
-    } catch { return null }
+    } catch (error) {
+      if (diagnostic) {
+        // Never forward child stdout/stderr/message. Only exact existing Go
+        // records with their matching exit code may refine the local enum.
+        let failureClass = stage;
+        if (stage === 'execution') {
+          if (error?.killed === true && error.signal === 'SIGTERM') failureClass = 'timeout';
+          else if (error?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') failureClass = 'output';
+          else for (const [code, name] of [[3, 'identity'], [4, 'chain'], [1, 'timeout'], [1, 'projection'], [1, 'output']]) {
+            if (error?.code === code && error.stderr === `c2projection_failed:${name}\n`) failureClass = name;
+          }
+        }
+        diagnostic.failureClass = failureClass;
+      }
+      return null;
+    }
   }
   const provider = Object.freeze({ fixtureOnly: true,
     async before(attemptId) {
@@ -364,10 +382,11 @@ function createProvider({ run, sourceSha, frontendSha, frontendIdentity, policyI
       const receipt = timing.receipt;
       if (!receipt || receipt.status !== 204 || receipt.attemptId !== before.attemptId || typeof receipt.snapshotId !== 'string'
         || receipt.snapshotId.length !== 36 || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(receipt.snapshotId)) return stop('event_mismatch');
+      const diagnostic = {};
       const after = await load(['-phase', 'after', '-attempt', before.attemptId, '-frontend-sha', before.provenance.frontendSha,
-        '-snapshot', receipt.snapshotId, '-previous', before.snapshotId, '-witness', selected.witness.id, '-slug', selected.witness.slug], 'after-commit', before.attemptId);
+        '-snapshot', receipt.snapshotId, '-previous', before.snapshotId, '-witness', selected.witness.id, '-slug', selected.witness.slug], 'after-commit', before.attemptId, false, diagnostic);
       if (captureTiming(capture).ageMs > 60000) return stop('after_late');
-      if (!after) return stop('after_unavailable');
+      if (!after) return { ...stop('after_unavailable'), afterFailureClass: diagnostic.failureClass };
       return verdictCapture(capture, before, after);
     },
   });
