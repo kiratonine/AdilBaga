@@ -338,6 +338,34 @@ for (const scenario of ['invalid_json', 'oversized', 'timeout']) test(`AFTER fix
   const verdict = await r.provider.after(r.captured, r.before);
   assert.equal(verdict.acceptance, 'INCONCLUSIVE'); assert.equal(verdict.reason, 'after_unavailable'); assert.equal(r.calls, 6);
 });
+for (const [scenario, failureClass] of [
+  ['invalid_json', 'validation'], ['oversized', 'output'], ['timeout', 'timeout'],
+  ['wrong_sha', 'validation'], ['bad_hash', 'validation'],
+  ['go_identity', 'identity'], ['go_chain', 'chain'], ['go_timeout', 'timeout'],
+  ['go_projection', 'projection'], ['go_output', 'output'], ['private_error', 'execution'],
+]) test(`AFTER diagnostic ${scenario} is bounded and never qualifies evidence`, async () => {
+  const r = await capture({ provider: createSyntheticProjectionProvider({ scenario, failurePhase: 'after' }) });
+  const verdict = await r.provider.after(r.captured, r.before);
+  assert.equal(verdict.acceptance, 'INCONCLUSIVE');
+  assert.equal(verdict.reason, 'after_unavailable');
+  assert.equal(verdict.afterFailureClass, failureClass);
+  assert.equal(verdict.request_count, 6); assert.equal(r.calls, 6);
+  assert.deepEqual(verdict.events, []); assert.deepEqual(verdict.results, []);
+  assert.ok(!JSON.stringify(verdict).includes('synthetic-private'));
+  const ledger = fs.mkdtempSync(path.join(os.tmpdir(), 'c2-after-diagnostic-'));
+  try {
+    const handle = openAttemptLedger(ledger);
+    handle.prepare(); handle.transition('armed'); handle.transition('event_consumed');
+    handle.transition('inconclusive', verdict); handle.close();
+    const saved = JSON.parse(fs.readFileSync(path.join(ledger, 'attempts.json')))[0];
+    assert.equal(saved.evidence.afterFailureClass, failureClass);
+    assert.equal(saved.verdict, 'INCONCLUSIVE');
+    const reopened = openAttemptLedger(ledger);
+    assert.equal(reopened.series(), 0);
+    reopened.prepare(); reopened.transition('inconclusive', { acceptance: 'INCONCLUSIVE' }); reopened.close();
+  } finally { fs.rmSync(ledger, { recursive: true }) }
+  assert.equal((await r.provider.after(r.captured, r.before)).reason, 'after_already_requested');
+});
 for (const [scenario, reason] of [
   ['unchanged', 'unchanged_marker'], ['wrong_previous', 'snapshot_chain'], ['wrong_witness', 'unqualified_after'],
   ['wrong_sha', 'after_unavailable'], ['wrong_attempt', 'after_unavailable'], ['wrong_snapshot', 'event_mismatch'],

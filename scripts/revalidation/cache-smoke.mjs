@@ -11,6 +11,23 @@ const root = resolve(import.meta.dirname, '../..');
 const frontend = join(root, 'frontend');
 const fixture = name => JSON.parse(readFileSync(join(frontend, `src/mocks/${name}.json`)));
 const products = fixture('products'), categories = fixture('categories'), filters = fixture('filters'), dashboard = fixture('dashboard');
+// Explicit LOCAL qualification only; no runtime env/transport override.
+const profile = process.argv[2] ?? 'small';
+assert.ok(['small', '--large', '--large-slow-dashboard', '--large-slow-pages'].includes(profile));
+if (profile !== 'small') {
+  const base = products[0];
+  while (products.length < 3015) products.push({ ...structuredClone(base),
+    id: 'large-' + String(products.length).padStart(6, '0') + 'x'.repeat(20),
+    imageUrl: 'https://backend.dinamarket.kz/fixture/' + 'x'.repeat(350) + '.png' });
+  while (dashboard.priceSpreads.length < 244) {
+    const product = products[dashboard.priceSpreads.length];
+    dashboard.priceSpreads.push({ ...dashboard.priceSpreads[0], productId: product.id, name: product.name });
+  }
+  while (dashboard.locations.length < 15) dashboard.locations.push({ ...dashboard.locations[0],
+    name: 'synthetic-location-' + dashboard.locations.length, address: 'Synthetic fixture address' });
+  dashboard.summary.canonicalProducts = products.length;
+  dashboard.summary.matchedAcrossStores = dashboard.priceSpreads.length;
+}
 // Each LOCAL run gets fresh fetch keys and ISR IDs, without deleting Next cache.
 const namespace = '/part16-' + randomUUID();
 const ids = new Map(products.map(p => [p.id, p.id + namespace.slice(1)]));
@@ -38,7 +55,11 @@ const api = createServer((request, response) => {
   }
   response.setHeader('Content-Type', 'application/json');
   response.statusCode = result ? 200 : 404;
-  response.end(JSON.stringify(result ?? {}));
+  const delay = revision && (profile === '--large-slow-dashboard' && url.pathname === '/api/dashboard' ? 4500
+    : profile === '--large-slow-pages' && url.pathname === '/api/products' && url.searchParams.get('limit') === '100' ? 200 : 0);
+  const body = JSON.stringify(result ?? {});
+  if (delay) setTimeout(() => response.end(body), delay);
+  else response.end(body);
 });
 await new Promise((resolve, reject) => { api.once('error', reject); api.listen(18090, '127.0.0.1', resolve) });
 const env = Object.fromEntries(['PATH','HOME','TMPDIR'].filter(k => process.env[k]).map(k => [k, process.env[k]]));
@@ -104,6 +125,11 @@ try {
   }
   for (const target of targets) {
     const baseline = await get(target.path);
+    if (profile !== 'small') {
+      const bytes = Buffer.byteLength(baseline.text);
+      console.log(JSON.stringify({ profile, phase: 'baseline_size', target: target.name, bytes }));
+      if (target.name === 'sitemap') assert.ok(bytes > 4_252_947 && bytes < 8 * 1024 * 1024, 'realistic bounded XML size');
+    }
     assert.ok(!target.isFresh(baseline.text), 'baseline must lack revised data');
     const representation = target.name === 'sitemap' ? baseline.text.replaceAll('http://localhost:3100', 'https://aktau.market') : baseline.text;
     beforeMarkers.set(target.name, marker(representation, { ...target, productId: products[0].id, slug: 'milk' }));
@@ -122,16 +148,30 @@ try {
   const denied = await fetch(endpoint, { method: 'POST', body: '{}', redirect: 'error', signal: AbortSignal.timeout(5000) });
   assert.equal(denied.status,401); assert.equal(denied.headers.get('cache-control'),'no-store'); assert.equal(await denied.text(),'');
   const { acceptedAt, eventSource } = await notify();
-  const outcomes = await Promise.all(targets.map(target => converge(target, acceptedAt)));
-  assert.ok(outcomes.every(Boolean), 'all required paths must converge within shared5000ms deadline');
+  if (!profile.startsWith('--large-slow-')) {
+    const outcomes = await Promise.all(targets.map(target => converge(target, acceptedAt)));
+    assert.ok(outcomes.every(Boolean), 'all required paths must converge within shared5000ms deadline');
+  }
   const manifest = { publicationId: namespace.slice(1), targets: targets.map(t => ({ name: t.name, path: t.path,
     productId: products[0].id, slug: 'milk', before: beforeMarkers.get(t.name)[0], after: stamp,
     productBefore: beforeMarkers.get(t.name).at(-1), productAfter: stamp })) };
   const operator = await eventSource.observe(manifest, { get: async (path, timeout) => {
-    const response = await get(path, timeout);
+    let response;
+    try { response = await get(path, timeout) }
+    catch (error) {
+      // Match publicGet's closed timeout enum for this LOCAL fetch transport.
+      if (['TimeoutError', 'AbortError'].includes(error?.name)) throw Error('timeout');
+      throw error;
+    }
     return { ...response, status: 200, text: path === '/sitemap.xml' ? response.text.replaceAll('http://localhost:3100', 'https://aktau.market') : response.text };
   } });
-  assert.equal(operator.acceptance, 'PASS', 'same-event operator hook must pass all six real representations');
+  const expected = profile === '--large-slow-dashboard' ? 'INCONCLUSIVE' : 'PASS';
+  assert.equal(operator.acceptance, expected, 'real representations must preserve the shared deadline/error verdict');
+  if (expected === 'INCONCLUSIVE') {
+    assert.ok(operator.events.some(e => e.error === 'timeout'));
+    assert.ok(operator.request_count <= 21);
+    assert.ok(operator.events.filter(e => e.target === 'sitemap').length <= 2);
+  }
   console.log(JSON.stringify({ phase: 'local_operator_integration', acceptance: operator.acceptance, request_count: operator.request_count,
     event_interval_ms: operator.clock_uncertainty_ms, paths: operator.results.map(r => ({ target: r.target, acceptance: r.acceptance, elapsed_ms: r.first_fresh_ms })) }));
   // HEAD is an observational probe AFTER GET convergence, never a freshness oracle.
@@ -139,7 +179,9 @@ try {
   assert.equal(head.status,200); assert.equal(await head.text(),'');
   console.log(JSON.stringify({ target:'product_ru', phase:'post_get_head_observation', etag:head.headers.get('etag'),
     cache_status:head.headers.get('x-nextjs-cache'), cache_control:head.headers.get('cache-control'), body_freshness:'NOT_PROVABLE_FROM_HEAD' }));
-  console.log('Part16 LOCAL HTTP cache smoke PASS: GET405/auth401/signed204/productRU+KK/sitemap/catalog/dashboard/category within5000ms; synthetic only, not first-response guarantee');
+  console.log(JSON.stringify({ profile, products: products.length, expectation: expected,
+    failures: operator.events.filter(e => e.error).map(e => ({ target: e.target, error: e.error, duration_ms: e.duration_ms })) }));
+  console.log('Part16 LOCAL HTTP cache smoke qualification PASS: expected verdict asserted; synthetic only, not production evidence');
 } finally {
   next.kill('SIGTERM');
   await new Promise(resolve => { if (next.exitCode !== null || next.signalCode !== null) resolve(); else { const timer = setTimeout(() => { next.kill('SIGKILL'); resolve() }, 5000); next.once('exit', () => { clearTimeout(timer); resolve() }) } });

@@ -15,6 +15,13 @@ if (after && (flags.get('-snapshot') !== pair.after.snapshotId || flags.get('-pr
 if (process.env.C2_SYNTHETIC_SCENARIO === 'timeout') await new Promise(r => setTimeout(r, 20000));
 if (process.env.C2_SYNTHETIC_SCENARIO === 'invalid_json') { process.stdout.write('invalid\n'); process.exit(0) }
 if (process.env.C2_SYNTHETIC_SCENARIO === 'oversized') { process.stdout.write('x'.repeat(70000)); process.exit(0) }
+const failures = { go_identity: [3, 'identity'], go_chain: [4, 'chain'], go_timeout: [1, 'timeout'],
+  go_projection: [1, 'projection'], go_output: [1, 'output'] };
+const failure = failures[process.env.C2_SYNTHETIC_SCENARIO];
+if (failure) { process.stderr.write(`c2projection_failed:${failure[1]}\n`); process.exit(failure[0]) }
+if (process.env.C2_SYNTHETIC_SCENARIO === 'private_error') {
+  process.stderr.write('synthetic-private: do not persist child output\n'); process.exit(1);
+}
 if (after) {
   switch (process.env.C2_SYNTHETIC_SCENARIO) {
     case 'unchanged': pair.after.body.candidates[0].snapshotAt = pair.before.body.candidates[0].snapshotAt; break;
