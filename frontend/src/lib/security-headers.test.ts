@@ -29,6 +29,21 @@ describe('production security headers', () => {
       expect(connect).not.toContain('googletagmanager.com')
     }
   })
+  it('does not authorize optional Yandex cookie-matching or frames for basic counters', () => {
+    const headers = securityHeaders('https://api.example.invalid', false, { ga: 'G-TEST123456', metrika: '12345678' })
+    const policy = headers[0].value
+    const sources = (name: string) => policy.split('; ').find(part => part.startsWith(`${name} `))?.split(' ').slice(1)
+    expect(sources('img-src')).toContain('https://mc.yandex.ru')
+    expect(sources('img-src')).not.toContain('https://yandex.ru')
+    expect(sources('connect-src')).toContain('https://www.google-analytics.com')
+    expect(sources('connect-src')).toContain('https://region1.google-analytics.com')
+    expect(sources('frame-src')).toBeUndefined()
+    expect(sources('default-src')).toEqual(["'self'"])
+    expect(sources('frame-ancestors')).toEqual(["'none'"])
+    expect(headers.find(header => header.key === 'X-Frame-Options')?.value).toBe('DENY')
+    expect(policy).not.toMatch(/\*|doubleclick|mapuid|googledctssp|blob:/)
+  })
+
   it('allows only necessary sources and configured API origin', () => {
     const headers = Object.fromEntries(securityHeaders('https://api.example.invalid/base').map(({ key, value }) => [key, value]))
     expect(headers['X-Content-Type-Options']).toBe('nosniff')

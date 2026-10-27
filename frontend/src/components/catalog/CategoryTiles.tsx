@@ -22,6 +22,8 @@ export function CategoryTiles({ categories }: { categories: CategoryDto[] }) {
         <li key={category.id} className="flex">
           <Link
             href={href(`/collections/${category.slug}`)}
+            // Category SSR is needed on selection, not for every visible tile.
+            prefetch={false}
             data-testid="category-card"
             className={`${TILE_SHAPE} ${TILE_COLORS[index % TILE_COLORS.length]} justify-between text-sm font-medium text-ink transition-[filter] hover:brightness-95 md:text-[15px]`}
           >
