@@ -12,13 +12,22 @@ import { absoluteUrl } from '../lib/site'
 const PAGE_SIZE = 100
 /** Предел на случай, если API игнорирует offset: 50 страниц × 100 товаров × 2 языка — в лимите sitemap (50 000) */
 const MAX_PAGES = 50
+const MAX_IN_FLIGHT = 4
 
 async function allProducts(): Promise<ProductCardDto[]> {
   const products: ProductCardDto[] = []
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const batch = await catalogApi.getProducts({ limit: PAGE_SIZE, offset: page * PAGE_SIZE })
-    products.push(...batch)
-    if (batch.length < PAGE_SIZE) break
+  for (let page = 0; page < MAX_PAGES;) {
+    // A short first page still needs one request. For a full catalog, avoid
+    // serial network roundtrips; Promise.all preserves the original page order.
+    const width = Math.min(page === 0 ? 1 : MAX_IN_FLIGHT, MAX_PAGES - page)
+    const batches = await Promise.all(Array.from({ length: width }, (_, i) =>
+      catalogApi.getProducts({ limit: PAGE_SIZE, offset: (page + i) * PAGE_SIZE }),
+    ))
+    for (const batch of batches) {
+      products.push(...batch)
+      if (batch.length < PAGE_SIZE) return products
+    }
+    page += width
   }
   return products
 }

@@ -19,6 +19,14 @@ if (profile !== 'small') {
   while (products.length < 3015) products.push({ ...structuredClone(base),
     id: 'large-' + String(products.length).padStart(6, '0') + 'x'.repeat(20),
     imageUrl: 'https://backend.dinamarket.kz/fixture/' + 'x'.repeat(350) + '.png' });
+  while (dashboard.priceSpreads.length < 244) {
+    const product = products[dashboard.priceSpreads.length];
+    dashboard.priceSpreads.push({ ...dashboard.priceSpreads[0], productId: product.id, name: product.name });
+  }
+  while (dashboard.locations.length < 15) dashboard.locations.push({ ...dashboard.locations[0],
+    name: 'synthetic-location-' + dashboard.locations.length, address: 'Synthetic fixture address' });
+  dashboard.summary.canonicalProducts = products.length;
+  dashboard.summary.matchedAcrossStores = dashboard.priceSpreads.length;
 }
 // Each LOCAL run gets fresh fetch keys and ISR IDs, without deleting Next cache.
 const namespace = '/part16-' + randomUUID();
@@ -157,7 +165,7 @@ try {
     }
     return { ...response, status: 200, text: path === '/sitemap.xml' ? response.text.replaceAll('http://localhost:3100', 'https://aktau.market') : response.text };
   } });
-  const expected = profile.startsWith('--large-slow-') ? 'INCONCLUSIVE' : 'PASS';
+  const expected = profile === '--large-slow-dashboard' ? 'INCONCLUSIVE' : 'PASS';
   assert.equal(operator.acceptance, expected, 'real representations must preserve the shared deadline/error verdict');
   if (expected === 'INCONCLUSIVE') {
     assert.ok(operator.events.some(e => e.error === 'timeout'));
