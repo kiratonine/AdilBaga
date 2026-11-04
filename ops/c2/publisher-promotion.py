@@ -2255,6 +2255,60 @@ def systemd_host_namespace():
     return fd
 
 
+def _enrolled_underlying_target(p,fs,st,parent):
+    """The one operator-owned underlying inode authenticated by root enrollment.
+
+    This is DATA custody, never capsule/root-parent custody. There is no caller
+    approval flag or path override. Unenrolled 0775, any other writable mode,
+    changed inode/owner/parent or invalid consumed authority remains rejected.
+    """
+    actor=(fs.uid,fs.gid) if fs.sandbox else (pwd.getpwnam('aktau-sync').pw_uid,pwd.getpwnam('aktau-sync').pw_gid)
+    if (not fs.sandbox and actor[0]<=0) or not stat.S_ISDIR(st.st_mode) or stat.S_IMODE(st.st_mode)!=0o775 or (st.st_uid,st.st_gid)!=actor:
+        return False
+    try:
+        policy=p.parse(fs.read(p.POLICY));p.validate_policy(policy)
+        if policy['version']!=2:return False
+        receipt=p.require_enrollment(p,fs,policy)
+        return (list(p.stamp(st))[:6]==receipt['underlyingTargetIdentity']
+            and list(p.stamp(parent))[:6]==receipt['targetParentIdentity'])
+    except (p.Blocked,OSError,ValueError,TypeError,KeyError):
+        # The caller emits the explicit fail-closed mount-custody error.
+        return False
+
+
+def _enrolled_underlying_inputs(p,fs,sel,expected_root):
+    """Read-only OLD data exceptions, never executable/root-path admission.
+
+    Only the exact consumed 0775 baseline may inspect its original actor-group
+    writable tracked files, including unchanged originals under the exact PR86
+    new tree. Current selected Git blob verification remains mandatory. The raw
+    record is root-private, independently digest-approved, and inode-specific.
+    """
+    try:
+        if (type(sel.get('sourceSha'))is not str or not p.SHA.fullmatch(sel['sourceSha']) or sel.get('pipelineTreeSha1') not in [p.PIPELINE_OLD_TREE,p.PIPELINE_NEW_TREE] or expected_root is None):return {}
+        policy=p.parse(fs.read(p.POLICY));p.validate_policy(policy)
+        if policy['version']!=2:return {}
+        receipt=p.require_enrollment(p,fs,policy)
+        if receipt['underlyingTargetIdentity']!=expected_root or stat.S_IMODE(expected_root[2])!=0o775:return {}
+        if sel['pipelineTreeSha1']==p.PIPELINE_OLD_TREE and sel.get('inventorySha256')!=receipt['generation']:return {}
+        raw=fs.read(p.BASE+'/pr86-bootstrap-input/old-input-inventory.json',2<<20)
+        if p.digest(raw)!=policy['pipelineContract']['baselineInputInventorySha256']:return {}
+        inv=p.parse(raw)
+        if (type(inv)is not dict or set(inv)!={'version','kind','sourceSha','pipelineTreeSha1','rootIdentity','entries'}
+            or type(inv['version'])is not int or inv['version']!=1 or inv['kind']!='legacy-input-observed-not-authorized'
+            or inv['sourceSha']!=p.PIPELINE_OLD_SOURCE or inv['pipelineTreeSha1']!=p.PIPELINE_OLD_TREE
+            or type(inv['rootIdentity'])is not list or inv['rootIdentity'][:6]!=expected_root
+            or type(inv['entries'])is not list or len(inv['entries'])>8192):return {}
+        out={}
+        for row in inv['entries']:
+            if type(row)is not list or len(row)!=3 or type(row[0])is not str:return {}
+            p.pipeline_path(row[0])
+            if row[0] in out or type(row[1])is not list or len(row[1])!=9 or any(type(n)is not int or n<0 for n in row[1]):return {}
+            out[row[0]]=row
+        return out
+    except (p.Blocked,OSError,ValueError,TypeError,KeyError):return {}
+
+
 class LinuxMounts:
     """Fixed Linux mount domain. Only root inside the intended mount namespace.
 
@@ -2312,10 +2366,13 @@ class LinuxMounts:
                 actor=(self.fs.uid,self.fs.gid) if account is None else (account.pw_uid,account.pw_gid)
                 for part in path.strip('/').split('/'):
                     logical+='/'+part
+                    parent_st=os.fstat(fd)
                     nxt=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC,dir_fd=fd)
                     stack.callback(os.close,nxt);fd=nxt;st=os.fstat(fd)
                     owners=[(self.fs.uid,self.fs.gid),actor] if logical in [self.p.PUBLISHER,self.p.PUBLISHER+'/pipeline'] else [(self.fs.uid,self.fs.gid)]
-                    self.p.need((st.st_uid,st.st_gid) in owners and not st.st_mode&0o022 and not os.listxattr(fd),'pipeline_mount_custody')
+                    custody=(not st.st_mode&0o022 or logical==self.p.PUBLISHER+'/pipeline'
+                        and _enrolled_underlying_target(self.p,self.fs,st,parent_st))
+                    self.p.need((st.st_uid,st.st_gid) in owners and custody and not os.listxattr(fd),'pipeline_mount_custody')
                 return os.fsencode('/proc/self/fd/'+str(fd))
             src=None if source is None else pinned(source)
             dst=pinned(target)
@@ -2736,7 +2793,7 @@ def verify_parity(p,fs,host,mounts):
         p.need(mounts.generation()==sel['inventorySha256'],'pipeline_mount_alignment')
         mounted=attestation(p,fs,mounts,raw)
         p.need(p.parse(fs.read(p.PIPELINE_MOUNT_RECORD,16384))==mounted,'pipeline_attestation_stale')
-        underlying=private_underlying(p,fs,host,mounts,sel)
+        underlying=private_underlying(p,fs,host,mounts,sel,expected_root=j['pipeline']['underlyingTargetIdentity'])
         if underlying is None:return {'status':'NOT_VERIFIED','reason':'underlying_namespace_unavailable'}
         p.need(underlying is True,'pipeline_underlying_not_verified')
         return {'status':'PRODUCTION_SOURCE_RUNTIME_ALIGNED','sourceSha':sel['sourceSha'],
@@ -2752,6 +2809,7 @@ def private_underlying(p,fs,host,mounts,sel,expected_root=None):
     before=mounts.inspect();parent=os.readlink('/proc/self/ns/mnt')
     # Resolve immutable Git metadata in the bounded/reaped parent command path.
     rows=host.git(['ls-tree','-r','-z',sel['sourceSha'],'--','pipeline']).split('\0')
+    enrolled_inputs=_enrolled_underlying_inputs(p,fs,sel,expected_root)
     rd,wr=os.pipe2(os.O_CLOEXEC);pid=os.fork()
     if pid==0:
         try:
@@ -2779,13 +2837,16 @@ def private_underlying(p,fs,host,mounts,sel,expected_root=None):
                             and not os.listxattr(d),'pipeline_underlying_parent')
                     file=os.open(parts[-1],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=d)
                     try:
-                        st=os.fstat(file);p.need(stat.S_ISREG(st.st_mode) and st.st_nlink==1 and st.st_size<=16<<20
-                            and st.st_uid in [fs.uid,uid] and st.st_gid in [fs.gid,gid] and not st.st_mode&0o022
+                        st=os.fstat(file);enrolled=enrolled_inputs.get(relative)
+                        writable_bound=(enrolled is not None and enrolled[1]==list(p.stamp(st)) and stat.S_IMODE(st.st_mode) in [0o664,0o775]
+                            and (st.st_uid,st.st_gid)==(uid,gid) and type(enrolled[2])is str and p.HEX.fullmatch(enrolled[2]))
+                        p.need(stat.S_ISREG(st.st_mode) and st.st_nlink==1 and st.st_size<=16<<20
+                            and st.st_uid in [fs.uid,uid] and st.st_gid in [fs.gid,gid] and (not st.st_mode&0o022 or writable_bound)
                             and not os.listxattr(file),'pipeline_underlying_file')
-                        h=hashlib.sha1(b'blob '+str(st.st_size).encode()+b'\0');size=0
+                        h=hashlib.sha1(b'blob '+str(st.st_size).encode()+b'\0');sha256=hashlib.sha256();size=0
                         while data:=os.read(file,65536):
-                            size+=len(data);p.need(size<=16<<20,'pipeline_underlying_capacity');h.update(data)
-                        p.need(size==st.st_size and h.hexdigest()==obj and p.stamp(os.fstat(file))==p.stamp(st)
+                            size+=len(data);p.need(size<=16<<20,'pipeline_underlying_capacity');h.update(data);sha256.update(data)
+                        p.need(size==st.st_size and h.hexdigest()==obj and (not st.st_mode&0o022 or sha256.hexdigest()==enrolled[2]) and p.stamp(os.fstat(file))==p.stamp(st)
                             ==p.stamp(os.stat(parts[-1],dir_fd=d,follow_symlinks=False)),'pipeline_underlying_blob')
                     finally:os.close(file)
                 finally:os.close(d)

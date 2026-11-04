@@ -673,3 +673,57 @@ is added to the local verifier. No such production comparison ran in this task.
 Actual fail-first/PASS-after commands, Linux cgroup/tmpfs results, rebuilt sizes,
 full regression exits and external gates are appended to the existing Part B
 Report §14. Previous failed review/qualification history remains unchanged.
+
+
+## 20. 2026-11-04 — неприменённый bootstrap compatibility candidate
+
+Historical §§1–19 preserved. This appendix records a source proposal/qualification boundary, **not production authorization** or a completed bootstrap.
+
+Threat model remains trusted root/admin, excluded compromised root; ordinary writers, filesystem substitutions in writable locations, crashes and unknown states remain in scope. The existing VPS underlying publisher pipeline directory is actor-owned0775. Its inode/mode/UID/GID/parent must remain unchanged. The candidate allows only this underlying DATA target after the existing independently approved, consumed enrollment binds its exact six-field target and parent identities and a verified sealed generation. Capsule/root/private parent custody stays non-writable. No public `approved` flag, arbitrary path, environment override or new enrollment schema is introduced. Unenrolled0775 and other writable modes remain rejected.
+
+Disposable actual Linux root mount tests passed for the above narrow boundary, including OLD detach/reattach; synthetic root records are explicitly test fixtures. This does not authorize the VPS tuple. Actual OLD graph differs from frozen public lock reference (Vite7.3.6 vs7.3.7, generated wrappers/metadata and unknown cache/native paths). Rebuilt reference hashes cannot fill actual approved OLD inventory fields. A complete independently attested actual inventory and explicit byte-diff/provenance are still required.
+
+New fixed-purpose bootstrap candidate has local filesystem/authority/model transaction tests. Full actual bootstrap/root-systemd/crash qualification is **not complete**. Local root manager access failed; user-manager OpenFile feature proof is separate and cannot count as root/boot PASS. No production trust/policy/runtime/selection change occurred. No candidate source publication or production instruction is approved by this appendix. See the same Part B report §19.4–19.5 and final off-tree consolidated report for exact evidence and remaining gates.
+
+
+### 20.1. Underlying OLD rollback revalidation
+
+The candidate must re-hash/revalidate the exact approved raw OLD input after detaching the baseline mount **before** removing live selection/attestation or restoring legacy root files, and again before a successful rollback terminal record. A hidden underlying inode stamp alone does not establish unchanged contents; actor-held writable descriptors are within the threat model. Missing/mismatched actual raw bytes must preserve interlock and stop. A real local fail-first regression exposed the omission; the candidate was corrected with negative and stable controls. This remains unqualified for production until full root-manager/crash/rollback admission is proved; it does not waive the actual OLD provenance requirement.
+
+
+### 20.2. 2026-11-04 — candidate: exact enrolled OLD tracked-data inspection
+
+This is an explicit, unapplied compatibility amendment for the measured OLD
+filesystem, not a production approval or permission change. Full disposable
+bootstrap/OLD→NEW qualification exposed original tracked OLD files with mode
+0664 (and executable files may retain0775). A 0775-directory-only exception was
+insufficient: initial admission and post-switch private parity rejected these
+unchanged files. Original source permissions must not be changed to pass.
+
+The private hidden-checkout reader may inspect such an original tracked file
+only inside the fixed publisher pipeline and the two already frozen PR86
+pipeline trees. The **actual selected commit's Git blob** remains mandatory.
+Additionally, the original file must match the complete nine-field inode/owner/
+mode/link/size/time stamp and SHA256 in the root-private OLD input inventory.
+That inventory's digest is bound by the unchanged independently approved,
+consumed baseline record/policy and verified sealed OLD generation; the exact
+0775 underlying target identity is still required. Mode is restricted to0664 or
+0775, the owner/group must be the real actor, and regular-file/nlink1/no-follow/
+xattr/hash/race checks remain. Unchanged OLD files can remain present while the
+exact NEW tree is selected; this does not substitute OLD identity for NEW.
+Missing authority, different target, other tree, changed inode, changed bytes,
+other writable mode or unavailable input proof fails closed.
+
+This admits **read-only DATA inspection**, never execution from underlying
+node_modules, arbitrary writable paths, root/private ancestors or capsule
+custody. The existing strict legacy-reference observer is unchanged. Selected
+runtime is exclusively the separately sealed readonly graph. Current Git and
+actual mounted source authority are still checked independently. The read-only
+parity verifier now supplies the validated journal's underlying target identity
+to the private verifier instead of omitting that bound. No public path/UID/env/
+approval override or new enrollment schema is introduced.
+
+Actual OLD custody capture and full source/fault/test results are recorded
+append-only in the same Part B Report. All new executable/policy hashes require
+fresh source/CI/bundle qualification and genuine Owner/admin authorization
+before production use. Historical helpers/approvals are not reused.

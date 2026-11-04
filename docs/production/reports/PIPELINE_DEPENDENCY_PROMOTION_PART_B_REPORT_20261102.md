@@ -1415,3 +1415,250 @@ only on9SUCCESS and actual branch gates. Source/CI acceptance is not production
 approval. Follow-up results append here; final report is off-tree. Root production
 policyv1 does not automatically authorize v2 enrollment/provisioning, so no old
 helper/release/initial approval may be replayed. AUTO_DEPLOY stays false.
+
+
+### 18.1 Actual hosted qualification, protected merge and authenticated Artifact v2
+
+Recorded 2026-11-03T19:37:20.009825+00:00. Final task status: **PART_B_CI_QUALIFIED_RELEASE_BLOCKED**.
+Self-review is **SELF_REVIEWED_OWNER_AUTHORIZED**, never independent security review.
+
+- Non-force commit `47a27b8d13ba85f12b347dad4fe1f6bd98414cbe`: exactly nine CI/report paths. Frozen Part B production code, fixtures and the 100755 pnpm shim are unchanged by this commit.
+- [PR87](https://github.com/kiratonine/AdilBaga/pull/87) transitioned Draft→Ready and merged normally, without bypass/force. Main is `d071be3c7e071a4b52256548a8239d6c179ce565`; its tree equals the qualified PR tree. Ruleset25068830 is active, reviewer count0, required CI Gate, current_user_can_bypass=never.
+- [PR CI41700861534](https://github.com/kiratonine/AdilBaga/actions/runs/41700861534), attempt1: **9/9 SUCCESS**. Separate [push-main CI41702239307](https://github.com/kiratonine/AdilBaga/actions/runs/41702239307), attempt1: **9/9 SUCCESS**.
+- On both actual standard GitHub Ubuntu24 VMs: enforced exact AppArmor label, builtin seccomp2, root71/native11 and original23 crash boundaries passed. Default-profile control retained actual EACCES13. Actual negative mounts/flags/FD alias, missing SYS_ADMIN, source writes and network socket were denied; exact custom profile cleanup verified. No privileged/unconfined mode, global docker-default edit or production policy execution. Unknown/unconfined/complain metadata rejection is unit coverage; no unconfined container was launched. Legacy hostedLSMParity=NOT_VERIFIED remains distinct from actual CI label/enforcement evidence.
+- Build [41703391529](https://github.com/kiratonine/AdilBaga/actions/runs/41703391529), attempt1, one manual-artifact dispatch: 2/2 build jobs SUCCESS. Artifact `13265286099` is authenticated against GitHub repository/run/attempt/source and GitHub ZIP digest.
+- ZIP `ab9048d5c46edc002534a21813618fb771e123f94393d26f8003d928bb7d88bd`, 96080608 bytes. TAR `31827b7b6b3818d5a866e792fa8891036f0bb460c676bc7d1e38c14c41fed057`, 262277120 bytes; margin 6158336 below unchanged268435456 cap. Exactly16 canonical members, 12/12 closure hashes, package/lock/tree identities, protected exact contracts-lock pair, complete indexed graph and Go1.27.3/Linux-amd64/CGO0 provenance verified. Embedded projection SHA equals exact main.
+- Actual authenticated graph executed in a disposable non-root Ubuntu24 Docker sandbox, network-none/read-only/no install: Node24.18.0/pnpm10.32.1/tsx/Zod4/undici/esbuild PASS. First off-tree probe incorrectly imported transitive-only undici from the root; preserved failure, corrected probe to actual cheerio/tsx dependency owners, PASS. No source/dependency change.
+
+### 18.2 Real failures, limitations and production read-only reconciliation
+
+- Initial parallel local ops run hit the existing60s crash-test timeout. Exact unchanged test then passed isolated27.382s and full serialized ops passed271Python+186Node; no timeout/assertion change. Original failure/log retained.
+- Local preflight16, hosted-context7, capture6, capacity12, artifact12, publisher64, historical helper33, Go/race/vet+C2-377, pipeline/security, PG17 and root71/native11 passed. Staging exit0 includes existing explicit optional SKIP:4 in each backend smoke group,6 browser cases; never represented as executed PASS. Local WSL AppArmorN is not hosted enforcement proof. Python3.13 prototype error remains NOT_PUBLISHED; historical3.13 risk is not claimed qualified.
+- VPS snapshot `2026-11-03T19:17:01Z`: publisher `b2012c5b8c05de8a7667bf942daf9d7232f3a7b6` clean; policyv1 SHA2562bf672f1626252f107447552493ad982999d3d7f444f000394a7006d952ddb8b; all6 installed runtime pins and12 closure hashes match; five retained terminal releases and70/70 actual backup hashes match their receipts. No interlock; all3 correct lock paths unheld in /proc/locks snapshot (not a future reservation). Initial collector used a wrong ingress path, corrected off-tree and rechecked `/var/lib/aktau-sync-promotion/state/ingress.lock`; no production change.
+- Reader600/C2+ledger700, UID999/GID987, no symlinks/xattrs; reader contents were not read. Ledger34INCONCLUSIVE,0PASS,0FAIL. API container remains49f6823 healthy metadata; bounded public GET live/ready/catalog all200. These are availability checks, not C2 PASS or data-freshness proof.
+- Daily/weekly failed is not reset. Safe journal evidence: Dana HTTP500/scraper failure; daily freshness rejects DANA age48/60/72h before ingest. Upstream500 internal RCA is not proven; weekly also had timeout, exact terminal reason remains limited. This is an existing publication freshness incident, not repaired by dependency promotion. No synthetic sync/publication.
+- All4 v2 resources absent: root baseline approval, pipeline selection, runtime mount record and dependency unit. Installed root executor remains historical d69c667… under policyv1, not new source63ccddb…. No valid completed OLD enrollment. Historical mutable OLD graph observation is not authorization and has group-writable entries; no adoption/chmod. Actual production-derived OLD rollback/rehearsal, OpenFile FD compatibility, quotas and complete actor cgroup budgets remain NOT_VERIFIED. Existing70 C2 backup hashes do not prove dependency rollback.
+
+### 18.3 One actionable release gate; production not attempted
+
+**OLD_ROOT_AUTHORITY_UNAVAILABLE / V2_BOOTSTRAP_NOT_PROVISIONED**: DesignContract§8 and§18 require a new fixed-purpose, frozen, admin-authenticated root bootstrap bound to the measured OLD graph, exact new root pins, strict policy2, durable baseline consumption/enrollment, selection/mount and boot/runtime units with coupled rollback. Historical consumed helper/initial approval cannot be replayed. Sole Owner may be the actual authorized admin; no second human is invented, and this agent has not minted an independent root record. The current published source has no production enrollment/bootstrap CLI; fixture helpers are not production installers.
+
+Exact public candidate pins, schemas/admission requirements and the single Owner/admin handoff are saved in `/home/denis/tmp/aktau-part-b-fast-track-20261103-0cfdxvvz/EXTERNAL_GATES.md` and `NEW_ROOT_PUBLIC_SOURCE_PINS.json`. Resolve Dana freshness incident separately without bypassing freshness gates; then independently verify/enroll OLD and qualify the fixed bootstrap/rollback before any live writes. Recheck current main/CI/artifact expiry and fresh locks before one official promotion. No production pnpm install, root upgrade, mount, daemon-reload, service restart, authority rewrite, promotion or reboot was performed. AUTO_DEPLOY_ENABLED=false; SYNC_C2_PROMOTION_ENABLED absent.
+
+Consolidated report: `/home/denis/tmp/aktau-part-b-fast-track-20261103-0cfdxvvz/PART_B_FINAL_OWNER_FAST_TRACK_REPORT_20261103.md`. Final source/evidence archive: `/home/denis/tmp/aktau-part-b-owner-fast-track-20261104-0cfdxvvz.tar.gz`; external SHA256 sidecar generated after sealing. Final tracked worktree delta after this append is this report only; excluded Owner files and unused prototype remain untouched.
+
+
+## 19. Final bootstrap TASK — confirmed actual custody conflict (2026-11-04)
+
+Recorded 2026-11-03T20:34:05.714300+00:00. **BLOCKED_WITH_EVIDENCE**, not source/bootstrap/deployment completion. New clean worktree `/home/denis/tmp/aktau-part-b-v2-root-bootstrap`, branch `feat/part-b-v2-root-bootstrap`, baseline/current main `d071be3c7e071a4b52256548a8239d6c179ce565`. Original worktrees and Owner files remain untouched. Only authenticated historical report tail §§18.1–18.3 was imported as an append, verified against its previous source manifest; no dirty code/prototype was copied.
+
+### 19.1 New fact and exact frozen-contract conflict
+
+Fresh root read-only metadata at 2026-11-03T20:17:53Z and second observation20:25:11Z proves `/opt/aktau-sync/pipeline`: UID999/GID987, mode0775, dev64770/inode798605/nlink6, no xattr. Its node_modules and .pnpm directories are also0775. /opt and /opt/aktau-sync are0755.
+
+`publisher-promotion.py:2318` unconditionally requires `not st.st_mode & 0o022` along the mount target chain; `legacy_input_inventory` at2504/2512 also forbids group-writable input parents/directories. Therefore the actual OLD is rejected before capture/target mount. Both attach and restore use the same guard; after detaching an enrolled OLD mount, underlying0775 reappears and neither NEW attachment nor OLD reattachment can pass the unchanged contract. A standalone bootstrap direct syscall would bypass this root boundary and leave rollback unsafe. An admin approval alone does not override these predicates.
+
+New real Linux qualification (not mocks/SKIP): rootUID0 and aktau-syncUID1999 in disposable Ubuntu24 containers, original six caps, networknone/readonlyroot/NNP/resource bounds. Actual sealed readonly stage was prepared in both cases. Target0775 => `pipeline_mount_custody` before target mount, original inode/mode/bytes unchanged. Separate0755 positive control => actual readonly mount, detach and OLD reattach all succeed. This distinguishes the mode contract from missing capabilities/AppArmor/kernel support. No runtime root source/policy/guard was changed.
+
+First qualification harness failed before testing Store because it chmodded after chown without CAP_FOWNER. Failure preserved; corrected fixture ordering (chmod before chown), with no extra capability; final two real controls exit0. Final runner uses UUID-owned resource names and verifies container/image cleanup.
+
+### 19.2 Independent evidence completed, unexecuted work explicit
+
+Fresh GitHub main is unchanged `d071be3c7e071a4b52256548a8239d6c179ce565`. Existing real PR41700861534/main41702239307 CI9 remain9/9 SUCCESS, build41703391529 is2/2 SUCCESS. Original artifact13265286099 remains unexpired; original cached ZIP recomputed SHA256ab9048d5c46edc002534a21813618fb771e123f94393d26f8003d928bb7d88bd matches live GitHub metadata. No new CI/build dispatched and no old artifact renamed as new. Prior accepted20 sanitized job logs are retained as historical evidence, not newly run tests.
+
+Current VPS publisher remains detached b2012c5b8c05de8a7667bf942daf9d7232f3a7b6, clean; exact OLD tree/package/lock match independent public GitHub objects with recomputed blob hashes. Policyv1, all6 runtime pins,12/12 closure and70/70 backups in five retained releases match. No interlock; reader metadata and ledger34INCONCLUSIVE/0PASS retained. No DSN/env/secret read. Existing target775 means secure full OLD freeze cannot be claimed: both required input/runtime inventory digests are null in OLD_BASELINE_EVIDENCE.json, not copied from prior observation or fixtures. GATE_ROOT_BOOTSTRAP/GATE_PROMOTION are FAIL summaries, not approvals.
+
+One current read-only Dana catalog GET200 (TTFB1090ms/full1166ms), API live200/1541ms, ready200/500ms; three requests, no retry, bodies not retained. Historical DANA48/60/72h freshness failures remain; one200 does not establish scrape recovery/data freshness, HTTP500 internal RCA or C2 acceptance. No sync, ingest, HMAC or publication.
+
+Bootstrap implementation/frozen applicable root bundle/new PR/new-main CI/new artifact/root enrollment/production-derived coupled rollback/reboot: **NOT_RUN after confirmed frozen root-contract conflict**. No hypothetical installer for a different0755 baseline was published as a solution for this0775 VPS. The full unchanged regression matrix is not rerun/claimed newly PASS; exact previously qualified source/CI is preserved. No commit/push/merge, root upgrade, policy/mode change, daemon-reload, service/timer changes or live transaction. AUTO DEPLOY false.
+
+### 19.3 One exact Owner decision, not general deployment re-approval
+
+The requested combination (unchanged0775 original target + unchanged no-group-write capture/mount guards + actual coupled rollback) is incompatible. AGENTS frozen-contract STOP and this TASK's no-guard-weakening/no-original-chmod constraints apply. Required single decision: explicitly approve a **source-only contract amendment** for the exact operator-owned raw-input/underlying-target0775 case, bound to independently authenticated baseline metadata/inventories and private FD/inode CAS. It must preserve every root-private parent/capsule/seal check, original permissions, root-only normalized copy/nlink1/no writable alias, locks, authenticated baseline and coupled rollback. No generic0775/path/UID/env exception. After that decision the applicable bootstrap and required rollback/fault matrix can be implemented and qualified; only then may Owner issue a real short-lived exact-bundle root approval. No future hash/approval is requested or invented now.
+
+Consolidated report and the **single** handoff are `/home/denis/tmp/aktau-part-b-bootstrap-20261104-qu904_eh/PART_B_FINAL_PRODUCTION_COMPLETION_REPORT_20261104.md`; no additional handoff/TASK document. Archive/SHA256 external seal follows.
+
+
+### 19.4. Продолжение после первоначального read-only checkpoint — source candidate
+
+Первоначальный §19 описывает ранний checkpoint, когда нового исходного кода ещё не было. Он сохранён как история, а не как утверждение об окончательном diff. После него выполнена самостоятельная source-only работа в `feat/part-b-v2-root-bootstrap` от `d071be3c7e071a4b52256548a8239d6c179ce565`.
+
+Добавлены **неквалифицированные для production** `ops/c2/pr86-root-bootstrap.py` и `ops/c2/test_pr86_root_bootstrap.py`. Кандидат ограничен фиксированными девятью root targets, существующим approval/enrollment contract, тремя locks, no-clobber inputs, независимой GitHub source/CI проверкой **до import/exec runtime**, consumed record, backup/interlock, OLD selection и явным rollback. Approval не создаётся. Ни кандидат, ни новый policy не устанавливались на VPS. Это не `Source done`: полная реальная bootstrap/systemd/crash qualification ещё не доказана.
+
+В `publisher-promotion.py` добавлен узкий private guard для underlying operator-owned `pipeline/0775`: только реальная роль, точные parent/target identities из **существующего валидного consuming enrollment**, sealed generation и policy v2. Ни root/capsule parents, ни unenrolled group-write exception не разрешены. Public CLI/approval override не добавлен, `require_enrollment` schema не изменена. На VPS permissions/ownership не менялись.
+
+Fail-first boundary test: до функции — 8 ERROR (отсутствующая реализация). Затем обнаружен дефект тестовой fixture: parent уже имел 0755, поэтому chmod0755 не был инъекцией. Исправлена только fixture: она доказывает фактическую смену режима. Существующая отрицательная проверка не ослаблена. Дополнительный пред-CAS comparator воспроизводит AssertionError при исключении ctime; это реконструкция старого варианта, выполненная после рабочего исправления, не хронологический fail-first. Новый Files CAS сравнивает полный stamp перед publication, после собственного rename допускается ожидаемое изменение ctime при проверке перенесённого inode.
+
+Текущие локальные bootstrap tests: **40/40 PASS, 0 SKIP**. Они включают authority/CI/source boundaries, реальные непривилегированные Linux filesystem операции и модель platform для транзакции с реальным SIGKILL дочернего процесса. Модель не заменяет root/systemd integration. Три отдельных disposable root/native mount сценария PASS: unenrolled0775 отклонён до target mount; 0755 mounted+detach+reattach; enrolled0775 mounted+detach+reattach через реальный consuming validator. Root UID0 и actor UID1999, network none, без privileged/unconfined.
+
+### 19.5. Реальные критические gates — не подменять локальным rebuild
+
+Повторный production readback `2026-11-03T21:53:06Z`: publisher clean detached `b2012c5b8c05de8a7667bf942daf9d7232f3a7b6`, policy v1 SHA256 `2bf672f1626252f107447552493ad982999d3d7f444f000394a7006d952ddb8b`; authority alignment, 12/12 closure и 70/70 backups сохранены; interlock отсутствует; ledger **34 INCONCLUSIVE, 0 PASS, 0 FAIL**. API image `49f6823768817b0390f215de42439cce523bf5d3` healthy. Daily/weekly last runs FAILED, timers активны: это не healthy sync/data freshness PASS.
+
+OLD public reference независимо пересобран непривилегированно из exact Git/lock/SRI; Node24.18.0/pnpm10.32.1/tsx/esbuild/Zod3/undici7 offline probe в network-none Linux PASS. Но reference **не является установленным OLD**: фактический Vite7.3.6 отличается от lock/rebuild7.3.7. Два стабильных peer-aware observational passes: 3436 entries, 60779422 известных публичных bytes, 6 неизвестных paths и 21 несовпадающий путь; это не полная inventory и не независимая аттестация unknown/generated/cache entries. `legacyInputInventorySha256` и approved `oldRuntimeInventorySha256` для VPS остаются **не установленными**, не заменены reference digest.
+
+Реальная root-systemd qualification локально недоступна: `sudo -n systemd-run` отказал `password is required`, root unit не запущен; последующий unprivileged observer получил PermissionError для `/proc/1/ns/mnt`. Ошибка сохранена. Отдельный **user-manager** OpenFile feature probe успешно передал namespace FD3 и unit был collected; это не root manager/bootstrap/boot qualification. Пароль не запрашивался, sudo/cgroup/security policy не обходилась. Production для теста не использовался.
+
+Статус этого continuation: **BLOCKED / BLOCKED_WITH_EVIDENCE**, не release-ready. Без полного OLD provenance, двух настоящих inventory identities, квалификации bootstrap/recovery/root-systemd и последующего exact bundle admin approval нельзя создавать production trust record или выполнять bootstrap/promotion. Новые commit/PR/CI/build в этом continuation не создавались. Старый CI9/artifact относятся только к `d071be3…`, не к изменённому кандидату. Единственный подробный consolidated report и sanitized evidence находятся off-tree; окончательные exit codes/матрица/архив добавляются ниже после завершения серийных проверок.
+
+
+### 19.5.1. Дополнительный локальный rollback defect и исправление
+
+До source correction выполнен настоящий fail-first: новый `Platform.verify_rolled_back()` не проверял underlying OLD bytes, тест завершился AssertionError `Blocked not raised`. Исправлено минимально: после detach проверяется полная raw input inventory **до удаления records/восстановления legacy root files**, затем повторно в финальном rollback verifier. Drift сохраняет interlock и блокирует дальнейший recovery. Добавлены negative и stable positive controls; три focused regression PASS. Evidence: `underlying-rollback-fail-first.log` / `UNDERLYING_ROLLBACK_FAIL_FIRST.json`. Это локальный новый кандидат, не production defect/deploy; последняя матрица расширена до43 bootstrap tests и314 Python ops tests. Full root-systemd/bootstrap qualification и настоящий OLD approval по-прежнему отсутствуют.
+
+
+### 19.6. Окончательная локальная матрица continuation
+
+Новый bootstrap43/43 PASS без SKIP; финальный ops314 Python +186 Node PASS без SKIP; publisher64, historical root-helper33, capacity12, artifact12 PASS. Go/race/vet/staticcheck/govulncheck и C2 Node377/377 PASS; root/native71+11 PASS; pipeline, security, contracts, Nest, Frontend, PG17, staging commands exit0. Optional SKIP сохранены: contracts10; frontend E2E11; staging Voice4 на каждый backend и browser6 — не считаются executed PASS. Full root-bootstrap/root-systemd/reboot recovery не квалифицированы. Новый CI/build/PR не запускались. Продакшен не изменён. Final disposition BLOCKED_WITH_EVIDENCE. Полная матрица команд/exit codes, failed evidence, единственный continuation handoff и archive integrity — в off-tree PART_B_FINAL_PRODUCTION_COMPLETION_REPORT_20261104.md.
+
+
+## 20. 2026-11-04 — last-mile actual OLD custody and real bootstrap qualification
+
+Historical §§1–19 are preserved. This section supersedes the earlier **local
+qualification** blockers, not production authority. No production source,
+permissions, policy, service, database, timer or snapshot was changed.
+
+### 20.1 Actual installed OLD, not the rebuilt reference
+
+Bounded read-only SSH established a complete3504-entry actual inventory. The
+installed inner pnpm lock is the public historical blob
+`7521af962056f2e9de08b366de03371731f7c64d` from
+`bd47a251e7ec85fda80ae4e3ad282bb6599ce408`, rather than the tracked b201 lock.
+Vite7.3.6 bytes/peer context were independently checked against official npm SRI;
+generated wrappers/modules/workspace metadata and the stale public Vitest cache
+were classified before retaining their bytes. No private file was adopted.
+The normalized graph omits only the five explicitly permitted `.vite`/
+`.vite-temp` entries and adds the independently pinned official pnpm tool.
+Original actual files/modes were not repaired to resemble Vite7.3.7.
+
+A bounded15.233s capture held the three existing exclusive locks. The service
+account was nologin, no actor/group writer process existed, and all10 non-root
+processes were checked for writable descriptors to the actual graph/aliases.
+Full no-follow metadata/hashes matched before and after a local root-private
+capture. The capture uses independently reconstructed **byte-equivalent public
+content**, verified against the locked actual VPS, not a filesystem image of the
+VPS. Its2824 raw blob files are distinct root-owned0400/nlink1 inodes. Original
+pnpm hardlinks remain unchanged. This is custody evidence, **not approval**.
+
+| Identity | SHA256 |
+|---|---|
+| Actual raw input inventory | `c7b3caeadf17078552603e04bcdecbfd42fad24e3542cd2ca14ec019a88d8b3b` |
+| Normalized OLD runtime inventory | `2eb199ecb3eb7747a7ad5666cff849b8f2e8c1c713088558d4ea9d6335fd6026` |
+| OLD runtime capsule,85903360bytes | `2e50aeb78637af8ed1e6014f1b7b97e62c59f170c770bd0f062910e574d00bae` |
+| Root-private local capture seal | `2a69ff94af413736eb6fb4eb54bbda7f4ef2e53d0ff080f901489e5709fb8259` |
+
+Retained owned volume:
+`aktau-old-root-snapshot-5c3d5a3287a7486594990a06a88e7642`.
+Evidence: `ACTUAL_OLD_ROOT_CUSTODY_CAPTURE.json`, complete inventories, public
+origin/SRI and generated-file classification under the off-tree evidence
+location below. The failed first local copy lacked DAC_READ_SEARCH on a readonly
+input bind; its empty owned volume/log remain. Only the disposable copy process
+received that bounded read capability. No VPS permissions were changed.
+
+### 20.2 Fail-first source corrections
+
+The existing bootstrap was continued, not replaced. Fail-first evidence exposed
+and corrected: missing initial/recovery idle admission; pre-consumption orphan
+namespace checks; ordinary pretty UTF8 npm metadata incorrectly subjected to
+canonical wire JSON; unregistered/partial raw capture being reported rolled
+back; same-generation foreign mount identity; missing durable mount-stage inode
+registration; control/enrollment replacement checks occurring too late; and
+missing interlock on deliberate recovery of a committed but foreign tuple.
+Raw retention now has durable intent, a bound seal/inode record and complete
+revalidation before recovery mutates live resources. Unknown partials remain
+interlocked; no foreign cleanup/adoption is added.
+
+Actual OLD→NEW testing additionally exposed0664 tracked OLD data files and an
+omitted underlying-target identity in the parity call. Design Contract§20.2
+explicitly records the narrowly bound read-only exception: independently
+approved/consumed raw inventory, exact original file identity/mode/owner/SHA256,
+fixed OLD/NEW trees, and **current selected Git blob** all remain mandatory.
+This does not authorize execution from the underlying legacy node_modules or
+relax capsule/private/root custody. A real ordinary UID1999 held-dirfd injection
+replaced an original with same bytes/mode but another inode; the verifier rejected
+it without touching either inode or the parent's mount.
+
+Python3.13 descendant cleanup has a deterministic real-child readiness handshake.
+The original0.3s command budget and descendant-kill assertions remain. Original
+3.13.5 failure was reproduced under explicit0.05CPU loading; corrected test and
+full64-test publisher suite passed on that interpreter earlier in this task.
+Final-byte3.13 rerun is recorded in the final off-tree matrix, not inferred here.
+No production command implementation was changed for this test race.
+
+### 20.3 Real root/systemd and coupled rollback
+
+Owned disposable Ubuntu24/systemd255.4 PID1 fixture, network none, readonly
+source/root, private namespaces/cgroups, finite tmpfs/CPU/memory/PIDs and bounded
+capabilities. No privileged/unconfined mode, SYS_PTRACE or host-policy change.
+Synthetic CI/approval exist **only inside the fixture**. Real filesystem, Git,
+runuser, public ELF/graph, mount and systemd operations were exercised.
+
+- Nine root targets read back; two unchanged targets are preserved. Two actual
+  historical v1 histories/28 backup files are retained in the fixture.
+- Actual0775 underlying target, Node24.18.0, pinned pnpm10.32.1, OLD Vite7.3.6,
+  Zod3.25.76/undici7.30.0 and25 public Dina/Dana/FixPrice products passed.
+- Authenticated historical d071 artifact is used **only as fixture input**:
+  OLD→NEW Zod4.6.7/undici7.30.1→OLD, actual readonly graph imports/esbuild/native
+  addon, `PRODUCTION_SOURCE_RUNTIME_ALIGNED` **inside the fixture**,14-target
+  restoration, reader custody and a new terminal ledger append via the actual
+  Node ledger API all passed. This is not a new deployable release artifact.
+- Two real systemd actors waited behind the exclusive transaction, then entered
+  with zero effective capabilities. Actual OpenFile FD3/manager namespace and
+  committed mount reconstruction passed. Kernel mount IDs were observed to be
+  recycled; the invalid test assumption of unequal IDs was replaced with the
+  actual durable boot intent, confirmed absent→mounted transition and exact
+  restored mount/attestation tuple. **Kernel reboot NOT_RUN.**
+- 28 final actual-root scenarios passed: all seven changed root publication steps,
+  before/after consumed, intent/raw/generation/stage interruptions, SIGKILL,
+  rollback interruption, foreign inode, ENOSPC/fsync-EIO syscall injection,
+  EBUSY, mount registration/bind/move boundaries and unknown attestation after
+  reload. Unknown resources remain intact/interlocked. These are not physical
+  disk/power-loss tests.
+- Two additional actual CLI signal scenarios passed: SIGTERM cancellation and
+  SIGALRM deadline use the real entry/handlers and recover to OLD. Earlier
+  harness attempts correctly hit a parent-held lock and an unbound synthetic
+  API after module reload; both failures are retained and the harness corrected.
+- Kernel reboot and production bootstrap/promotion are **NOT_RUN**. A systemd
+  reconstruction is never presented as a physical reboot or production PASS.
+
+The disposable PID budget changed128→512 after a demonstrated fork-resource
+failure; only fixture `/opt` and Node tmpfs capacity grew to satisfy the unchanged
+per-filesystem reserve. Production guards, artifact cap and timeouts did not grow.
+
+### 20.4 Local regressions and current production boundary
+
+Final local commands from TASK§6 all exited0: bootstrap66, publisher64,
+historical helper33, capacity12, artifact12; ops337Python+186Node; root bundle71
+and native11; Go ordinary/race/vet/staticcheck/govulncheck/full-size READY2CPU;
+C2 Node377; pipeline, security, contracts, Nest28/audit, frontend278/build and
+Playwright57PASS/11SKIP; PG17, ephemeral staging, Part16 and diff-check.
+C2/ops/native suites have0SKIP. Optional/live profiles are not turned into PASS;
+full Go skip inventory and final3.13 results are separately retained.
+Eight frozen fixture files remain identical to HEAD; the historical executor
+remains59455bytes/SHA256`d69c667212b2a6c8a25081ccdc90f798024e850784262976e06e45ce13f45118`.
+
+Fresh read-only VPS evidence: clean publisher`b2012c5…`, policy1/old executor,
+12/12 closure and70/70 backups across five retained releases preserved; API
+container`49f6823…` healthy. Ledger35INCONCLUSIVE/0PASS/0FAIL at observation;
+no interlock, bootstrap/selection or independent baseline approval exists.
+Production systemd255 supports the required feature and SSH shares the manager
+mount namespace. These are snapshots, not future admission reservations.
+
+The genuine2026-11-04 daily run had DINA/FIXPRICE exit0, DANA exit1/11s, then
+rejected DANA source age84h and failed publication. This proves freshness remains
+blocked; the latest scraper HTTP failure cause is **not established** by the
+sanitized enum projection. Historical HTTP500 must not be labelled a newly
+measured status. No threshold, data, parser, timer or publication was changed.
+
+New candidate Git/CI/main/artifact/root-bundle qualification and genuine
+short-lived administrative approval remain separate release gates. Prior
+PR87/main CI9 and artifact13265286099 are historical only. No old artifact will
+be used to deploy changed source. AUTO DEPLOY remains untouched/disabled.
+
+Evidence directory:
+`/home/denis/tmp/aktau-part-b-last-mile-20261104-2qqc63bb`.
+The single final off-tree consolidated report is
+`PART_B_LAST_MILE_RELEASE_REPORT_20261104.md`; final Git/CI/artifact identities,
+command exits, sanitized logs and archive integrity are recorded there and in
+subsequent append-only qualification entries. This section does not declare
+production deployment or C2 acceptance.

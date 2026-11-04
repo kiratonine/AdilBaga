@@ -105,18 +105,54 @@ class ProtocolTests(unittest.TestCase):
             with self.assertRaises(m.Blocked): m.unpack_zip(raw.getvalue())
 
     def test_descendant_timeout_cleanup_when_direct_child_already_exited(self):
+        # Fixture startup is not the command's timeout/cleanup assertion. Wait
+        # for the real descendant and leader exit before starting that clock;
+        # fixed .3s interpreter/fork assumptions race under Python3.13/load.
+        import select
+        import time
         with tempfile.TemporaryDirectory(prefix='promotion-owned-child-') as temp:
             pidfile = pathlib.Path(temp)/'pid'
-            source = ('import os,time,pathlib,sys;pid=os.fork();'
-                      'exec("if pid == 0:\\n pathlib.Path(sys.argv[1]).write_text(str(os.getpid()))\\n time.sleep(20)\\nelse:\\n os._exit(0)")')
+            ready_read, ready_write = os.pipe2(os.O_CLOEXEC)
+            source = ('import os,time,pathlib,sys\n'
+                      'pid=os.fork()\n'
+                      'if pid == 0:\n'
+                      ' pathlib.Path(sys.argv[1]).write_text(str(os.getpid()))\n'
+                      ' os.write(int(sys.argv[2]), b"R")\n'
+                      ' time.sleep(20)\n'
+                      'else:\n'
+                      ' os._exit(0)\n')
+            original_popen = subprocess.Popen
+            def ready_process(*args, **kwargs):
+                child = original_popen(*args, **kwargs)
+                deadline = time.monotonic() + 5
+                try:
+                    self.assertTrue(select.select([ready_read], [], [], max(0, deadline-time.monotonic()))[0],
+                                    'fixture descendant readiness deadline')
+                    self.assertEqual(os.read(ready_read, 1), b'R')
+                    self.assertTrue(pidfile.is_file(), 'ready must follow durable PID publication')
+                    self.assertEqual(child.wait(timeout=max(.001, deadline-time.monotonic())), 0,
+                                     'direct child must already have exited')
+                    return child
+                except BaseException:
+                    # Popen failed its fixture handshake before command() can
+                    # own cleanup. Reap exactly this new real process group.
+                    try: os.killpg(child.pid, signal.SIGKILL)
+                    except ProcessLookupError: pass
+                    child.wait(timeout=2)
+                    child.stdout.close()
+                    raise
             pid = None
             try:
-                with self.assertRaises(m.Blocked): m.command([sys.executable,'-c',source,str(pidfile)],timeout=.3)
+                with patch.object(m.subprocess, 'Popen', side_effect=ready_process):
+                    with self.assertRaises(m.Blocked):
+                        m.command([sys.executable,'-c',source,str(pidfile),str(ready_write)],
+                                  timeout=.3, pass_fds=(ready_write,))
                 pid = int(pidfile.read_text())
                 state = pathlib.Path('/proc/'+str(pid)+'/stat')
                 self.assertFalse(state.exists() and state.read_text().rsplit(') ',1)[1].split()[0] != 'Z',
                                  'owned descendant must not survive failed command')
             finally:
+                os.close(ready_read); os.close(ready_write)
                 if pid is None and pidfile.exists(): pid = int(pidfile.read_text())
                 if pid is not None:
                     try: os.kill(pid,signal.SIGKILL)
