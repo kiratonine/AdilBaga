@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { root, temporary, env, httpEnv, run, prepareBrowser, goTestArgs } from './common.mjs';
 
@@ -33,7 +34,10 @@ if (group === 'contracts') {
   console.log(pnpm('frontend', ['audit', '--prod']));
   pnpm('frontend', ['build'], httpEnv);
   prepareBrowser();
-  console.log(pnpm('frontend', ['test:e2e']).split('\n').slice(-8).join('\n'));
+  // DIAGNOSTIC (draft PR, do not merge): full Playwright output and webServer start/ready timing.
+  const started = Date.now();
+  console.log(pnpm('frontend', ['test:e2e'], { DEBUG: 'pw:webserver' }));
+  console.log(`e2e step: ${((Date.now() - started) / 1000).toFixed(1)}s, ${cpus().length} CPUs`);
 } else if (group === 'pipeline') {
   install('pipeline');
   console.log(pnpm('pipeline', ['test']).split('\n').slice(-10).join('\n'));
