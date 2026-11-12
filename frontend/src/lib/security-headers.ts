@@ -2,13 +2,15 @@ import { httpUrl } from './config'
 import { analyticsIds } from './analytics'
 
 // Image origins in the live dataset. No store API/script access.
-// Fix Price serves photos from img.fix-price.com / img.fix-price.kz (CDN), not from fix-price.kz itself
+// Fix Price serves photos from img.fix-price.com / img.fix-price.kz (CDN), not from fix-price.kz itself;
+// Anvar — from its media CDN media.shop.anvar.kz
 const productImageOrigins = [
   'https://backend.dinamarket.kz',
   'https://dana-market.kz',
   'https://fix-price.kz',
   'https://img.fix-price.com',
   'https://img.fix-price.kz',
+  'https://media.shop.anvar.kz',
 ]
 const tileOrigins = ['https://tile.openstreetmap.org']
 
