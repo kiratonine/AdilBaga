@@ -23,6 +23,7 @@ import { formatDate } from '../lib/format'
 import { readSzptState, sizeFilter, szptParams } from '../lib/szpt'
 import { replaceQuery } from '../lib/urlState'
 import { useHref } from '../lib/useLang'
+import { CategoryHeader } from './CategoryPage'
 import { NotFoundPage } from './NotFoundPage'
 
 const SORTS: SzptSort[] = ['price_asc', 'unit_price_asc']
@@ -193,6 +194,20 @@ export function SzptPage({ group: slug }: { group: string }) {
           {filtersOpen && <DynamicFilters filters={filters} values={values} onChange={changeSizes} />}
         </Sheet>
       )}
+    </>
+  )
+}
+
+/** Пока сервер готовит страницу группы (заглушка перехода): шапка раздела настоящая, ниже скелетон */
+export function SzptPageLoading() {
+  const { t } = useTranslation()
+  return (
+    <>
+      <CategoryHeader name={t('szpt.title')} />
+      <p className="mt-2 text-sm text-muted">{t('szpt.subtitle')}</p>
+      <LoadingState>
+        <CategoryPageSkeleton title={false} />
+      </LoadingState>
     </>
   )
 }

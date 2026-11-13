@@ -129,6 +129,9 @@ backend-down build PASS. Planned URLs: https://aktau.market / https://api.aktau.
 - Категория: `CategoryPageLoading` — шапка с названием из кэша категорий + `CategoryPageSkeleton title={false}`; `CategoryHeader` вынесен. `CatalogPageLoading`, `DashboardPageLoading` — настоящие заголовки + скелетоны.
 - Бесконечная прокрутка: `LoadMore` при загрузке вместо кнопки «Загрузка…» рисует ряд скелетон-карточек (`wide` → 4, иначе 3), продолжающий сетку.
 - `prefetch={false}` на плитках категорий оставлен (e2e `catalog-network` это требует).
+- **Баг СЗПТ (нашёл пользователь):** плитка вела на `/szpt` — страница только с `redirect()`. Next коммитил `/szpt` с пустым экраном (заглушка снималась по смене pathname), потом второй круг RSC за `/szpt/rice`. Теперь `CategoryTiles` принимает `szptGroup` (первый slug из `useSzptGroups`, уже есть в кэше каталога) и ведёт сразу в группу; `/szpt` остаётся для внешних ссылок. Заглушка СЗПТ — `SzptPageLoading` (настоящая шапка через экспортированный `CategoryHeader` + подзаголовок). e2e: переход только `['/ru/szpt/rice']`, без пустого экрана.
+- Фикс CI: тест «Назад» ждал `product-card`, а они есть и в каталоге («Топ разброса») — на медленном раннере клик уходил на каталог и `goBack()` вёл на `about:blank`. Теперь ждёт URL категории.
+- Один полный прогон e2e дал 2 падения `blog.spec` (12–13 с, навигация не успела) — отдельно 3×3 и повторный полный прогон зелёные (81 passed); блог заглушкой не затрагивается (`previewRoute` → null).
 - Проверено: typecheck, oxlint (2 старых), 349 unit (+`NavigationPreview.test` 8, `RouteLoading.test` 7, LoadMore +1), e2e `PW_CHANNEL=chrome` 79 passed (+`e2e/slow-navigation.spec.ts`: RSC задержан на 2.5 с — заглушка < 1 с, товар с названием и ценой, «Назад» снимает заглушку). Не закоммичено.
 
 ### Сессия 26 — 2026-11-12 (бесконечная прокрутка списков)

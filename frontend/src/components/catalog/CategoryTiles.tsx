@@ -14,20 +14,23 @@ const TILE_COLORS = ['bg-tile-1', 'bg-tile-2', 'bg-tile-3', 'bg-tile-4', 'bg-til
 
 type Props = {
   categories: CategoryDto[]
-  /** У раздела СЗПТ есть группы в текущем снимке — первой идёт его плитка */
-  szpt: boolean
+  /**
+   * Первая группа СЗПТ в текущем снимке — первой идёт плитка раздела. Ведёт сразу в группу, а не на /szpt:
+   * тот только редиректит, и на слабой сети это второй круг запросов с пустым экраном. null — плитки нет
+   */
+  szptGroup: string | null
 }
 
 /** Плитки категорий: цвет по порядку, иконка по слагу */
-export function CategoryTiles({ categories, szpt }: Props) {
+export function CategoryTiles({ categories, szptGroup }: Props) {
   const href = useHref()
   const { t } = useTranslation()
   return (
     <ul className={CATEGORY_TILES}>
-      {szpt && (
+      {szptGroup && (
         <li className="flex">
           <Link
-            href={href('/szpt')}
+            href={href(`/szpt/${szptGroup}`)}
             prefetch={false}
             data-testid="szpt-tile"
             className={`${TILE_SHAPE} bg-tile-szpt justify-between text-sm font-medium text-ink transition-[filter] hover:brightness-95 md:text-[15px]`}

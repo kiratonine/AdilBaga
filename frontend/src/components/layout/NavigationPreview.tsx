@@ -2,13 +2,12 @@
 
 import { usePathname } from 'next/navigation'
 import { type ReactNode, useEffect, useState } from 'react'
-import { CategoryPageSkeleton } from '../ui/Skeleton'
-import { LoadingState } from '../ui/States'
 import { clickTarget, previewRoute, type PreviewRoute } from '../../lib/navigationPreview'
 import { CatalogPageLoading } from '../../views/CatalogPage'
 import { CategoryPageLoading } from '../../views/CategoryPage'
 import { DashboardPageLoading } from '../../views/DashboardPage'
 import { ProductPagePreview } from '../../views/ProductPage'
+import { SzptPageLoading } from '../../views/SzptPage'
 
 /** На быстрой сети страница приходит раньше — заглушку не показываем, чтобы не мигала */
 export const PREVIEW_DELAY = 120
@@ -92,10 +91,6 @@ function Preview({ route }: { route: PreviewRoute }) {
     case 'dashboard':
       return <DashboardPageLoading />
     case 'szpt':
-      return (
-        <LoadingState>
-          <CategoryPageSkeleton />
-        </LoadingState>
-      )
+      return <SzptPageLoading />
   }
 }

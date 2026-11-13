@@ -33,6 +33,26 @@ test('плитка категории: сразу шапка категории 
   await expect(preview).toHaveCount(0)
 })
 
+test('плитка СЗПТ: сразу шапка раздела, без промежуточного редиректа и пустого экрана', async ({ page }) => {
+  const visited: string[] = []
+  page.on('request', (req) => {
+    if (req.headers().rsc === '1' && !req.headers()['next-router-prefetch']) visited.push(new URL(req.url()).pathname)
+  })
+  await slowNavigations(page, /\/szpt/)
+  await page.goto('/ru/catalog', { waitUntil: 'networkidle' })
+  await page.getByTestId('szpt-tile').click()
+
+  const preview = page.getByTestId('navigation-preview')
+  await expect(preview).toBeVisible({ timeout: FEEDBACK })
+  await expect(preview.getByRole('heading', { level: 1 })).toHaveText('Социально значимые продукты')
+  // Заглушка держится, пока не придёт сама группа: пустого экрана между ними нет
+  await expect(page).toHaveURL(/\/ru\/szpt\/rice$/, { timeout: SLOW + 5000 })
+  await expect(page.getByTestId('product-card').first()).toBeVisible()
+  await expect(preview).toHaveCount(0)
+  // Один переход сразу в группу: /szpt (только редирект) — это второй круг запросов на слабой сети
+  expect(visited).toEqual(['/ru/szpt/rice'])
+})
+
 test('карточка товара из списка: сразу название и цена, потом настоящая страница', async ({ page }) => {
   await page.goto('/ru/collections/milk', { waitUntil: 'networkidle' })
   const card = page.getByTestId('product-card').first()

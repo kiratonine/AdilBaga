@@ -30,7 +30,7 @@ export function CatalogPage() {
           </LoadingState>
         )}
         {categories.isError && <ErrorState onRetry={() => categories.refetch()} />}
-        {categories.data && <CategoryTiles categories={categories.data} szpt={(szpt.data?.length ?? 0) > 0} />}
+        {categories.data && <CategoryTiles categories={categories.data} szptGroup={szpt.data?.[0]?.slug ?? null} />}
       </section>
 
       <TopDeals />

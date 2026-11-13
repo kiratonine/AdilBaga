@@ -165,7 +165,7 @@ export function CategoryPage({ slug }: { slug: string }) {
 }
 
 /** «Назад» — как на странице товара: пришли из поиска или с товара — туда, извне — в каталог */
-function CategoryHeader({ name }: { name: string | undefined }) {
+export function CategoryHeader({ name }: { name: string | undefined }) {
   const { t } = useTranslation()
   const href = useHref()
   return (
