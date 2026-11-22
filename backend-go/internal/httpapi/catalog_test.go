@@ -68,6 +68,10 @@ func TestReadHandlers(t *testing.T) {
 		{"/api/products?offset=-1", 400}, {"/api/products?offset=9007199254740992", 400},
 		{"/api/products?sort=", 400}, {"/api/products?sort=invalid", 400}, {"/api/products?volumeMl=1000", 400},
 		{"/api/products?category=milk&unknown=1", 400},
+		{"/api/products?category=milk&brand=a&brand=A", 200},
+		{"/api/products?category=milk&brand=B", 400},
+		{"/api/products?category=milk&brand=", 400},
+		{"/api/products?brand=A", 400},
 	} {
 		t.Run(tt.path, func(t *testing.T) {
 			w := httptest.NewRecorder()
@@ -86,6 +90,21 @@ func TestReadHandlers(t *testing.T) {
 		Router(testConfig(), observability.New(&bytes.Buffer{}, "info"), Dependencies{DB: pingFunc(func(context.Context) error { return nil }), Categories: repo, Products: repo, Dashboard: repo}).ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != 500 || strings.Contains(w.Body.String(), "private") {
 			t.Fatal("repository error leaked")
+		}
+	}
+}
+
+func TestBrandQueryUsesOnlyStringOptions(t *testing.T) {
+	schema := []catalog.FilterDefinition{
+		{Key: "brand", Type: "multi-select", Options: []json.RawMessage{json.RawMessage(`"3 Желания"`), json.RawMessage(`true`), json.RawMessage(`0`)}},
+	}
+	q, err := parseProductQuery(url.Values{"category": {"dairy"}, "brand": {"3 Желания", "3 ЖЕЛАНИЯ", "3 желания"}}, schema)
+	if err != nil || len(q.Filters["brand"]) != 3 {
+		t.Fatalf("canonical and bookmarked brand spellings: %v", err)
+	}
+	for _, brand := range []string{"0", "true", "3 Желания ", "3 желания плюс", "\xff"} {
+		if _, err := parseProductQuery(url.Values{"category": {"dairy"}, "brand": {brand}}, schema); !errors.Is(err, catalog.ErrInvalidQuery) {
+			t.Fatalf("unlisted brand %q accepted", brand)
 		}
 	}
 }

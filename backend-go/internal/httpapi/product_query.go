@@ -78,6 +78,14 @@ func parseProductQuery(raw url.Values, definitions []catalog.FilterDefinition) (
 			return q, catalog.ErrInvalidQuery
 		}
 		for _, input := range values {
+			if key == "brand" {
+				if definition.Type != "multi-select" || !catalog.BrandAllowed(input, definition.Options) {
+					return q, catalog.ErrInvalidQuery
+				}
+				encoded, _ := json.Marshal(input)
+				q.Filters[key] = append(q.Filters[key], encoded)
+				continue
+			}
 			var first any
 			if len(definition.Options) > 0 {
 				if json.Unmarshal(definition.Options[0], &first) != nil {

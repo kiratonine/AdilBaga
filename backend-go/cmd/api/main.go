@@ -49,7 +49,8 @@ func run(ctx context.Context, getenv func(string) string) error {
 		nlp.Provider = gemini.New(c.GeminiKeys, c.GeminiModel, logger)
 	}
 	sessions := redis.New(c.UpstashURL, c.UpstashToken, logger)
-	service := &voice.Service{Parser: nlp, Sessions: sessions, Categories: repo, Vocabulary: repo, Products: repo, Locations: repo}
+	voiceRepo := repo.WithExactBrandFilters()
+	service := &voice.Service{Parser: nlp, Sessions: sessions, Categories: voiceRepo, Vocabulary: repo, Products: voiceRepo, Locations: repo}
 	server := httpapi.Server(c, httpapi.Router(c, logger, httpapi.Dependencies{DB: pool, Categories: repo, Products: repo, Dashboard: repo, Szpt: postgres.SzptRepository{Repository: repo}, Voice: service}), logger)
 	logger.Info("starting", "port", c.Port, "app_env", c.AppEnv)
 	return serve(ctx, server, logger)

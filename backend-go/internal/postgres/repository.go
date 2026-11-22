@@ -16,9 +16,19 @@ type DB interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
-type Repository struct{ db DB }
+type Repository struct {
+	db                DB
+	exactBrandFilters bool
+}
 
 func NewRepository(db DB) *Repository { return &Repository{db: db} }
+
+// WithExactBrandFilters preserves the stored option values and matching used
+// by Voice vocabulary validation and existing Voice sessions.
+func (r Repository) WithExactBrandFilters() *Repository {
+	r.exactBrandFilters = true
+	return &r
+}
 
 var _ catalog.CategoryRepository = (*Repository)(nil)
 var _ catalog.ProductRepository = (*Repository)(nil)
