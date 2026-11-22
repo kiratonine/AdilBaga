@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,8 +52,11 @@ func TestDestructiveTargetGuard(t *testing.T) {
 }
 
 type countedDB struct {
-	pool  *pgxpool.Pool
-	count int
+	pool                     *pgxpool.Pool
+	count, begins, rollbacks int
+	discoveries              int
+	options                  pgx.TxOptions
+	beforeProducts           func(context.Context) error
 }
 
 func (d *countedDB) Query(ctx context.Context, s string, a ...any) (pgx.Rows, error) {
@@ -70,6 +74,8 @@ type countedTx struct {
 }
 
 func (d *countedDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	d.begins++
+	d.options = options
 	tx, err := d.pool.BeginTx(ctx, options)
 	if err != nil {
 		return nil, err
@@ -78,11 +84,23 @@ func (d *countedDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx,
 }
 func (tx *countedTx) Query(ctx context.Context, s string, a ...any) (pgx.Rows, error) {
 	tx.owner.count++
+	if strings.HasPrefix(s, "SELECT DISTINCT k.key") {
+		tx.owner.discoveries++
+	}
+	if strings.HasPrefix(s, "WITH selected AS") && tx.owner.beforeProducts != nil {
+		if err := tx.owner.beforeProducts(ctx); err != nil {
+			return nil, err
+		}
+	}
 	return tx.Tx.Query(ctx, s, a...)
 }
 func (tx *countedTx) QueryRow(ctx context.Context, s string, a ...any) pgx.Row {
 	tx.owner.count++
 	return tx.Tx.QueryRow(ctx, s, a...)
+}
+func (tx *countedTx) Rollback(ctx context.Context) error {
+	tx.owner.rollbacks++
+	return tx.Tx.Rollback(ctx)
 }
 func ids(products []catalog.Product) []string {
 	out := make([]string, 0, len(products))
@@ -420,8 +438,15 @@ FROM canonical_products WHERE id LIKE 'bk-%'`); err != nil {
 			assertDenied(t, role.Exec, ctx, sql, "42501")
 		}
 	})
+	t.Run("HTTP product snapshot", func(t *testing.T) {
+		testProductSnapshot(t, ctx, admin, pool)
+	})
+	t.Run("HTTP product deadlines", func(t *testing.T) {
+		testProductFaults(t, ctx, admin, pool)
+	})
 	t.Run("case-insensitive public brand filters", func(t *testing.T) {
 		testBrandFilters(t, ctx, admin, repo)
+		testSharedVoiceCatalog(t, ctx, pool)
 	})
 }
 

@@ -31,7 +31,7 @@ func (r Repository) WithExactBrandFilters() *Repository {
 }
 
 var _ catalog.CategoryRepository = (*Repository)(nil)
-var _ catalog.ProductRepository = (*Repository)(nil)
+var _ catalog.ProductCatalogRepository = (*Repository)(nil)
 
 // Repository errors never expose SQL parameters, URLs or server error details.
 func databaseError(err error) error {

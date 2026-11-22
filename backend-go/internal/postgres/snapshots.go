@@ -22,7 +22,7 @@ type Snapshot struct {
 
 func (r *Repository) LatestPublishedSnapshot(ctx context.Context) (Snapshot, error) {
 	var s Snapshot
-	err := r.db.QueryRow(ctx, latestSnapshotSQL).Scan(&s.ID, &s.StartedAt, &s.PublishedAt)
+	err := r.db.QueryRow(observability.WithCatalogPhase(ctx, observability.Snapshot), latestSnapshotSQL).Scan(&s.ID, &s.StartedAt, &s.PublishedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, ErrNoPublishedSnapshot
 	}
@@ -42,8 +42,10 @@ func (r *Repository) snapshotReader(ctx context.Context) (*Repository, string, f
 	if !ok {
 		return nil, "", nil, errors.New("snapshot read transaction unavailable")
 	}
+	begin := time.Now()
 	tx, err := starter.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
+		observability.RecordCatalogPhase(ctx, observability.Snapshot, catalogDBReason(ctx, observability.Snapshot, err), time.Since(begin))
 		return nil, "", nil, databaseError(err)
 	}
 	end := func() {

@@ -34,7 +34,7 @@ type Pinger interface{ Ping(context.Context) error }
 type Dependencies struct {
 	DB         Pinger
 	Categories catalog.CategoryRepository
-	Products   catalog.ProductRepository
+	Products   catalog.ProductCatalogRepository
 	Dashboard  dashboard.Repository
 	Szpt       szpt.Repository
 	Voice      VoiceService

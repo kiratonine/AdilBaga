@@ -91,3 +91,10 @@ type ProductRepository interface {
 	ListProducts(context.Context, ProductQuery) ([]Product, error)
 	GetProductByID(context.Context, string) (Product, error)
 }
+
+// ProductCatalogRepository supports parsing a dynamic product query against
+// the same snapshot as its results. The builder must only parse and validate.
+type ProductCatalogRepository interface {
+	ProductRepository
+	ListProductsWithFilters(ctx context.Context, category string, build func(FilterSchema) (ProductQuery, error)) ([]Product, error)
+}

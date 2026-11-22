@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"adilbaga/backend-go/internal/catalog"
+	"adilbaga/backend-go/internal/observability"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -117,7 +118,7 @@ func (r *Repository) filterSchemaAt(ctx context.Context, slug, snapshotID string
 	out := catalog.FilterSchema{Category: slug, Filters: make([]catalog.FilterDefinition, 0)}
 	var id string
 	var raw []byte
-	err := r.db.QueryRow(ctx, `SELECT id,"filterSchema" FROM public.categories WHERE slug=$1`, slug).Scan(&id, &raw)
+	err := r.db.QueryRow(observability.WithCatalogPhase(ctx, observability.Metadata), `SELECT id,"filterSchema" FROM public.categories WHERE slug=$1`, slug).Scan(&id, &raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, catalog.ErrNotFound
 	}
@@ -132,7 +133,7 @@ func (r *Repository) filterSchemaAt(ctx context.Context, slug, snapshotID string
 	for _, d := range defs {
 		keys = append(keys, d.Key)
 	}
-	rows, err := r.db.Query(ctx, discoverySQL, id, keys, snapshotID)
+	rows, err := r.db.Query(observability.WithCatalogPhase(ctx, observability.Discovery), discoverySQL, id, keys, snapshotID)
 	if err != nil {
 		return out, databaseError(err)
 	}

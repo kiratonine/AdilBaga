@@ -38,6 +38,21 @@ func (r *testRepository) GetFilterSchema(_ context.Context, slug string) (catalo
 		{Key: "organic", Label: "Organic", Type: "boolean"},
 	}}, nil
 }
+func (r *testRepository) ListProductsWithFilters(ctx context.Context, category string, build func(catalog.FilterSchema) (catalog.ProductQuery, error)) ([]catalog.Product, error) {
+	schema, err := r.GetFilterSchema(ctx, category)
+	if errors.Is(err, catalog.ErrNotFound) {
+		return nil, catalog.ErrInvalidQuery
+	}
+	if err != nil {
+		return nil, err
+	}
+	q, err := build(schema)
+	if err != nil {
+		return nil, err
+	}
+	return r.ListProducts(ctx, q)
+}
+
 func (r *testRepository) ListProducts(_ context.Context, q catalog.ProductQuery) ([]catalog.Product, error) {
 	r.query = q
 	return []catalog.Product{}, r.err

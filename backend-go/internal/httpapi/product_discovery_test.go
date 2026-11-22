@@ -39,7 +39,7 @@ func TestProductDiscoveryCalls(t *testing.T) {
 		t.Run(tt.query, func(t *testing.T) {
 			repo := &testRepository{}
 			w := httptest.NewRecorder()
-			Dependencies{Categories: repo, Products: repo}.products(w, httptest.NewRequest("GET", "/api/products?"+tt.query, nil))
+			Dependencies{Products: repo}.products(w, httptest.NewRequest("GET", "/api/products?"+tt.query, nil))
 			if w.Code != tt.status || repo.filterCalls != tt.calls {
 				t.Fatalf("status=%d discovery_calls=%d; want %d/%d", w.Code, repo.filterCalls, tt.status, tt.calls)
 			}
