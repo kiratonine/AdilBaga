@@ -17,11 +17,12 @@ This section is the single source of truth for the active SHA and the rollback
 target. Runbooks and other production docs link here instead of copying SHAs;
 update only this section after a release.
 
-- Active: `34654678857ceabf6d68f968eac2c586dcb88909` (PR #137 cancellation fix, PR #138 Next16.4.5, PR #139 performance). Manual administrative SSH release 2026-11-17; exact-main CI44132139520 9/9 SUCCESS; official Go artifact14350911929/build44133366399. No DB change.
-- Rollback target: `e9e4543b130d212a95f4c60f3e1229b26db6388e`, retained on VPS. Root-private rollback references/compose: `/var/backups/aktau-manual-combined-20261117T182318Z`. Keep runtime env in place; no DB rollback.
-- Both candidate and previous API/Frontend images retained. Frontend now uses the same source SHA, Next16.4.5; previous Frontend `a04bee643470753fd0874bc1b53d740a4593e618` retained.
-- The 2026-11-17 release recorded a signed Frontend cache flush (HTTP 204), healthy containers with zero restarts or OOM kills, active connectors, and a passing five-minute monitor. See the [release evidence summary](../docs/production/reports/FRONTEND_VPS_DOCS_INFRA_RECONCILIATION_REPORT.md#manual-release-evidence) and the separate [Frontend deployment runbook](../docs/production/FRONTEND_VPS_DEPLOYMENT.md).
-- This was an Owner-authorized manual SSH release; broker was not invoked. Historical failed broker journal and consumed approval were not changed. Future broker releases still follow `docs/production/AUTO_DEPLOY_SETUP.md`; do not reuse consumed approval.
+- Active Go API — `6dec3357ddf7d19c8bbb0196cca853328752b0b5` (PR #144). Owner-authorized manual API-only release on 2026-11-22. Exact-main CI 45052751799 passed all nine jobs. Official build-only run 45053311834 produced artifact 14766770157.
+- API rollback target — `3c5e8cbc9f2c984808a158f243949e49b2a73cd5`. The prior working image and the root-private backup of the release reference and Compose were verified before cutover and retained after postflight.
+- Active Frontend — `34654678857ceabf6d68f968eac2c586dcb88909` (Next.js 16.4.5). The API cutover kept its image, container and BUILD_ID. Signed cache revalidation returned HTTP 204; RU/KK brand selection, search, sorting, product, dashboard and SZPT passed in Chrome.
+- PostgreSQL 17.6 passed the restricted read-only role and collation gate. The live catalog and Voice passed the application smoke. The five-minute postflight recorded zero HTTP 5xx, zero readiness 503 and a healthy API with zero restarts or OOM kills.
+- The 2026-11-17 combined release remains recorded in the [release evidence summary](../docs/production/reports/FRONTEND_VPS_DOCS_INFRA_RECONCILIATION_REPORT.md#manual-release-evidence). Its previous API was `e9e4543b130d212a95f4c60f3e1229b26db6388e` and previous Frontend was `a04bee643470753fd0874bc1b53d740a4593e618`. See the [Frontend deployment runbook](../docs/production/FRONTEND_VPS_DEPLOYMENT.md) for the independent lifecycle.
+- The operator used manual SSH. Automated rollout remained disabled. Future broker releases require a new exact-artifact approval under [Auto-deploy setup](../docs/production/AUTO_DEPLOY_SETUP.md).
 
 History: the first Go release was `e6ef854` (2026-10-08, Part15 report); the same-day
 `d6098f6` rollout was rolled back after a public Voice HTTP500. Later releases:
