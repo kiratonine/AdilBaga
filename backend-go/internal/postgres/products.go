@@ -10,7 +10,7 @@ import (
 
 // No SQL identifier/expression comes from the caller. Filter keys remain JSONB
 // data even after allowlist validation; sort selects trusted static fragments.
-const productBaseSQL = `WITH selected AS (
+const productFilterPrefixSQL = `WITH selected AS (
  SELECT p.id,p.name,p.brand,c.slug,c.name AS category_name,p."imageUrl",p.attributes,
  MIN(o.price) AS min_price,MAX(o."snapshotAt" AT TIME ZONE 'UTC') AS snapshot_at
  FROM public.canonical_products p JOIN public.categories c ON c.id=p."categoryId"
@@ -18,8 +18,19 @@ const productBaseSQL = `WITH selected AS (
  WHERE o."snapshotId"=$7 AND ($1::text='' OR c.slug=$1) AND NOT EXISTS (SELECT 1 FROM unnest($2::text[]) AS search(pattern)
   WHERE NOT (p.name ILIKE search.pattern ESCAPE E'\\' OR coalesce(p.brand,'') ILIKE search.pattern ESCAPE E'\\'))
  AND NOT EXISTS (SELECT 1 FROM jsonb_each($3::jsonb) f WHERE NOT EXISTS (
-  SELECT 1 FROM jsonb_array_elements(f.value) option WHERE option.value =
-   CASE WHEN f.key='brand' THEN to_jsonb(p.brand) ELSE p.attributes->f.key END))
+  SELECT 1 FROM jsonb_array_elements(f.value) option WHERE `
+
+// Use PostgreSQL 17's built-in simple Unicode collation for case conversion.
+// JSON string extraction and equality keep percent signs and underscores literal.
+const productBaseSQL = productFilterPrefixSQL + `CASE WHEN f.key='brand' THEN
+   jsonb_typeof(option.value)='string' AND lower(p.brand COLLATE pg_catalog."pg_c_utf8") =
+    lower((option.value #>> '{}') COLLATE pg_catalog."pg_c_utf8")
+   ELSE option.value=p.attributes->f.key END` + productFilterSuffixSQL
+
+const exactBrandProductSQL = productFilterPrefixSQL + `option.value =
+   CASE WHEN f.key='brand' THEN to_jsonb(p.brand) ELSE p.attributes->f.key END` + productFilterSuffixSQL
+
+const productFilterSuffixSQL = `))
  AND ($4::text='' OR p.id=$4)
  GROUP BY p.id,c.slug,c.name)
  SELECT id,name,brand,slug,category_name,"imageUrl",attributes,min_price,snapshot_at FROM selected `
@@ -77,6 +88,13 @@ func (r *Repository) validateFilters(ctx context.Context, q catalog.ProductQuery
 			return catalog.ErrInvalidQuery
 		}
 		for _, v := range values {
+			if key == "brand" && !r.exactBrandFilters {
+				var brand string
+				if found.Type != "multi-select" || json.Unmarshal(v, &brand) != nil || !catalog.BrandAllowed(brand, found.Options) {
+					return catalog.ErrInvalidQuery
+				}
+				continue
+			}
 			if !primitive(v, false) {
 				return catalog.ErrInvalidQuery
 			}
@@ -151,7 +169,11 @@ func (r *Repository) products(ctx context.Context, q catalog.ProductQuery, order
 	if err != nil {
 		return nil, catalog.ErrInvalidQuery
 	}
-	rows, err := r.db.Query(ctx, productBaseSQL+order+` LIMIT $5 OFFSET $6`, q.Category, searchPatterns(q.Search), string(raw), id, q.Limit, q.Offset, snapshotID)
+	query := productBaseSQL
+	if r.exactBrandFilters {
+		query = exactBrandProductSQL
+	}
+	rows, err := r.db.Query(ctx, query+order+` LIMIT $5 OFFSET $6`, q.Category, searchPatterns(q.Search), string(raw), id, q.Limit, q.Offset, snapshotID)
 	if err != nil {
 		return nil, databaseError(err)
 	}

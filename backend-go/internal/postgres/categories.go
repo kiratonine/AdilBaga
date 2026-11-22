@@ -85,6 +85,26 @@ CROSS JOIN LATERAL (SELECT CASE WHEN k.key='brand' THEN to_jsonb(p.brand) ELSE p
 WHERE p."categoryId"=$1 AND jsonb_typeof(v.value) IN ('string','number','boolean')
 AND EXISTS (SELECT 1 FROM public.offers o WHERE o."snapshotId"=$3 AND o."canonicalProductId"=p.id AND o."inStock" AND o.price>0)`
 
+func brandOptions(configured, actual []json.RawMessage) []json.RawMessage {
+	available := make(map[string]struct{}, len(actual))
+	for _, value := range actual {
+		if key := catalog.BrandOptionKey(value); key != "" {
+			available[key] = struct{}{}
+		}
+	}
+	var options []json.RawMessage
+	for _, value := range configured {
+		key := catalog.BrandOptionKey(value)
+		if _, ok := available[key]; ok {
+			// The same identity can occur again in metadata with different casing.
+			delete(available, key)
+			label, _ := json.Marshal(catalog.BrandLabel(key))
+			options = append(options, label)
+		}
+	}
+	return options
+}
+
 func (r *Repository) GetFilterSchema(ctx context.Context, slug string) (catalog.FilterSchema, error) {
 	reader, snapshotID, end, err := r.snapshotReader(ctx)
 	if err != nil {
@@ -131,6 +151,15 @@ func (r *Repository) filterSchemaAt(ctx context.Context, slug, snapshotID string
 	}
 	for _, d := range defs {
 		if len(actual[d.Key]) == 0 {
+			continue
+		}
+		if d.Key == "brand" && !r.exactBrandFilters {
+			if d.Type == "multi-select" {
+				d.Options = brandOptions(d.Options, actual[d.Key])
+				if len(d.Options) > 0 {
+					out.Filters = append(out.Filters, d)
+				}
+			}
 			continue
 		}
 		if d.Type == "boolean" {

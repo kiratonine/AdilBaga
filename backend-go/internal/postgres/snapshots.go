@@ -51,13 +51,14 @@ func (r *Repository) snapshotReader(ctx context.Context) (*Repository, string, f
 		defer cancel()
 		_ = tx.Rollback(c)
 	}
-	reader := NewRepository(tx)
+	reader := *r
+	reader.db = tx
 	s, err := reader.LatestPublishedSnapshot(ctx)
 	if err != nil {
 		end()
 		return nil, "", nil, err
 	}
-	return reader, s.ID, end, nil
+	return &reader, s.ID, end, nil
 }
 
 func (r *Repository) ListRecentPublishedSnapshots(ctx context.Context, limit int) ([]Snapshot, error) {

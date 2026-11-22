@@ -420,6 +420,9 @@ FROM canonical_products WHERE id LIKE 'bk-%'`); err != nil {
 			assertDenied(t, role.Exec, ctx, sql, "42501")
 		}
 	})
+	t.Run("case-insensitive public brand filters", func(t *testing.T) {
+		testBrandFilters(t, ctx, admin, repo)
+	})
 }
 
 func assertDenied(t *testing.T, exec func(context.Context, string, ...any) (pgconn.CommandTag, error), ctx context.Context, sql, code string) {

@@ -2,10 +2,33 @@ package postgres
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"adilbaga/backend-go/internal/catalog"
 )
+
+func TestBrandOptions(t *testing.T) {
+	configured := []json.RawMessage{
+		json.RawMessage(`"BARAKA"`), json.RawMessage(`"Baraka"`), json.RawMessage(`"3 желания"`),
+		json.RawMessage(`"ACTIMEL KIDS"`), json.RawMessage(`"ACTIMEL"`), json.RawMessage(`"stale"`),
+		json.RawMessage(`true`), json.RawMessage(`0`), json.RawMessage(`null`), json.RawMessage(`""`),
+		json.RawMessage(`"  "`), json.RawMessage(`"F_O%"`), json.RawMessage(`"3ABC   ÉCLAIR-DEKMY"`),
+	}
+	actual := []json.RawMessage{
+		json.RawMessage(`"baraka"`), json.RawMessage(`"3 ЖЕЛАНИЯ"`), json.RawMessage(`"Actimel"`),
+		json.RawMessage(`"actimel kids"`), json.RawMessage(`"unconfigured"`), json.RawMessage(`"f_o%"`),
+		json.RawMessage(`"3abc   éclair-dekmy"`), json.RawMessage(`"0"`), json.RawMessage(`"true"`),
+		json.RawMessage(`null`), json.RawMessage(`""`), json.RawMessage(`"  "`),
+	}
+	want := []json.RawMessage{
+		json.RawMessage(`"Baraka"`), json.RawMessage(`"3 Желания"`), json.RawMessage(`"Actimel Kids"`),
+		json.RawMessage(`"Actimel"`), json.RawMessage(`"F_o%"`), json.RawMessage(`"3Abc   Éclair-dekmy"`),
+	}
+	if got := brandOptions(configured, actual); !reflect.DeepEqual(got, want) {
+		t.Fatalf("options = %s, want %s", got, want)
+	}
+}
 
 func TestDefinitionsAndScalarTypes(t *testing.T) {
 	raw := []byte(`{"filters":[{"key":"n","label":"N","type":"multi-select","options":[1000,"1000",true,null,{},[]]},{"key":"b","label":"B","type":"boolean"},{"key":"x","label":"X","type":"multi-select"},{"key":7,"label":"X","type":"boolean"}]}`)
