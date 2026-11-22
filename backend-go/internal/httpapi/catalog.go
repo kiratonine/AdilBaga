@@ -60,21 +60,18 @@ func (d Dependencies) products(w http.ResponseWriter, r *http.Request) {
 		respondRequest(w, r, nil, catalog.ErrInvalidQuery)
 		return
 	}
-	var definitions []catalog.FilterDefinition
+	var products []catalog.Product
 	if category := raw["category"]; hasDynamicProductFilters(raw) && len(category) == 1 && strings.TrimSpace(category[0]) != "" {
-		schema, err := d.Categories.GetFilterSchema(r.Context(), strings.TrimSpace(category[0]))
-		if err != nil && !errors.Is(err, catalog.ErrNotFound) {
-			respondRequest(w, r, nil, err)
-			return
+		products, err = d.Products.ListProductsWithFilters(r.Context(), strings.TrimSpace(category[0]), func(schema catalog.FilterSchema) (catalog.ProductQuery, error) {
+			return parseProductQuery(raw, schema.Filters)
+		})
+	} else {
+		var q catalog.ProductQuery
+		q, err = parseProductQuery(raw, nil)
+		if err == nil {
+			products, err = d.Products.ListProducts(r.Context(), q)
 		}
-		definitions = schema.Filters
 	}
-	q, err := parseProductQuery(raw, definitions)
-	if err != nil {
-		respondRequest(w, r, nil, err)
-		return
-	}
-	products, err := d.Products.ListProducts(r.Context(), q)
 	if err != nil {
 		respondRequest(w, r, nil, err)
 		return

@@ -98,6 +98,8 @@ func safeID(id string) bool {
 	return true
 }
 
+const catalogProductsRoute = "/api/products"
+
 func AccessLog(logger *slog.Logger, registry ...*observability.Registry) func(http.Handler) http.Handler {
 	metrics := observability.Default
 	if len(registry) == 1 && registry[0] != nil {
@@ -107,6 +109,11 @@ func AccessLog(logger *slog.Logger, registry ...*observability.Registry) func(ht
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			r, outcome := withOutcome(r)
+			var catalogRequest *observability.CatalogRequest
+			if r.Method == http.MethodGet && r.URL.Path == catalogProductsRoute {
+				ctx, request := observability.WithCatalogRequest(r.Context(), metrics)
+				r, catalogRequest = r.WithContext(ctx), request
+			}
 			ww := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(ww, r)
 			status := ww.Status()
@@ -125,6 +132,17 @@ func AccessLog(logger *slog.Logger, registry ...*observability.Registry) func(ht
 			duration := time.Since(start)
 			route := logPath(r)
 			metrics.HTTPOutcome(route, r.Method, status, code, duration)
+			if status == http.StatusServiceUnavailable && route == catalogProductsRoute && catalogRequest != nil {
+				failure, ok := catalogRequest.Failure()
+				if !ok {
+					failure = observability.CatalogFailure{Stage: "unknown", Reason: "other", Duration: duration}
+					if code == "request_deadline" {
+						failure.Reason = "request_deadline"
+					}
+				}
+				logger.WarnContext(r.Context(), "catalog_request_503", "request_id", RequestIDValue(r.Context()),
+					"route", catalogProductsRoute, "stage", failure.Stage, "reason_class", failure.Reason, "duration_ms", failure.Duration.Milliseconds())
+			}
 			logger.InfoContext(r.Context(), "http_request", "request_id", RequestIDValue(r.Context()), "method", r.Method, "route", route, "status", status, "duration_ms", duration.Milliseconds(), "error_code", code)
 		})
 	}

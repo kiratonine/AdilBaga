@@ -10,6 +10,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +20,9 @@ import (
 	"adilbaga/backend-go/internal/httpapi"
 	"adilbaga/backend-go/internal/observability"
 	"adilbaga/backend-go/internal/postgres"
+	"adilbaga/backend-go/internal/voice"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Run as a subtest of TestDeterministicCatalog inside the approved runner.
@@ -26,7 +30,7 @@ import (
 func testBrandFilters(t *testing.T, ctx context.Context, admin *pgx.Conn, repo *postgres.Repository) {
 	if _, err := admin.Exec(ctx, `INSERT INTO categories (id,slug,name,"filterSchema") VALUES
 		('brands-dairy','dairy','Dairy','{"filters":[
-		  {"key":"brand","label":"Brand","type":"multi-select","options":["BARAKA","Baraka","baraka","3 ЖЕЛАНИЯ","3 Желания","3 желания","DEKMY","Dekmy","ARLA FOODS PUCK","ACTIMEL","Actimel Kids","Baraka Plus","F_O%","F1ox","STALE","ZERO","OLD","UNPUBLISHED",""," ",null,0,true]},
+		  {"key":"brand","label":"Brand","type":"multi-select","options":["BARAKA","Baraka","baraka","3 ЖЕЛАНИЯ","3 Желания","3 желания","DEKMY","Dekmy","ARLA FOODS PUCK","ACTIMEL","Actimel Kids","Baraka Plus","F_O%","F1ox","Q''\\ X%_","STALE","ZERO","OLD","UNPUBLISHED",""," ",null,0,true]},
 		  {"key":"volumeMl","label":"Volume","type":"multi-select","options":[500,1000,"1000"]},
 		  {"key":"organic","label":"Organic","type":"boolean"}]}'),
 		('brands-groats','groats','Groats','{"filters":[
@@ -61,6 +65,7 @@ func testBrandFilters(t *testing.T, ctx context.Context, admin *pgx.Conn, repo *
 		{"bp", "brands-dairy", "Baraka Plus", `{}`, 110, true, current, "r1"},
 		{"f1", "brands-dairy", "F_O%", `{}`, 111, true, current, "r1"},
 		{"f2", "brands-dairy", "F1ox", `{}`, 112, true, current, "r1"},
+		{"literal", "brands-dairy", `Q'\ X%_`, `{}`, 113, true, current, "r1"},
 		{"null", "brands-dairy", nil, `{}`, 30, true, current, "r1"},
 		{"empty", "brands-dairy", "", `{}`, 31, true, current, "r1"},
 		{"blank", "brands-dairy", " ", `{}`, 32, true, current, "r1"},
@@ -116,7 +121,7 @@ func testBrandFilters(t *testing.T, ctx context.Context, admin *pgx.Conn, repo *
 		category string
 		want     []json.RawMessage
 	}{
-		{"dairy", raw(`"Baraka"`, `"3 Желания"`, `"Dekmy"`, `"Arla Foods Puck"`, `"Actimel"`, `"Actimel Kids"`, `"Baraka Plus"`, `"F_o%"`, `"F1ox"`)},
+		{"dairy", raw(`"Baraka"`, `"3 Желания"`, `"Dekmy"`, `"Arla Foods Puck"`, `"Actimel"`, `"Actimel Kids"`, `"Baraka Plus"`, `"F_o%"`, `"F1ox"`, `"Q'\\ X%_"`)},
 		{"groats", raw(`"Baraka"`, `"Декмы"`, `"Ёлка"`, `"Елка"`, `"Aб"`, `"Аб"`)},
 	} {
 		var schema catalog.FilterSchema
@@ -160,6 +165,7 @@ func testBrandFilters(t *testing.T, ctx context.Context, admin *pgx.Conn, repo *
 	query(url.Values{"category": {"dairy"}, "brand": {"Actimel"}}, "a2")
 	query(url.Values{"category": {"dairy"}, "brand": {"Actimel Kids"}}, "a3")
 	query(url.Values{"category": {"dairy"}, "brand": {"F_o%"}}, "f1")
+	query(url.Values{"category": {"dairy"}, "brand": {`q'\ x%_`}}, "literal")
 	query(url.Values{"category": {"dairy"}, "brand": {"baraka", "3 ЖЕЛАНИЯ"}, "volumeMl": {"500", "1000"}}, "b1", "z1", "b2")
 	query(url.Values{"category": {"dairy"}, "brand": {"BARAKA"}, "organic": {"false"}}, "b2", "b3")
 	query(url.Values{"category": {"dairy"}, "brand": {"BARAKA"}, "search": {"bArAkA"}, "sort": {"price_desc"}, "limit": {"1"}, "offset": {"1"}}, "b2")
@@ -193,5 +199,53 @@ func testBrandFilters(t *testing.T, ctx context.Context, admin *pgx.Conn, repo *
 	q := catalog.ProductQuery{Category: "dairy", Filters: catalog.DynamicFilter{"brand": raw(`"BARAKA"`)}}
 	if products, err := voiceRepo.ListProducts(ctx, q); err != nil || !reflect.DeepEqual(ids(products), []string{"b1"}) {
 		t.Fatal("Voice product matching must retain exact stored spelling")
+	}
+}
+
+type exactBrandParser struct{}
+
+func (exactBrandParser) Parse(context.Context, voice.Input) (voice.Parsed, error) {
+	intent, category := "search", "dairy"
+	return voice.Parsed{Intent: &intent, Category: &category,
+		Filters: map[string]json.RawMessage{"brand": json.RawMessage(`"BARAKA"`)}}, nil
+}
+
+func testSharedVoiceCatalog(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	repo := postgres.NewRepository(pool)
+	exact := repo.WithExactBrandFilters()
+	service := &voice.Service{Parser: exactBrandParser{}, Categories: exact, Vocabulary: repo, Products: exact, Locations: repo}
+	cfg := config.Config{RateRPS: 1000, RateBurst: 1000, VoiceRateRPS: 1000, VoiceRateBurst: 1000, VoiceConcurrency: 4}
+	handler := httpapi.Router(cfg, observability.New(io.Discard, "info"),
+		httpapi.Dependencies{DB: pool, Categories: repo, Products: repo, Voice: service})
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Go(func() {
+			<-start
+			w := httptest.NewRecorder()
+			if i%2 == 0 {
+				r := httptest.NewRequest("GET", "/api/products?category=dairy&brand=baraka", nil).WithContext(ctx)
+				handler.ServeHTTP(w, r)
+				var products []catalog.Product
+				if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &products) != nil || !reflect.DeepEqual(ids(products), []string{"b1", "b2", "b3"}) {
+					t.Errorf("catalog parity under shared pool: status=%d", w.Code)
+				}
+			} else {
+				r := httptest.NewRequest("POST", "/api/voice/start", strings.NewReader(`{"text":"synthetic request","latitude":43,"longitude":51}`)).WithContext(ctx)
+				r.Header.Set("Content-Type", "application/json")
+				handler.ServeHTTP(w, r)
+				var result voice.Response
+				if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &result) != nil || result.Status != "result" ||
+					len(result.Items) != 1 || result.Items[0].Price != 100 {
+					t.Errorf("Voice exact brand parity under shared pool: status=%d", w.Code)
+				}
+			}
+		})
+	}
+	close(start)
+	wg.Wait()
+	if pool.Stat().AcquiredConns() != 0 {
+		t.Error("shared workload retained a pooled connection")
 	}
 }

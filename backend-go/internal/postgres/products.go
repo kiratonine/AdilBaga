@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"adilbaga/backend-go/internal/catalog"
+	"adilbaga/backend-go/internal/observability"
 )
 
 // No SQL identifier/expression comes from the caller. Filter keys remain JSONB
@@ -62,20 +63,15 @@ func sortSQL(sort catalog.Sort) (string, error) {
 		return "", catalog.ErrInvalidQuery
 	}
 }
-func (r *Repository) validateFilters(ctx context.Context, q catalog.ProductQuery, snapshotID string) error {
-	if len(q.Filters) == 0 {
-		return nil
+func (r *Repository) productFilterSchema(ctx context.Context, category, snapshotID string) (catalog.FilterSchema, error) {
+	schema, err := r.filterSchemaAt(ctx, category, snapshotID)
+	if err == catalog.ErrNotFound {
+		return schema, catalog.ErrInvalidQuery
 	}
-	if q.Category == "" {
-		return catalog.ErrInvalidQuery
-	}
-	schema, err := r.filterSchemaAt(ctx, q.Category, snapshotID)
-	if err != nil {
-		if err == catalog.ErrNotFound {
-			return catalog.ErrInvalidQuery
-		}
-		return err
-	}
+	return schema, err
+}
+
+func (r *Repository) validateFilterValues(q catalog.ProductQuery, schema catalog.FilterSchema) error {
 	for key, values := range q.Filters {
 		var found *catalog.FilterDefinition
 		for i := range schema.Filters {
@@ -119,16 +115,21 @@ func (r *Repository) validateFilters(ctx context.Context, q catalog.ProductQuery
 	}
 	return nil
 }
-func (r *Repository) ListProducts(ctx context.Context, q catalog.ProductQuery) ([]catalog.Product, error) {
+func normalizeProductQuery(q catalog.ProductQuery) (catalog.ProductQuery, string, error) {
 	q.Category = strings.TrimSpace(q.Category)
 	q.Search = strings.TrimSpace(q.Search)
 	if q.Limit == 0 {
 		q.Limit = 24
 	}
 	if q.Limit < 1 || q.Limit > 100 || q.Offset < 0 || q.Offset > 9007199254740991 {
-		return nil, catalog.ErrInvalidQuery
+		return q, "", catalog.ErrInvalidQuery
 	}
 	order, err := sortSQL(q.Sort)
+	return q, order, err
+}
+
+func (r *Repository) ListProducts(ctx context.Context, q catalog.ProductQuery) ([]catalog.Product, error) {
+	q, order, err := normalizeProductQuery(q)
 	if err != nil {
 		return nil, err
 	}
@@ -137,11 +138,49 @@ func (r *Repository) ListProducts(ctx context.Context, q catalog.ProductQuery) (
 		return nil, err
 	}
 	defer end()
-	if err := reader.validateFilters(ctx, q, snapshotID); err != nil {
+	if len(q.Filters) != 0 {
+		if q.Category == "" {
+			return nil, catalog.ErrInvalidQuery
+		}
+		schema, err := reader.productFilterSchema(ctx, q.Category, snapshotID)
+		if err != nil {
+			return nil, err
+		}
+		if err := reader.validateFilterValues(q, schema); err != nil {
+			return nil, err
+		}
+	}
+	return reader.products(ctx, q, order, "", snapshotID)
+}
+
+// ListProductsWithFilters obtains effective options and products in one view.
+func (r *Repository) ListProductsWithFilters(ctx context.Context, category string, build func(catalog.FilterSchema) (catalog.ProductQuery, error)) ([]catalog.Product, error) {
+	reader, snapshotID, end, err := r.snapshotReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer end()
+	schema, err := reader.productFilterSchema(ctx, category, snapshotID)
+	if err != nil {
+		return nil, err
+	}
+	q, err := build(schema)
+	if err != nil {
+		return nil, err
+	}
+	q, order, err := normalizeProductQuery(q)
+	if err != nil {
+		return nil, err
+	}
+	if q.Category != category {
+		return nil, catalog.ErrInvalidQuery
+	}
+	if err := reader.validateFilterValues(q, schema); err != nil {
 		return nil, err
 	}
 	return reader.products(ctx, q, order, "", snapshotID)
 }
+
 func (r *Repository) GetProductByID(ctx context.Context, id string) (catalog.Product, error) {
 	if id == "" {
 		return catalog.Product{}, catalog.ErrNotFound
@@ -173,7 +212,7 @@ func (r *Repository) products(ctx context.Context, q catalog.ProductQuery, order
 	if r.exactBrandFilters {
 		query = exactBrandProductSQL
 	}
-	rows, err := r.db.Query(ctx, query+order+` LIMIT $5 OFFSET $6`, q.Category, searchPatterns(q.Search), string(raw), id, q.Limit, q.Offset, snapshotID)
+	rows, err := r.db.Query(observability.WithCatalogPhase(ctx, observability.Products), query+order+` LIMIT $5 OFFSET $6`, q.Category, searchPatterns(q.Search), string(raw), id, q.Limit, q.Offset, snapshotID)
 	if err != nil {
 		return nil, databaseError(err)
 	}
@@ -213,7 +252,7 @@ func (r *Repository) attachOffers(ctx context.Context, out []catalog.Product, sn
 		indices[out[i].ID] = i
 		ids = append(ids, out[i].ID)
 	}
-	offers, err := r.db.Query(ctx, offersSQL, ids, snapshotID)
+	offers, err := r.db.Query(observability.WithCatalogPhase(ctx, observability.Offers), offersSQL, ids, snapshotID)
 	if err != nil {
 		return databaseError(err)
 	}
